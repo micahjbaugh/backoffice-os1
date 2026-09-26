@@ -255,7 +255,7 @@
           "title": "Caller matching service",
           "description": "Match normalized phone number to customer/employee within one organization; ambiguous matches create an ops case.",
           "done_when": "Match, no-match and ambiguous tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 9,

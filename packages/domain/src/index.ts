@@ -5,3 +5,4 @@ export * from "./permissions";
 export * from "./approval-policy";
 export * from "./schemas";
 export * from "./events";
+export * from "./phone";
