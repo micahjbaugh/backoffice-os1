@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 11,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The createLead tool is agent-callable, validates cross-org references, enforces permissions, and is idempotent via (organization_id, idempotency_key) with a partial unique index and ON CONFLICT DO NOTHING + lookup. Multi-tenant isolation is preserved in both create and get paths. An event is recorded exactly once and auditing relies on the existing DB trigger, matching established patterns. Tests cover idempotency (done_when), permissions, cross-org isolation, and linkage to communications. No issues found outside the task scope.. M2-T10 is done. Next: M2-T11 \"Callback task tool\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T11 done. Changed files: packages/domain/src/types.ts (added \"communication\" to ENTITY_TYPES so a task's polymorphic entity_type/entity_id can reference the communications table, the same pattern already used for customer/job/etc.); packages/core/src/services/entities.ts (added communication -> public.communications to ENTITY_TABLES so assertEntityInOrg validates it's in the caller's org); packages/domain/src/schemas.ts (added createCallbackTaskInput zod schema + CreateCallbackTaskInput type: communicationId, title, description, priority, dueAt, assignedUserId); packages/core/src/services/tasks.ts (added createCallbackTask(ctx, input), a thin wrapper that parses input and calls the existing createTask with entityType: \"communication\", entityId: communicationId - authorization (task.create, already permitted for the 'agent' actor type), the same-org entity check, and the task.created event/audit all come from createTask, so no logic was duplicated); packages/core/test/callback-tasks.test.ts (new: verifies a callback task links to its call/communication, is audited with actor_type='agent' and a task.created event, rejects a communication from a different organization with NotFoundError, and denies a field_employee actor lacking task.create with ForbiddenError). No idempotency key was added to callback tasks, matching createTask's existing behavior (tasks are not idempotent-keyed like leads; only external side effects require it under CLAUDE.md rule 7, and creating an internal task is not one). pnpm lint / typecheck / test all pass (packages/core: 151 tests incl. the 3 new ones). Next: M2-T12 \"Agents package and receptionist definition\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T14:35:53.725Z",
+  "review_base": "042afec4d49b515c614038c386f02df109444a03",
+  "updated_at": "2026-09-26T15:00:03.899Z",
   "last_error": "",
   "consecutive_failures": 0
 }

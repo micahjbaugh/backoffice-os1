@@ -71,6 +71,7 @@ export const ENTITY_TYPES = [
   "approval",
   "ops_case",
   "document",
+  "communication",
 ] as const;
 export type EntityType = (typeof ENTITY_TYPES)[number];
 

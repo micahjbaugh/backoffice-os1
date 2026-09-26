@@ -123,6 +123,16 @@ export const updateTaskStatusInput = z.object({
   status: z.enum(TASK_STATUSES),
 });
 
+/** Agent-callable: a task linked to the call/communication that prompted it. */
+export const createCallbackTaskInput = z.object({
+  communicationId: uuid,
+  title: name,
+  description: optionalText(4000),
+  priority: z.enum(PRIORITIES).default("normal"),
+  dueAt: isoDateTime.optional(),
+  assignedUserId: uuid.optional(),
+});
+
 export const createApprovalInput = z
   .object({
     type: z
@@ -301,6 +311,7 @@ export type CreateVendorInput = z.input<typeof createVendorInput>;
 export type CreateJobInput = z.input<typeof createJobInput>;
 export type UpdateJobInput = z.input<typeof updateJobInput>;
 export type CreateTaskInput = z.input<typeof createTaskInput>;
+export type CreateCallbackTaskInput = z.input<typeof createCallbackTaskInput>;
 export type CreateApprovalInput = z.input<typeof createApprovalInput>;
 export type DecideApprovalInput = z.input<typeof decideApprovalInput>;
 export type AddNoteInput = z.input<typeof addNoteInput>;

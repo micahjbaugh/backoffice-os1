@@ -10,6 +10,7 @@ const ENTITY_TABLES: Readonly<Record<EntityType, string>> = {
   approval: "public.approvals",
   ops_case: "public.ops_cases",
   document: "public.documents",
+  communication: "public.communications",
 };
 
 /**

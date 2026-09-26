@@ -1,9 +1,11 @@
 import {
+  createCallbackTaskInput,
   createTaskInput,
   EVENT_TYPES,
   NotFoundError,
   parseInput,
   updateTaskStatusInput,
+  type CreateCallbackTaskInput,
   type CreateTaskInput,
   type Priority,
   type Task,
@@ -44,6 +46,24 @@ export async function createTask(ctx: ServiceContext, input: CreateTaskInput): P
     payload: { title: task.title, priority: task.priority },
   });
   return task;
+}
+
+/**
+ * Agent-callable: create a callback task linked to the call/communication that prompted it
+ * (MASTER_SPEC §8 GREEN action). A thin wrapper over `createTask` — authorization, the same-org
+ * entity check and the task.created event/audit all come from there.
+ */
+export async function createCallbackTask(ctx: ServiceContext, input: CreateCallbackTaskInput): Promise<Task> {
+  const data = parseInput(createCallbackTaskInput, input);
+  return createTask(ctx, {
+    title: data.title,
+    description: data.description,
+    priority: data.priority,
+    dueAt: data.dueAt,
+    assignedUserId: data.assignedUserId,
+    entityType: "communication",
+    entityId: data.communicationId,
+  });
 }
 
 export async function listOpenTasks(
