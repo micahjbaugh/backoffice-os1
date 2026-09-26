@@ -8,3 +8,5 @@ supabase/.temp
 *.md
 *.sql
 *.toml
+workflow/state.json
+workflow/blueprint.json
