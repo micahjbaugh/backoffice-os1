@@ -76,6 +76,21 @@ jobs:
             git push -u origin "$AUTOPILOT_BRANCH"
           fi
 
+      # Keep CLAUDE.md, docs and rule changes on main visible to both engineers. The default
+      # GITHUB_TOKEN may not push commits that change .github/workflows; if main changed the
+      # workflow itself, skip the merge (warn) and a person merges main -> autopilot once.
+      - name: Bring in the latest rules from main
+        env:
+          DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+        run: |
+          if ! git merge --no-edit "origin/$DEFAULT_BRANCH"; then
+            git merge --abort || true
+            echo "::warning title=Could not merge $DEFAULT_BRANCH into autopilot::Merge conflict; continuing without the latest rules."
+          elif ! git push origin "HEAD:$AUTOPILOT_BRANCH"; then
+            git reset --hard "origin/$AUTOPILOT_BRANCH"
+            echo "::warning title=Merge of $DEFAULT_BRANCH not pushed::It likely changes .github/workflows; merge $DEFAULT_BRANCH into autopilot manually once."
+          fi
+
       - uses: actions/setup-node@v4
         with:
           node-version: 22
