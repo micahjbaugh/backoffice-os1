@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 7,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T07 'Webhook route handler' implemented. Files changed: packages/integrations/src/webhook-signing.ts (new: HMAC-SHA256 signWebhookBody/verifyWebhookSignature helpers + WebhookHeaders type); packages/integrations/src/providers/{voice,sms}-provider.ts (added verifyWebhookSignature(rawBody, headers) to the VoiceProvider/SmsProvider interfaces); packages/integrations/src/fakes/fake-{voice,sms}-provider.ts (implement verifyWebhookSignature + expose signWebhook(rawBody) for building signed test requests, secret via constructor param, default 'fake-{voice,sms}-webhook-secret'); packages/integrations/src/index.ts (export webhook-signing); packages/integrations/test/fake-providers.test.ts (+5 tests: valid/missing/tampered/wrong-secret signatures, cross-provider secret isolation); apps/web/package.json (added @backoffice/integrations dep) and pnpm-lock.yaml; apps/web/src/server/providers.ts (new: server-only singleton accessors voiceProvider()/smsProvider(), currently returning the fakes -- real Twilio/Vapi adapters are a later task); apps/web/src/server/webhook-route.ts (new: shared handleProviderWebhook(adapter, request) -- verifies signature via the adapter first (401 on failure, nothing recorded), then JSON-parses the body (400 on parse failure), then calls adapter.ingestWebhook and records the receipt via runAs({type:'integration',...}) + recordWebhookReceipt from M2-T06, never trusting a tenant id from the payload); apps/web/src/app/api/webhooks/voice/route.ts and .../sms/route.ts (new: thin POST handlers delegating to handleProviderWebhook); apps/web/test/webhooks.test.ts (new: 5 tests covering missing/invalid/tampered signature -> 401 and nothing recorded, valid signature -> 200 and recordWebhookReceipt called exactly once, unparseable body -> 400; mocks @backoffice/core and src/server/db, and stubs the 'server-only' marker package so src/server modules can be unit tested directly -- first test of a src/server module in this repo, so that stub is new). Tenant resolution and full communication-record persistence are out of scope here per the M2 blueprint (M2-T09). Lint, typecheck, and full test suites (integrations, core, web including the production-build/secret-bundle test) all pass. Next: M2-T08 'Caller matching service'.",
+  "current_task_index": 8,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good and matches M2-T07. Signature is verified via the adapter against the raw body before payload parsing, invalid signatures return 401 and record nothing, valid requests record exactly one receipt via recordWebhookReceipt/runAs, and an invalid JSON body returns 400. Routes are thin and delegate to a shared handler. Fakes implement HMAC signing/verification and tests cover missing/invalid/tampered/wrong-secret and valid cases, plus cross-provider isolation. No multi-tenant leakage (no trust in tenant id from payload), no provider SDKs in app code, and side effects go through the idempotent receipt service. Minor non-blocking note: the comment says “record the receipt before any further processing,” but handleProviderWebhook calls adapter.ingestWebhook before recording. Ensure ingestWebhook remains side-effect-free (pure parsing) or consider splitting out an event-id extractor in future adapters so the receipt truly precedes any processing.. M2-T07 is done. Next: M2-T08 \"Caller matching service\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "3657226bc790de5bc1119655bd8dfa444360387f",
-  "updated_at": "2026-09-26T12:00:04.693Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T12:00:51.957Z",
   "last_error": "",
   "consecutive_failures": 0
 }

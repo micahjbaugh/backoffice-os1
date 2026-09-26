@@ -247,7 +247,7 @@
           "title": "Webhook route handler",
           "description": "apps/web API route that verifies signatures via adapter and records the receipt before processing.",
           "done_when": "Invalid signature rejected; valid one recorded once.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 8,
