@@ -55,12 +55,25 @@ function locate(state, bp) {
   return { mIndex, milestone, task };
 }
 
-/** Move the pointer past tasks already marked done (e.g. finished by a human). */
+/** Deferred tasks (human work parked for later) are skipped, but stay open until marked done. */
+const isSkippable = (task) => task.status === "done" || task.deferred === true;
+
+/** A milestone is done only when every task is done, deferred ones included. */
+function refreshMilestoneStatus(milestone) {
+  if (milestone.tasks.every((t) => t.status === "done")) milestone.status = "done";
+  else if (milestone.status === "pending" || milestone.status === "done") {
+    milestone.status = milestone.tasks.some((t) => t.status !== "pending")
+      ? "in_progress"
+      : "pending";
+  }
+}
+
+/** Move the pointer past done and deferred tasks. Returns false when nothing is left to build. */
 function skipDone(state, bp) {
   for (;;) {
     const { mIndex, milestone, task } = locate(state, bp);
     if (!milestone) return false;
-    if (task && task.status !== "done") {
+    if (task && !isSkippable(task)) {
       if (milestone.status === "pending") milestone.status = "in_progress";
       return true;
     }
@@ -68,7 +81,7 @@ function skipDone(state, bp) {
       state.current_task_index += 1;
       continue;
     }
-    milestone.status = "done";
+    refreshMilestoneStatus(milestone);
     const next = bp.milestones[mIndex + 1];
     if (!next) return false;
     state.current_milestone_id = next.id;
@@ -82,38 +95,40 @@ function resetTaskFields(state) {
   state.review_base = null;
 }
 
-/** Mark the current task done and move on, pausing at milestone boundaries if configured. */
+/** Mark the current task done and move to the next buildable task, pausing at milestone boundaries if configured. */
 function advance(ctx, engineer, summary) {
   const { state, bp, config } = ctx;
-  const { mIndex, milestone, task } = locate(state, bp);
+  const { milestone, task } = locate(state, bp);
   task.status = "done";
   resetTaskFields(state);
   state.last_engineer_used = engineer;
-  const nextTask = milestone.tasks[state.current_task_index + 1];
-  if (nextTask) {
-    state.current_task_index += 1;
-    state.status = "READY_TO_START";
-    state.handoff_instructions = `${summary} ${task.id} is done. Next: ${nextTask.id} "${nextTask.title}".`;
-    return;
-  }
-  milestone.status = "done";
-  const nextMilestone = bp.milestones[mIndex + 1];
-  if (!nextMilestone) {
+  state.current_task_index += 1;
+  const more = skipDone(state, bp);
+  const { milestone: nextMilestone, task: nextTask } = locate(state, bp);
+  const deferred = bp.milestones
+    .flatMap((m) => m.tasks)
+    .filter((t) => t.deferred && t.status !== "done");
+  const waiting = deferred.length
+    ? ` Deferred tasks still waiting for a person: ${deferred.map((t) => t.id).join(", ")}.`
+    : "";
+
+  if (!more || !nextTask) {
     state.status = "MILESTONE_COMPLETE";
-    state.handoff_instructions = `${summary} Final task ${task.id} done. All milestones complete.`;
+    state.handoff_instructions = `${summary} ${task.id} is done. No buildable tasks remain.${waiting}`;
     return;
   }
-  if (config.pause_at_milestone_boundary) {
+  state.status = "READY_TO_START";
+  const crossed = nextMilestone.id !== milestone.id;
+  if (crossed && config.pause_at_milestone_boundary) {
     state.status = "MILESTONE_COMPLETE";
     state.handoff_instructions =
-      `${summary} ${milestone.key} is complete. A human must review its acceptance criteria, ` +
-      `then run "resume" from the Actions tab to begin ${nextMilestone.key}.`;
+      `${summary} ${milestone.key} work is complete. A human must review its acceptance criteria, ` +
+      `then run "resume" from the Actions tab to begin ${nextMilestone.key}.${waiting}`;
     return;
   }
-  state.current_milestone_id = nextMilestone.id;
-  state.current_task_index = 0;
-  state.status = "READY_TO_START";
-  state.handoff_instructions = `${summary} ${milestone.key} complete. Next: ${nextMilestone.key} task 0.`;
+  state.handoff_instructions = crossed
+    ? `${summary} ${task.id} is done and ${milestone.key} work is complete. Next: ${nextTask.id} "${nextTask.title}".${waiting}`
+    : `${summary} ${task.id} is done. Next: ${nextTask.id} "${nextTask.title}".`;
 }
 
 /** Record a failed attempt; too many failures on one task stops the autopilot for a human. */
@@ -171,8 +186,14 @@ function renderBuilderPrompt({ state, bp, config }) {
   lines.push(
     ``,
     `Rules for this run:`,
-    `- Work ONLY on ${task.id}. Make ONE step: at most ${config.max_changed_lines_per_file} changed lines per file (split bigger work across runs).`,
+    `- Work ONLY on ${task.id}. Make ONE step: aim for at most ${config.target_changed_lines_per_file} changed lines per file; the hard limit is ${config.max_changed_lines_per_file} (steps over it are discarded). Split bigger work across runs.`,
     `- Run pnpm lint, pnpm typecheck and pnpm test before finishing.`,
+    `- Before setting AWAITING_REVIEW, self-review the whole task diff against the reviewer's checklist`,
+    `  (ChatGPT sends the task back for any of these): behavior is correct and matches "done_when";`,
+    `  multi-tenant isolation holds (organization_id on tenant rows, RLS on new tables, same-org references);`,
+    `  authorization is enforced in code, never in prompts; consequential actions write an audit record and`,
+    `  business event; external side effects are idempotent; new behavior has tests (including tenant`,
+    `  isolation for new tables); no secrets; nothing outside this task was changed.`,
     `- Do NOT git commit or push. Do NOT edit: ${config.protected_paths.join(", ")}. Do NOT edit blueprint.json.`,
     `- Finish by editing workflow/state.json only these fields:`,
     `  status: "AWAITING_REVIEW" (task fully done) | "IN_PROGRESS" (more steps needed) | "NEEDS_HUMAN" or "BLOCKED" (explain why)`,
@@ -201,6 +222,7 @@ function cmdStatus() {
   );
   console.log(`Handoff: ${ctx.state.handoff_instructions}`);
   if (ctx.state.review_notes) console.log(`Review notes: ${ctx.state.review_notes}`);
+  if (ctx.state.last_error) console.log(`Last error: ${ctx.state.last_error}`);
 }
 
 function cmdValidate() {
@@ -338,6 +360,9 @@ function cmdFinishBuild() {
     bp: readJson(BLUEPRINT),
     config,
   };
+  // Claude completed a run, so any earlier outage is resolved.
+  ctx.state.last_error = "";
+  ctx.state.consecutive_failures = 0;
   if (problems.length) {
     sendBack(ctx, "claude", `Referee rejected the step and discarded it: ${problems.join(" ")}`);
     save(ctx);
@@ -369,6 +394,8 @@ function cmdFinishBuild() {
   save(ctx);
   return output({
     commit: true,
+    // Lets CI run ChatGPT's review in the same run instead of waiting for the next one.
+    review_now: ctx.state.status === "AWAITING_REVIEW",
     message: `autopilot(${task?.id}): claude step -> ${ctx.state.status}`,
   });
 }
@@ -382,6 +409,188 @@ function discardWorkIf(condition, base) {
   git("checkout", base, "--", BLUEPRINT, CONFIG_IN_REPO);
 }
 
+/** Claude could not finish (auth, usage limit, outage). Record why; no attempt is used up. */
+function cmdRecordError() {
+  const who = process.argv[3] === "reviewer" ? "reviewer (ChatGPT)" : "builder (Claude)";
+  const fromFile =
+    process.env.AUTOPILOT_ERROR_FILE && existsSync(process.env.AUTOPILOT_ERROR_FILE)
+      ? readFileSync(process.env.AUTOPILOT_ERROR_FILE, "utf8")
+      : "";
+  const message = String(process.env.ERROR_MESSAGE || fromFile || "unknown error").slice(0, 1000);
+  const ctx = load();
+  ctx.state.last_error = `${now()} ${who} run failed: ${message}`;
+  ctx.state.consecutive_failures = (ctx.state.consecutive_failures ?? 0) + 1;
+  save(ctx);
+  output({ commit: true, message: `autopilot: ${who} run failed (will retry next run)` });
+}
+
+const NOTIFY_FAILURE_THRESHOLD = 3;
+const ISSUE_PREFIX = "[autopilot]";
+
+/**
+ * Open a GitHub issue (which @mentions the repo owner, so GitHub emails/pushes them) whenever the
+ * autopilot needs a person; close it automatically once the autopilot is moving again.
+ */
+async function cmdNotify() {
+  const { state, bp } = load();
+  const { milestone, task } = locate(state, bp);
+  const repo = process.env.GITHUB_REPOSITORY;
+  const token = process.env.GITHUB_TOKEN;
+  if (!repo || !token) throw new Error("GITHUB_REPOSITORY and GITHUB_TOKEN are required");
+  const owner = process.env.NOTIFY_USER || repo.split("/")[0];
+  const actionsUrl = `https://github.com/${repo}/actions/workflows/autopilot.yml`;
+
+  let need = null;
+  if (["NEEDS_HUMAN", "BLOCKED", "MILESTONE_COMPLETE"].includes(state.status)) {
+    const label = {
+      NEEDS_HUMAN: "needs you for a task",
+      BLOCKED: "is blocked",
+      MILESTONE_COMPLETE: `finished ${milestone?.key}`,
+    }[state.status];
+    const action = {
+      NEEDS_HUMAN: `Do the task, then Run workflow → **resume-mark-done**.`,
+      BLOCKED: `Read the notes above, fix or adjust, then Run workflow → **resume**.`,
+      MILESTONE_COMPLETE: `Review ${milestone?.key}'s acceptance criteria (merge \`autopilot\` into \`main\` if happy), then Run workflow → **resume**.`,
+    }[state.status];
+    need = {
+      title: `${ISSUE_PREFIX} ${label}: ${task?.id ?? milestone?.key}`,
+      body: [
+        `@${owner} the autopilot ${label}.`,
+        ``,
+        `**Task:** ${task?.id} ${task?.title ?? ""}`,
+        `**Status:** ${state.status}`,
+        ``,
+        `**Details:** ${state.handoff_instructions}`,
+        state.review_notes ? `\n**Last review notes:** ${state.review_notes}` : "",
+        ``,
+        `**What to do:** ${action}`,
+        ``,
+        `Controls: ${actionsUrl}`,
+      ].join("\n"),
+    };
+  } else if ((state.consecutive_failures ?? 0) >= NOTIFY_FAILURE_THRESHOLD) {
+    need = {
+      title: `${ISSUE_PREFIX} keeps failing: ${state.consecutive_failures} runs in a row`,
+      body: [
+        `@${owner} the autopilot has failed ${state.consecutive_failures} runs in a row and is retrying each run.`,
+        ``,
+        `**Last error:** ${state.last_error}`,
+        ``,
+        `Common fixes: add OpenAI API credits, or refresh the \`CLAUDE_CODE_OAUTH_TOKEN\` / \`OPENAI_API_KEY\` secrets.`,
+        `It resumes on its own once runs succeed. Runs: ${actionsUrl}`,
+      ].join("\n"),
+    };
+  }
+
+  const api = async (path, init = {}) => {
+    const response = await fetch(
+      `${process.env.GITHUB_API_URL ?? "https://api.github.com"}/repos/${repo}${path}`,
+      {
+        ...init,
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/vnd.github+json",
+          "content-type": "application/json",
+        },
+      },
+    );
+    if (!response.ok)
+      throw new Error(`GitHub API ${response.status}: ${(await response.text()).slice(0, 300)}`);
+    return response.json();
+  };
+
+  const open = (await api(`/issues?state=open&per_page=100`)).filter(
+    (i) => !i.pull_request && i.title.startsWith(ISSUE_PREFIX),
+  );
+  if (need && open.some((i) => i.title === need.title)) {
+    await notifyMilestoneReviews(api, bp, owner, repo);
+    return output({ notified: "already-open" });
+  }
+  for (const issue of open) {
+    await api(`/issues/${issue.number}/comments`, {
+      method: "POST",
+      body: JSON.stringify({
+        body: need
+          ? "Superseded by a newer autopilot notice."
+          : "Resolved: the autopilot is running again.",
+      }),
+    });
+    await api(`/issues/${issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "closed" }),
+    });
+  }
+  if (need) {
+    const created = await api(`/issues`, { method: "POST", body: JSON.stringify(need) });
+    await notifyMilestoneReviews(api, bp, owner, repo);
+    return output({ notified: created.html_url });
+  }
+  await notifyMilestoneReviews(api, bp, owner, repo);
+  return output({ notified: open.length ? "closed" : "none" });
+}
+
+const REVIEW_PREFIX = "[autopilot review]";
+
+/**
+ * When milestones finish without pausing, ask the owner to review acceptance in parallel.
+ * One informational issue per finished milestone; the owner closes it. Never auto-closed.
+ */
+async function notifyMilestoneReviews(api, bp, owner, repo) {
+  const finished = bp.milestones.filter((m) => m.status === "done" && !m.acceptance_verified);
+  // Deferred human tasks the autopilot has already moved past (an earlier task is still being built
+  // or the milestone moved on) get one "waiting for you" issue each.
+  const { state } = load();
+  const order = bp.milestones.flatMap((m) => m.tasks.map((t) => t.id));
+  const pointer = order.indexOf(locate(state, bp).task?.id ?? "");
+  const deferred = bp.milestones
+    .flatMap((m) => m.tasks)
+    .filter(
+      (t) => t.deferred && t.status !== "done" && (pointer === -1 || order.indexOf(t.id) < pointer),
+    );
+  if (finished.length === 0 && deferred.length === 0) return;
+  const existing = (await api(`/issues?state=all&per_page=100`)).map((i) => i.title);
+  for (const t of deferred) {
+    const title = `${REVIEW_PREFIX} waiting for you: ${t.id} ${t.title}`;
+    if (existing.includes(title)) continue;
+    await api(`/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        body: [
+          `@${owner} the autopilot skipped this task so it could keep building. It needs a person.`,
+          ``,
+          `**${t.id}: ${t.title}**`,
+          `${t.description}`,
+          ``,
+          `**Why it needs you:** ${t.requires_human ?? "Marked as human work."}`,
+          `**Done when:** ${t.done_when}`,
+          ``,
+          `When finished: https://github.com/${repo}/actions/workflows/autopilot.yml → Run workflow → command **mark-task-done**, task id **${t.id}**. Then close this issue.`,
+        ].join("\n"),
+      }),
+    });
+  }
+  for (const m of finished) {
+    const title = `${REVIEW_PREFIX} ${m.key} finished: please review acceptance`;
+    if (existing.includes(title)) continue;
+    await api(`/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        body: [
+          `@${owner} the autopilot finished **${m.key}: ${m.name}** and has moved on to the next milestone.`,
+          ``,
+          `Please check these acceptance criteria when you can:`,
+          ...m.acceptance.map((a) => `- [ ] ${a}`),
+          ``,
+          `Work is on the \`autopilot\` branch: https://github.com/${repo}/compare/main...autopilot`,
+          `If something is wrong, Run workflow → **pause**, then tell Claude what to fix. Close this issue when reviewed.`,
+        ].join("\n"),
+      }),
+    });
+  }
+}
+
 /** Human controls, run from the Actions tab ("Run workflow"). */
 function cmdControl(kind) {
   const ctx = load();
@@ -393,6 +602,22 @@ function cmdControl(kind) {
   } else if (kind === "resume-mark-done" && task) {
     // Same path as an approved task, so milestone-boundary pauses still apply.
     advance(ctx, "human", `A human completed ${task.id}.`);
+  } else if (kind === "mark-task-done") {
+    // Close out any task by id, typically a deferred human task finished later.
+    const id = String(process.env.TASK_ID ?? "")
+      .trim()
+      .toUpperCase();
+    const owner = bp.milestones.find((m) => m.tasks.some((t) => t.id === id));
+    if (!owner) throw new Error(`unknown task id "${id}" (expected e.g. M2-T17)`);
+    if (id === task?.id) {
+      advance(ctx, "human", `A human completed ${id}.`);
+    } else {
+      owner.tasks.find((t) => t.id === id).status = "done";
+      refreshMilestoneStatus(owner);
+      state.last_engineer_used = "human";
+      const current = task ? `${task.id} "${task.title}"` : "the next task";
+      state.handoff_instructions = `A human completed ${id}. Continue with ${current}.`;
+    }
   } else {
     state.attempts = 0;
     state.status = "READY_TO_START";
@@ -428,6 +653,8 @@ async function cmdReview() {
     ".",
     ":(exclude)pnpm-lock.yaml",
     ":(exclude)workflow/state.json",
+    // Referee bookkeeping, never builder work (builder edits to it are rejected before review).
+    ":(exclude)workflow/blueprint.json",
   );
   if (diff.length > config.reviewer.max_diff_chars) {
     diff = diff.slice(0, config.reviewer.max_diff_chars) + "\n[diff truncated]";
@@ -440,6 +667,8 @@ async function cmdReview() {
       content:
         "You are the REVIEWER (ChatGPT) in an autopilot pair with Claude (the builder). " +
         "Review one task's diff against the task and repository rules. Lint, typecheck and tests already passed. " +
+        "workflow/state.json and workflow/blueprint.json are maintained by the referee and are excluded from the diff; " +
+        "do not request changes to them. " +
         "Block only for real problems: incorrect behavior, broken multi-tenant isolation, missing authorization or audit, " +
         "missing tests for new behavior, secrets exposure, or work outside the task. Do not block on style. " +
         'Reply with JSON only: {"decision":"approve"|"request_changes","notes":"specific, actionable, brief"}',
@@ -456,6 +685,8 @@ async function cmdReview() {
     },
   ]);
 
+  state.last_error = "";
+  state.consecutive_failures = 0;
   if (verdict.decision === "approve") {
     advance(ctx, "chatgpt", `ChatGPT approved: ${verdict.notes || "no notes"}.`);
   } else {
@@ -497,10 +728,25 @@ const commands = {
   pause: () => cmdControl("pause"),
   resume: () => cmdControl("resume"),
   "resume-mark-done": () => cmdControl("resume-mark-done"),
+  "mark-task-done": () => cmdControl("mark-task-done"),
+  "record-error": cmdRecordError,
+  notify: cmdNotify,
 };
 const command = commands[process.argv[2]];
 if (!command) {
   console.error(`usage: autopilot.mjs <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-await command();
+try {
+  await command();
+} catch (error) {
+  // Surface the reason as a GitHub annotation (visible on the run page) instead of a bare exit code.
+  // Messages never include secrets: API errors echo the provider's response body, not the key.
+  const message = String(error?.message ?? error)
+    .replace(/\s+/g, " ")
+    .slice(0, 900);
+  console.log(`::error title=autopilot ${process.argv[2]} failed::${message}`);
+  // Lets CI record the reason in state.json (and count consecutive failures for notifications).
+  if (process.env.AUTOPILOT_ERROR_FILE) writeFileSync(process.env.AUTOPILOT_ERROR_FILE, message);
+  process.exit(1);
+}

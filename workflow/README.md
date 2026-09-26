@@ -2,7 +2,7 @@
 
 ## How it works
 
-Every hour, GitHub Actions (in the cloud, so your computer can be off) runs **one turn**:
+Every 30 minutes, GitHub Actions (in the cloud, so your computer can be off) runs **one turn**: a Claude build step, followed in the same run by ChatGPT's review whenever that step finishes a task.
 
 ```text
                  ┌────────────── referee (workflow/scripts/autopilot.mjs) ──────────────┐
@@ -22,7 +22,9 @@ state.json says  │ READY_TO_START / IN_PROGRESS / CHANGES_REQUESTED → Claude
 4. After 3 failed attempts on one task, it stops as `BLOCKED` for you.
 
 **Running out of tokens is safe.** Progress lives in git, not in a chat. If Claude or ChatGPT hits a
-limit mid-run, that run's partial work is discarded and the next hourly run picks up the same task.
+limit mid-run, that run's partial work is discarded and the next run picks up the same task.
+
+**You get notified when it needs you.** It opens a GitHub issue that @mentions you (GitHub emails you, and pushes to the GitHub mobile app if installed) when a task needs a person, a task is blocked, a milestone finishes, or Claude/ChatGPT fail 3 runs in a row (e.g. expired token, no API credits). The issue closes itself once the autopilot is moving again.
 
 **It stops for you at:**
 - tasks flagged `requires_human` (live phone calls, QuickBooks credentials, browser walkthroughs);
@@ -69,6 +71,7 @@ Each stop has a note in `handoff_instructions`.
   - `pause`
   - `resume`: continue after BLOCKED / NEEDS_HUMAN / milestone pause
   - `resume-mark-done`: you finished the current human task
+  - `mark-task-done` + task id: you finished a skipped (deferred) human task, e.g. `M2-T17`
   - `step`: run one turn now
 - **Kill switch:** Actions → autopilot → ⋯ → Disable workflow.
 - **Ship it:** open a pull request from `autopilot` into `main` whenever you want to review and
