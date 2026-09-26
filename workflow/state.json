@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 2,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T02 done. Added packages/integrations/src/fakes/fake-voice-provider.ts (FakeVoiceProvider: createInboundRoute, initiateOutboundCall/transferCall idempotent per organizationId+idempotencyKey, ingestWebhook) and fake-sms-provider.ts (FakeSmsProvider: sendSMS idempotent per organizationId+idempotencyKey, ingestWebhook, sentMessages getter). Both re-exported from packages/integrations/src/index.ts. Added packages/integrations/test/fake-providers.test.ts (7 new tests) driving both fakes incl. idempotency-key reuse and cross-org key isolation. No vendor SDK imports. pnpm lint/typecheck/test all green (integrations: 2 files, 7 tests passing). Next: M2-T03 migration 0003 for communications/calls/messages/communication_participants tables with organization_id and RLS.",
+  "current_task_index": 3,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The fakes implement the provider interfaces, honor idempotency per organizationId+idempotencyKey, and include unit tests that drive the adapters (including cross-org key isolation). No external SDKs or secrets. Exports updated correctly. Non-blocking suggestion: consider scoping the idempotency map by operation (e.g., include the operation name in the key or use separate maps) to avoid potential collisions if the same idempotencyKey is reused across initiateOutboundCall and transferCall.. M2-T02 is done. Next: M2-T03 \"Migration 0003: communications tables\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "7b39d49800a4092a12c159ce1bb456f53f542663",
-  "updated_at": "2026-09-26T04:55:01.004Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T04:55:27.524Z",
   "last_error": "",
   "consecutive_failures": 0
 }

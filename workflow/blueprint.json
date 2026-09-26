@@ -204,7 +204,7 @@
           "title": "Fake provider adapter",
           "description": "In-memory fake VoiceProvider/SmsProvider for tests and local demos.",
           "done_when": "Unit test drives the fake adapter.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 3,
