@@ -19,7 +19,8 @@
       "description": "string: one isolated, bite-sized unit of work",
       "done_when": "string: objective completion check",
       "status": "one of task_statuses",
-      "requires_human": "optional string: why a person must do or approve this task; autopilot stops here"
+      "requires_human": "optional string: why a person must do or approve this task; autopilot stops here",
+      "deferred": "optional boolean: human task parked for later; the autopilot skips it and it stays open until mark-task-done"
     },
     "task_statuses": [
       "pending",
@@ -327,7 +328,8 @@
           "description": "Live demo: call number, fake lead qualified, lead + summary created, transfer works, duplicate webhook ignored.",
           "done_when": "All M2 acceptance items verified and reported in docs/M2_BUILD_REPORT.md.",
           "status": "pending",
-          "requires_human": "Needs a real phone call to a provisioned business number."
+          "requires_human": "Needs a real phone call to a provisioned business number.",
+          "deferred": true
         }
       ]
     },
