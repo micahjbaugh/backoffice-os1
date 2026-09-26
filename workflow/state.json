@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 5,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. Both tables carry organization_id, RLS is enabled with correct policies, and audit triggers exist for leads and lead_activities. Write access to lead_activities is restricted to trusted code via privilege revocation and absence of write policies. Migration applies on the harness per your run. One thing to double-check outside this step: ensure the composite FK syntax using ON DELETE SET NULL (child_column) is supported by our target Postgres/Supabase runtime; if not, mirror the established pattern from prior migrations or adjust delete behavior accordingly. Otherwise, this matches the task scope and repo rules.. M2-T04 is done. Next: M2-T05 \"Tenant isolation tests for new tables\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T05 done in one step. Added packages/core/test/communications-isolation.test.ts (new file only, 177 lines; no other files touched). It seeds communications/calls/messages/communication_participants/leads/lead_activities directly for orgA and orgB (bypassing RLS, as trusted server code would) via the existing World/OrgFixture test fixtures, then exercises RLS exclusively through rawAsUser (real authenticated/anon Postgres roles, no app code) to prove: (1) org A staff (owner/office_admin/manager) get zero rows from org B in all six tables, both filtered and by direct id lookup, and unfiltered queries only ever return the caller's own org; (2) clients cannot insert/update/delete communications/calls/messages/communication_participants/lead_activities at all (privilege revoked, server-only per 0003/0004 headers); (3) org A cannot insert a lead into org B (RLS with-check rejects it) and update/delete of org B's lead affects 0 rows, verified unchanged afterward; (4) an unaffiliated authenticated user and an anonymous caller get nothing from any of the six tables. All 18 new tests pass; pnpm lint, pnpm typecheck and pnpm test pass repo-wide (packages/core: 114 passed, 7 pre-existing skipped requiring a live Supabase instance). Next: M2-T06 'Webhook receipt service' (idempotent insert on webhook_receipts).",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T07:30:09.806Z",
+  "review_base": "97947cbc5f4e5fcc77dda732c6122274eaeed10c",
+  "updated_at": "2026-09-26T07:56:45.685Z",
   "last_error": "",
   "consecutive_failures": 0
 }
