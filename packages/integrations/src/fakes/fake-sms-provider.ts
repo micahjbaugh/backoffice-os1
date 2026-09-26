@@ -1,64 +1,67 @@
-import type {
-  ProviderSmsWebhookEvent,
-  SendSmsRequest,
-  SmsOperationResult,
-  SmsProvider,
-} from "../providers/sms-provider";
-import { signWebhookBody, verifyWebhookSignature, type WebhookHeaders } from "../webhook-signing";
+import { ProviderRequestError, type ProviderFailureKind } from "../outcomes";
+import type { SendSmsRequest, SmsOperationResult, SmsProvider } from "../providers/sms-provider";
+import type { ParsedWebhookEvent, WebhookRequest } from "../webhooks";
+import { FakeWebhookEndpoint, requireFakeSecret, type FakeWebhookEnvelope } from "./fake-webhooks";
 
-const WEBHOOK_SIGNATURE_HEADER = "x-fake-signature";
+export interface ScriptedFailure {
+  kind: ProviderFailureKind;
+  retryable?: boolean;
+  /** For "ambiguous" failures: whether the fake actually performed the side effect first. */
+  performed?: boolean;
+}
 
 /**
- * In-memory SmsProvider for tests and local demos. Not a vendor SDK.
- * Idempotency keys are honored per organization so repeated sends with the
- * same key return the original result instead of sending twice.
+ * In-memory SmsProvider for tests and local development. Records every send (including repeats,
+ * so tests can prove the outbox never sends twice) and can script provider failures.
  */
 export class FakeSmsProvider implements SmsProvider {
-  readonly webhookLog: ProviderSmsWebhookEvent[] = [];
-  private readonly messagesByIdempotencyKey = new Map<string, SmsOperationResult>();
-  private readonly sentBodies: SendSmsRequest[] = [];
-  private messageCounter = 0;
+  readonly provider = "fake-sms";
+  readonly channel = "sms" as const;
+  private readonly endpoint: FakeWebhookEndpoint;
+  private readonly sends: SendSmsRequest[] = [];
+  private readonly failures: ScriptedFailure[] = [];
+  private counter = 0;
 
-  constructor(private readonly webhookSecret = "fake-sms-webhook-secret") {}
-
-  /** Signs a raw body the way the real provider would; use this to build valid test requests. */
-  signWebhook(rawBody: string): string {
-    return signWebhookBody(this.webhookSecret, rawBody);
-  }
-
-  verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean {
-    return verifyWebhookSignature(
-      this.webhookSecret,
-      rawBody,
-      headers.get(WEBHOOK_SIGNATURE_HEADER),
+  constructor(webhookSecret: string) {
+    this.endpoint = new FakeWebhookEndpoint(
+      this.provider,
+      "sms",
+      requireFakeSecret(webhookSecret, "FakeSmsProvider"),
     );
   }
 
-  async sendSMS(request: SendSmsRequest): Promise<SmsOperationResult> {
-    const key = `${request.organizationId}:${request.idempotencyKey}`;
-    const existing = this.messagesByIdempotencyKey.get(key);
-    if (existing) return existing;
-    const result: SmsOperationResult = {
-      providerMessageId: `fake-msg-${++this.messageCounter}`,
-      status: "queued",
-    };
-    this.messagesByIdempotencyKey.set(key, result);
-    this.sentBodies.push(request);
-    return result;
+  /** Queue failures for the next sendSMS calls, in order. */
+  scriptFailures(...failures: ScriptedFailure[]): void {
+    this.failures.push(...failures);
   }
 
-  async ingestWebhook(rawEvent: unknown): Promise<ProviderSmsWebhookEvent> {
-    const event = rawEvent as Partial<ProviderSmsWebhookEvent>;
-    const normalized: ProviderSmsWebhookEvent = {
-      provider: "fake-sms",
-      providerEventId: String(event.providerEventId),
-      payload: event.payload ?? rawEvent,
-    };
-    this.webhookLog.push(normalized);
-    return normalized;
+  signWebhook(envelope: FakeWebhookEnvelope): { rawBody: string; headers: Record<string, string> } {
+    return this.endpoint.sign(envelope);
+  }
+
+  verifyWebhookRequest(request: WebhookRequest): boolean {
+    return this.endpoint.verify(request);
+  }
+
+  parseWebhookRequest(request: WebhookRequest): ParsedWebhookEvent {
+    return this.endpoint.parse(request);
+  }
+
+  async sendSMS(request: SendSmsRequest): Promise<SmsOperationResult> {
+    const failure = this.failures.shift();
+    if (failure?.performed) this.sends.push(request);
+    if (failure) {
+      throw new ProviderRequestError(
+        `scripted ${failure.kind} failure`,
+        failure.kind,
+        failure.retryable ?? false,
+      );
+    }
+    this.sends.push(request);
+    return { providerMessageId: `fake-msg-${++this.counter}`, status: "queued" };
   }
 
   get sentMessages(): readonly SendSmsRequest[] {
-    return this.sentBodies;
+    return this.sends;
   }
 }

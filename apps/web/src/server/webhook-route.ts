@@ -1,43 +1,101 @@
 import "server-only";
 
-import { NextResponse } from "next/server";
-import { recordWebhookReceipt, runAs } from "@backoffice/core";
-import type { Actor } from "@backoffice/domain";
+import { NextResponse, after } from "next/server";
+import { acceptWebhookEvent, runAs } from "@backoffice/core";
+import {
+  ProviderConfigError,
+  WebhookPayloadError,
+  type InboundWebhookAdapter,
+  type WebhookRequest,
+} from "@backoffice/integrations";
+import { processWebhookEvents } from "@backoffice/workflows";
 import { db } from "./db";
 
-interface ProviderWebhookAdapter {
-  verifyWebhookSignature(rawBody: string, headers: { get(name: string): string | null }): boolean;
-  ingestWebhook(
-    rawEvent: unknown,
-  ): Promise<{ provider: string; providerEventId: string; payload: unknown }>;
-}
+/** Largest body we accept (Vapi end-of-call reports with transcripts can be large). */
+export const MAX_WEBHOOK_BYTES = 1_000_000;
+
+const json = (status: number, body: Record<string, unknown>) => NextResponse.json(body, { status });
 
 /**
- * Shared inbound webhook flow for every provider: verify the signature via the adapter, then
- * record the receipt before any further processing runs. Never trusts a tenant id carried in the
- * payload (docs/ARCHITECTURE.md M2 sequence, step 3) — that resolution happens in a later task.
+ * Shared inbound webhook flow (foundation repair, findings 3–5):
+ *
+ *   1. adapter available?          no  -> 503 (misconfigured deployments fail closed)
+ *   2. body within size limit?      no  -> 413
+ *   3. signature over the ORIGINAL request valid?   no -> 401
+ *   4. parse the provider's real wire format and validate   malformed -> 400
+ *   5. durably accept (tenant from provider_routes, never from the payload)   DB error -> 500 (provider retries)
+ *   6. acknowledge; then process in the background (the jobs endpoint is the authoritative backstop)
  */
 export async function handleProviderWebhook(
-  adapter: ProviderWebhookAdapter,
+  selectAdapter: () => InboundWebhookAdapter,
   request: Request,
+  options: { processInBackground?: boolean } = {},
 ): Promise<Response> {
-  const rawBody = await request.text();
-  if (!adapter.verifyWebhookSignature(rawBody, request.headers)) {
-    console.warn("webhook signature verification failed");
-    return NextResponse.json({ error: "invalid signature" }, { status: 401 });
-  }
-
-  let parsed: unknown;
+  let adapter: InboundWebhookAdapter;
   try {
-    parsed = rawBody.length > 0 ? JSON.parse(rawBody) : {};
-  } catch {
-    return NextResponse.json({ error: "invalid payload" }, { status: 400 });
+    adapter = selectAdapter();
+  } catch (error) {
+    if (error instanceof ProviderConfigError) {
+      console.error(`webhook provider unavailable: ${error.message}`);
+      return json(503, { error: "provider not configured" });
+    }
+    throw error;
   }
 
-  const event = await adapter.ingestWebhook(parsed);
-  const actor: Actor = { type: "integration", name: `${event.provider}-webhook` };
-  await runAs(db(), actor, (tx) =>
-    recordWebhookReceipt(tx, { provider: event.provider, providerEventId: event.providerEventId }),
-  );
-  return NextResponse.json({ ok: true });
+  const rawBody = await request.text();
+  if (Buffer.byteLength(rawBody) > MAX_WEBHOOK_BYTES)
+    return json(413, { error: "payload too large" });
+
+  const req: WebhookRequest = { rawBody, headers: request.headers, url: request.url };
+  if (!adapter.verifyWebhookRequest(req)) {
+    console.warn(`${adapter.provider} webhook rejected: invalid signature`);
+    return json(401, { error: "invalid signature" });
+  }
+
+  let parsed;
+  try {
+    parsed = adapter.parseWebhookRequest(req);
+  } catch (error) {
+    if (error instanceof WebhookPayloadError) {
+      console.warn(`${adapter.provider} webhook rejected: ${error.message}`);
+      return json(400, { error: "invalid payload" });
+    }
+    throw error;
+  }
+
+  let accepted;
+  try {
+    accepted = await runAs(
+      db(),
+      { type: "integration", name: `${parsed.provider}-webhook` },
+      (tx) => acceptWebhookEvent(tx, { ...parsed, rawBody }),
+    );
+  } catch (error) {
+    console.error(`${parsed.provider} webhook could not be stored`, error);
+    return json(500, { error: "temporarily unavailable" });
+  }
+  if (accepted.payloadMismatch) {
+    console.warn(
+      `${parsed.provider} event ${accepted.event.id} redelivered with a different body; kept the first`,
+    );
+  }
+
+  if (options.processInBackground ?? true) {
+    after(async () => {
+      try {
+        await processWebhookEvents(db(), { limit: 10 });
+      } catch (error) {
+        console.error("background webhook processing failed (jobs endpoint will retry)", error);
+      }
+    });
+  }
+
+  // Twilio expects TwiML from messaging webhooks; an empty <Response/> means "no auto-reply".
+  if (adapter.provider === "twilio") {
+    return new NextResponse("<Response/>", {
+      status: 200,
+      headers: { "content-type": "text/xml" },
+    });
+  }
+  return json(200, { received: true, duplicate: accepted.duplicate });
 }

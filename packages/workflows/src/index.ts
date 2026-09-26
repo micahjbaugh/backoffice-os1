@@ -1,3 +1,6 @@
-// Cross-service business workflows (e.g. field capture) live here.
-// Implementations are added in later M3 tasks.
+// Cross-service business workflows: webhook processing, the outbound worker, and (M3) field capture.
 export const WORKFLOWS_PACKAGE = "@backoffice/workflows";
+
+export * from "./webhook-processor";
+export * from "./outbound-dispatcher";
+export * from "./jobs";

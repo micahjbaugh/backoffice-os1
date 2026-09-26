@@ -1,6 +1,11 @@
-// M2-T13: agent/staff-callable warm transfer domain tool (MASTER_SPEC §8 GREEN action). Routed
-// through a caller-supplied VoiceProvider so this package never imports a provider SDK (CLAUDE.md
-// rules 9-10) — the structural shape below matches @backoffice/integrations' VoiceProvider.transferCall.
+// Warm transfer (M2-T13, reworked in the foundation repair, finding 6).
+//
+// This service decides and records; it does not call the provider. In one transaction it validates
+// the call and target, queues a `call.transfer` outbound operation, and writes the
+// `communication.transfer_requested` event + audit. The outbox worker (packages/workflows) performs
+// the provider request outside any database transaction and records `communication.transferred`
+// when the provider confirms it. A crash or timeout mid-transfer leaves the operation `unknown` for
+// reconciliation; it is never re-sent blindly.
 
 import {
   ConflictError,
@@ -15,42 +20,26 @@ import { toEmployee, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
 import { recordEvent } from "./events";
+import { enqueueOutboundOperation, type OutboundStatus } from "./outbound";
 
-export type TransferCallProviderStatus = "queued" | "in_progress" | "transferred" | "failed";
-
-export interface TransferCallProviderRequest {
-  organizationId: UUID;
-  providerCallId: string;
-  toNumber: string;
-  idempotencyKey: string;
-}
-
-export interface TransferCallProviderResult {
-  providerCallId: string;
-  status: TransferCallProviderStatus;
-}
-
-/** Matches @backoffice/integrations' VoiceProvider.transferCall without depending on it. */
-export interface TransferCallProvider {
-  transferCall(request: TransferCallProviderRequest): Promise<TransferCallProviderResult>;
-}
+export const CALL_TRANSFER_OPERATION = "call.transfer";
 
 export interface TransferCallResult {
-  status: TransferCallProviderStatus;
+  operationId: UUID;
+  /** Outbox status: `pending` right after the request; later `succeeded` / `failed` / `unknown`. */
+  status: OutboundStatus;
   providerCallId: string;
   toEmployeeId: UUID;
+  /** False when this idempotency key was already used for the same transfer (nothing new queued). */
+  created: boolean;
 }
 
-/**
- * Load the active voice call for `communicationId`, scoped to the caller's organization. Only an
- * in-progress voice call with a known provider call id can be warm-transferred (policy check).
- */
 async function loadTransferableCall(
   ctx: ServiceContext,
   communicationId: UUID,
-): Promise<{ providerCallId: string }> {
+): Promise<{ providerCallId: string; provider: string | null }> {
   const { rows } = await ctx.tx.asService<Row>(
-    `select calls.provider_call_id
+    `select calls.provider_call_id, c.provider
        from public.communications c
        join public.calls on calls.communication_id = c.id
       where c.id = $1 and c.organization_id = $2 and c.channel = 'voice' and c.status = 'in_progress'`,
@@ -60,22 +49,20 @@ async function loadTransferableCall(
   if (typeof providerCallId !== "string" || providerCallId.length === 0) {
     throw new NotFoundError("transferable call", communicationId);
   }
-  return { providerCallId };
+  return {
+    providerCallId,
+    provider: typeof rows[0]?.provider === "string" ? rows[0].provider : null,
+  };
 }
 
-/**
- * Warm-transfer an in-progress call to an in-org employee. Idempotent per
- * (organization_id, idempotency_key): a retried call reuses the same provider request and writes
- * no second event.
- */
+/** Request a warm transfer of an in-progress call to an in-org employee. Idempotent per key. */
 export async function transferCall(
   ctx: ServiceContext,
-  provider: TransferCallProvider,
   input: TransferCallInput,
 ): Promise<TransferCallResult> {
   await ctx.authorize("communication.write");
   const data = parseInput(transferCallInput, input);
-  const { providerCallId } = await loadTransferableCall(ctx, data.communicationId);
+  const { providerCallId, provider } = await loadTransferableCall(ctx, data.communicationId);
 
   const { rows } = await ctx.tx.asService<Row>(
     `select * from public.employees where id = $1 and organization_id = $2`,
@@ -91,36 +78,47 @@ export async function transferCall(
     );
   }
 
-  const result = await provider.transferCall({
-    organizationId: ctx.organizationId,
-    providerCallId,
-    toNumber: employee.phone,
+  const { operation, created } = await enqueueOutboundOperation(ctx, {
+    operationType: CALL_TRANSFER_OPERATION,
     idempotencyKey: data.idempotencyKey,
-  });
-
-  const { event } = await recordEvent(ctx, {
-    type: EVENT_TYPES.communicationTransferred,
+    provider: provider ?? undefined,
     entityType: "communication",
     entityId: data.communicationId,
-    idempotencyKey: `communication.transferred:${ctx.organizationId}:${data.idempotencyKey}`,
-    payload: { reason: data.reason, to_employee_id: employee.id, status: result.status },
-  });
-  await writeAudit(ctx, {
-    action: "communication.transfer_requested",
-    entityType: "communication",
-    entityId: data.communicationId,
-    sourceEventId: event.id,
-    details: {
+    request: {
+      providerCallId,
+      toNumber: employee.phone,
+      toEmployeeId: employee.id,
       reason: data.reason,
-      to_employee_id: employee.id,
-      provider_status: result.status,
-      note: data.note ?? null,
     },
   });
 
+  if (created) {
+    const { event } = await recordEvent(ctx, {
+      type: EVENT_TYPES.communicationTransferRequested,
+      entityType: "communication",
+      entityId: data.communicationId,
+      idempotencyKey: `communication.transfer_requested:${operation.id}`,
+      payload: { reason: data.reason, to_employee_id: employee.id, operation_id: operation.id },
+    });
+    await writeAudit(ctx, {
+      action: "communication.transfer_requested",
+      entityType: "communication",
+      entityId: data.communicationId,
+      sourceEventId: event.id,
+      details: {
+        reason: data.reason,
+        to_employee_id: employee.id,
+        operation_id: operation.id,
+        note: data.note ?? null,
+      },
+    });
+  }
+
   return {
-    status: result.status,
-    providerCallId: result.providerCallId,
+    operationId: operation.id,
+    status: operation.status,
+    providerCallId,
     toEmployeeId: employee.id,
+    created,
   };
 }

@@ -44,54 +44,50 @@ interface Envelope {
   }[];
 }
 
-/** Find-or-create the shared communications envelope for one conversation. */
+/**
+ * Find-or-create the shared communications envelope for one conversation, atomically: the unique
+ * index on (organization_id, provider, provider_conversation_id) (0012) makes concurrent deliveries
+ * for the same call/message converge on one row. Status only moves forward: once a communication
+ * has left `in_progress`, a late or out-of-order update cannot reopen it.
+ */
 async function upsertEnvelope(
   ctx: ServiceContext,
   channel: "voice" | "sms" | "email",
   d: Envelope,
 ): Promise<{ communication: Communication; created: boolean }> {
-  const { rows: existingRows } = await ctx.tx.asService<Row>(
-    `select * from public.communications
-      where organization_id = $1 and provider = $2 and provider_conversation_id = $3`,
-    [ctx.organizationId, d.provider, d.providerConversationId],
+  const { rows } = await ctx.tx.asService<Row>(
+    `insert into public.communications
+       (organization_id, channel, direction, status, provider, provider_conversation_id,
+        started_at, ended_at, summary, transcript)
+     values ($1, $2, $3, $4, $5, $6, coalesce($7, now()), $8, $9, $10)
+     on conflict (organization_id, provider, provider_conversation_id)
+       where provider is not null and provider_conversation_id is not null
+     do update set
+       status = case when public.communications.status = 'in_progress'
+                     then excluded.status else public.communications.status end,
+       -- Keep the earliest known start: a later event (e.g. an end-of-call report) may carry the
+       -- true start time when the first event only had processing time.
+       started_at = least(public.communications.started_at, excluded.started_at),
+       ended_at = coalesce(excluded.ended_at, public.communications.ended_at),
+       summary = coalesce(excluded.summary, public.communications.summary),
+       transcript = coalesce(excluded.transcript, public.communications.transcript)
+     returning *, (xmax = 0) as inserted`,
+    [
+      ctx.organizationId,
+      channel,
+      d.direction,
+      d.status,
+      d.provider,
+      d.providerConversationId,
+      d.startedAt ?? null,
+      d.endedAt ?? null,
+      d.summary ?? null,
+      d.transcript ?? null,
+    ],
   );
-  const existing = existingRows[0];
-  const { rows } = existing
-    ? await ctx.tx.asService<Row>(
-        `update public.communications
-            set status = $3, ended_at = coalesce($4, ended_at), summary = coalesce($5, summary),
-                transcript = coalesce($6, transcript)
-          where id = $1 and organization_id = $2 returning *`,
-        [
-          existing.id,
-          ctx.organizationId,
-          d.status,
-          d.endedAt ?? null,
-          d.summary ?? null,
-          d.transcript ?? null,
-        ],
-      )
-    : await ctx.tx.asService<Row>(
-        `insert into public.communications
-           (organization_id, channel, direction, status, provider, provider_conversation_id,
-            started_at, ended_at, summary, transcript)
-         values ($1, $2, $3, $4, $5, $6, coalesce($7, now()), $8, $9, $10) returning *`,
-        [
-          ctx.organizationId,
-          channel,
-          d.direction,
-          d.status,
-          d.provider,
-          d.providerConversationId,
-          d.startedAt ?? null,
-          d.endedAt ?? null,
-          d.summary ?? null,
-          d.transcript ?? null,
-        ],
-      );
   const row = rows[0];
   if (!row) throw new Error("communication upsert returned no row");
-  return { communication: toCommunication(row), created: !existing };
+  return { communication: toCommunication(row), created: row.inserted === true };
 }
 
 /** Replace the participant list; a same-org check guards each customer/employee/vendor reference. */

@@ -1,26 +1,15 @@
 import "server-only";
 
-import {
-  FakeSmsProvider,
-  FakeVoiceProvider,
-  type SmsProvider,
-  type VoiceProvider,
-} from "@backoffice/integrations";
+import { createProviderRuntime, type ProviderRuntime } from "@backoffice/integrations";
 
-// Real provider adapters (Twilio, Vapi, ...) are wired behind these accessors in a later M2 task.
-// Fakes keep the webhook route runnable end-to-end today; provider SDKs stay out of app code
-// either way (CLAUDE.md rule 9).
-const globalForProviders = globalThis as unknown as {
-  backofficeVoiceProvider?: VoiceProvider;
-  backofficeSmsProvider?: SmsProvider;
-};
+// Provider adapters for this process, chosen from environment variables by the rules in
+// @backoffice/integrations/runtime-config: production requires fully configured real providers with
+// real secrets and refuses fakes; development uses fakes only with an explicit
+// FAKE_PROVIDER_WEBHOOK_SECRET. A configuration error is thrown on use (callers answer 503), so a
+// misconfigured deployment fails closed instead of accepting forged webhooks.
+const globalForProviders = globalThis as unknown as { backofficeProviderRuntime?: ProviderRuntime };
 
-export function voiceProvider(): VoiceProvider {
-  globalForProviders.backofficeVoiceProvider ??= new FakeVoiceProvider();
-  return globalForProviders.backofficeVoiceProvider;
-}
-
-export function smsProvider(): SmsProvider {
-  globalForProviders.backofficeSmsProvider ??= new FakeSmsProvider();
-  return globalForProviders.backofficeSmsProvider;
+export function providerRuntime(): ProviderRuntime {
+  globalForProviders.backofficeProviderRuntime ??= createProviderRuntime(process.env);
+  return globalForProviders.backofficeProviderRuntime;
 }

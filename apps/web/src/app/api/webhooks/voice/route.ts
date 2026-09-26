@@ -1,6 +1,6 @@
-import { voiceProvider } from "@/server/providers";
+import { providerRuntime } from "@/server/providers";
 import { handleProviderWebhook } from "@/server/webhook-route";
 
 export async function POST(request: Request): Promise<Response> {
-  return handleProviderWebhook(voiceProvider(), request);
+  return handleProviderWebhook(() => providerRuntime().voice, request);
 }

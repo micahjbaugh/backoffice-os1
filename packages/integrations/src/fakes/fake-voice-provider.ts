@@ -1,84 +1,94 @@
+import { ProviderRequestError } from "../outcomes";
 import type {
   CallOperationResult,
+  CallStatusSnapshot,
   InboundRoute,
   InboundRouteConfig,
   OutboundCallRequest,
-  ProviderWebhookEvent,
   TransferCallRequest,
   VoiceProvider,
 } from "../providers/voice-provider";
-import { signWebhookBody, verifyWebhookSignature, type WebhookHeaders } from "../webhook-signing";
+import type { ParsedWebhookEvent, WebhookRequest } from "../webhooks";
+import type { ScriptedFailure } from "./fake-sms-provider";
+import { FakeWebhookEndpoint, requireFakeSecret, type FakeWebhookEnvelope } from "./fake-webhooks";
 
-const WEBHOOK_SIGNATURE_HEADER = "x-fake-signature";
-
-/**
- * In-memory VoiceProvider for tests and local demos. Not a vendor SDK.
- * Idempotency keys are honored per organization so repeated calls with the
- * same key return the original result instead of creating a new call.
- */
+/** In-memory VoiceProvider for tests and local development; records every provider request. */
 export class FakeVoiceProvider implements VoiceProvider {
-  readonly routes: InboundRoute[] = [];
-  readonly webhookLog: ProviderWebhookEvent[] = [];
-  private readonly callsByIdempotencyKey = new Map<string, CallOperationResult>();
-  private routeCounter = 0;
-  private callCounter = 0;
+  readonly provider = "fake-voice";
+  readonly channel = "voice" as const;
+  private readonly endpoint: FakeWebhookEndpoint;
+  private readonly failures: ScriptedFailure[] = [];
+  private readonly calls = new Map<string, CallStatusSnapshot>();
+  readonly transfers: TransferCallRequest[] = [];
+  readonly outboundCalls: OutboundCallRequest[] = [];
+  private counter = 0;
 
-  constructor(private readonly webhookSecret = "fake-voice-webhook-secret") {}
-
-  /** Signs a raw body the way the real provider would; use this to build valid test requests. */
-  signWebhook(rawBody: string): string {
-    return signWebhookBody(this.webhookSecret, rawBody);
+  constructor(webhookSecret: string) {
+    this.endpoint = new FakeWebhookEndpoint(
+      this.provider,
+      "voice",
+      requireFakeSecret(webhookSecret, "FakeVoiceProvider"),
+    );
   }
 
-  verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean {
-    return verifyWebhookSignature(
-      this.webhookSecret,
-      rawBody,
-      headers.get(WEBHOOK_SIGNATURE_HEADER),
+  scriptFailures(...failures: ScriptedFailure[]): void {
+    this.failures.push(...failures);
+  }
+
+  /** Test helper: make the fake provider report a call's current state. */
+  setCallStatus(providerCallId: string, status: string, endedReason: string | null = null): void {
+    this.calls.set(providerCallId, { providerCallId, status, endedReason });
+  }
+
+  signWebhook(envelope: FakeWebhookEnvelope): { rawBody: string; headers: Record<string, string> } {
+    return this.endpoint.sign(envelope);
+  }
+
+  verifyWebhookRequest(request: WebhookRequest): boolean {
+    return this.endpoint.verify(request);
+  }
+
+  parseWebhookRequest(request: WebhookRequest): ParsedWebhookEvent {
+    return this.endpoint.parse(request);
+  }
+
+  private maybeFail(perform: () => void): void {
+    const failure = this.failures.shift();
+    if (!failure) return;
+    if (failure.performed) perform();
+    throw new ProviderRequestError(
+      `scripted ${failure.kind} failure`,
+      failure.kind,
+      failure.retryable ?? false,
     );
   }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {
-    const route: InboundRoute = {
-      providerRouteId: `fake-route-${++this.routeCounter}`,
-      phoneNumber: config.phoneNumber,
-    };
-    this.routes.push(route);
-    return route;
+    return { providerRouteId: `fake-route-${++this.counter}`, phoneNumber: config.phoneNumber };
   }
 
   async initiateOutboundCall(request: OutboundCallRequest): Promise<CallOperationResult> {
-    const key = `${request.organizationId}:${request.idempotencyKey}`;
-    const existing = this.callsByIdempotencyKey.get(key);
-    if (existing) return existing;
-    const result: CallOperationResult = {
-      providerCallId: `fake-call-${++this.callCounter}`,
-      status: "queued",
-    };
-    this.callsByIdempotencyKey.set(key, result);
-    return result;
+    this.maybeFail(() => this.outboundCalls.push(request));
+    this.outboundCalls.push(request);
+    const providerCallId = `fake-call-${++this.counter}`;
+    this.setCallStatus(providerCallId, "queued");
+    return { providerCallId, status: "queued" };
   }
 
   async transferCall(request: TransferCallRequest): Promise<CallOperationResult> {
-    const key = `${request.organizationId}:${request.idempotencyKey}`;
-    const existing = this.callsByIdempotencyKey.get(key);
-    if (existing) return existing;
-    const result: CallOperationResult = {
-      providerCallId: request.providerCallId,
-      status: "transferred",
+    const perform = () => {
+      this.transfers.push(request);
+      this.setCallStatus(request.providerCallId, "forwarding");
     };
-    this.callsByIdempotencyKey.set(key, result);
-    return result;
+    this.maybeFail(perform);
+    perform();
+    return { providerCallId: request.providerCallId, status: "transferred" };
   }
 
-  async ingestWebhook(rawEvent: unknown): Promise<ProviderWebhookEvent> {
-    const event = rawEvent as Partial<ProviderWebhookEvent>;
-    const normalized: ProviderWebhookEvent = {
-      provider: "fake-voice",
-      providerEventId: String(event.providerEventId),
-      payload: event.payload ?? rawEvent,
-    };
-    this.webhookLog.push(normalized);
-    return normalized;
+  async getCall(providerCallId: string): Promise<CallStatusSnapshot> {
+    const call = this.calls.get(providerCallId);
+    if (!call)
+      throw new ProviderRequestError(`unknown call ${providerCallId}`, "rejected", false, 404);
+    return call;
   }
 }
