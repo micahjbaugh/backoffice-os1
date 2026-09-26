@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 4,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "Fixed review_notes on M2-T04. File: supabase/migrations/0004_leads.sql. All four composite FKs that previously used bare 'on delete set null' (leads_customer_same_org_fkey, leads_employee_same_org_fkey, leads_communication_same_org_fkey, lead_activities_communication_same_org_fkey) now use the PG15+ column-list form 'on delete set null (<fk_column>)', matching the existing precedent in supabase/migrations/0002_m1_foundation.sql:83 (jobs_customer_same_org_fkey). This scopes the SET NULL action to only the nullable FK column itself, so organization_id (NOT NULL) is never nulled on delete of a referenced customer/employee/communication — resolves the reviewer's correctness concern without weakening RLS/tenant isolation or making organization_id nullable. No other files touched. pnpm lint, pnpm typecheck, and pnpm test all pass (test suite applies every migration, incl. 0004, via the PGlite harness in packages/core/test/helpers/db.ts). Next: ready for ChatGPT re-review.",
-  "attempts": 1,
-  "review_notes": "ChatGPT requested changes: Critical: The composite foreign keys that include organization_id use ON DELETE SET NULL (leads -> customers/employees/communications and lead_activities -> communications). In Postgres, SET NULL applies to all referencing columns in the FK, which will attempt to set organization_id to NULL; this violates the NOT NULL constraint on organization_id and will fail in production PG even if the PGlite harness passes. Please change these to a safe action (e.g., ON DELETE RESTRICT/NO ACTION), or otherwise adjust the design so organization_id is not nulled (do not make organization_id nullable). Update all affected FKs accordingly and re-run the harness. Everything else (RLS, audit trigger, indexes) looks good.",
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "Attempt 2 was sent back. Fix review_notes, then resubmit.",
+  "attempts": 2,
+  "review_notes": "ChatGPT requested changes: Good fix on the scoped SET NULL actions. One blocker: the task and rule #8 require audit logs, but there’s no audit trigger on public.lead_activities. Please add an AFTER INSERT/UPDATE/DELETE trigger using public.audit_row_mutation (e.g., public.audit_row_mutation('lead_activity')). Optional (non-blocking): your comment says members get read-only access, but the lead_activities select policy only includes owner/office_admin/manager; consider adding member or adjust the comment if intentional.",
   "review_base": "b38d47febc098d1e824be6df3fcc7fba63d0ef05",
-  "updated_at": "2026-09-26T06:57:51.932Z",
+  "updated_at": "2026-09-26T06:58:42.644Z",
   "last_error": "",
   "consecutive_failures": 0
 }
