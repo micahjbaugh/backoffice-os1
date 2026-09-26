@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 6,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T06 done. Added packages/core/src/services/webhooks.ts: recordWebhookReceipt (idempotent insert on webhook_receipts via ON CONFLICT (provider, provider_event_id) DO NOTHING, falling back to a select of the existing row so a duplicate delivery returns it instead of writing a second row), getWebhookReceipt, and updateWebhookReceiptStatus (updates status, stamps processed_at once the row leaves 'received', throws NotFoundError for an unknown id). All three take a raw Tx and always run asService, matching the createOrganizationWithOwner precedent for server-internal code that runs before any tenant/org is known; webhook_receipts already has RLS enabled with all privileges revoked from authenticated (0001/0002), so no migration was needed and no client policy was added. Exported the new service from packages/core/src/index.ts (one line). Added packages/core/test/webhook-receipts.test.ts: duplicate-returns-existing-row, cross-provider distinctness, org association, status update + processed_at stamping, not-found, null lookup, and a direct-SQL check that no authenticated or anonymous client role can read/write webhook_receipts. pnpm lint, typecheck and test all pass (packages/core now 122 passing, 7 skipped, up from the prior 115). Only files touched: packages/core/src/services/webhooks.ts (new), packages/core/src/index.ts (+1 export), packages/core/test/webhook-receipts.test.ts (new). Next: M2-T07 \"Webhook route handler\" (apps/web API route that verifies signatures via a VoiceProvider/SmsProvider adapter and calls recordWebhookReceipt before processing).",
+  "current_task_index": 7,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The idempotent insert on (provider, provider_event_id) works and duplicates return the existing row. Tests cover duplicates, cross-provider distinctness, optional org association, status updates, NotFound, null lookups, and RLS isolation (client roles cannot read/write). All service calls run via asService and are not client-exposed, maintaining multi-tenant isolation. Minor improvement (non-blocking): updateWebhookReceiptStatus currently sets processed_at to now() on every transition to a non-\"received\" status; if you intend a one-time stamp when leaving \"received\", add a guard (e.g., processed_at = CASE WHEN $2 = 'received' OR processed_at IS NOT NULL THEN processed_at ELSE now() END). Otherwise, approved.. M2-T06 is done. Next: M2-T07 \"Webhook route handler\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "8f28e54efbac1186bae8b4ccc60115f135469b95",
-  "updated_at": "2026-09-26T11:46:13.342Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T11:46:47.576Z",
   "last_error": "",
   "consecutive_failures": 0
 }
