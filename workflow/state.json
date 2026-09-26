@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
-  "current_task_index": 8,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T08 done in one step. Added packages/domain/src/extraction.ts: FIELD_CAPTURE_FACT_TYPES, evidenceSpanSchema, fieldCaptureFactSchema (zod discriminated union on `type` for time_entry/equipment_usage/material_usage/job_note/billable_opportunity, each with raw unmatched ref fields, a per-field `confidence` record 0-1, and `evidence` evidence-span array requiring at least one span), unresolvedQuestionSchema, fieldCaptureExtractionSchema (facts[] + unresolvedQuestions[] default []), plus the provider-independent ExtractionInput/ExtractionResult<T>/StructuredExtractor<T> contract from ARCHITECTURE.md §8. Exported via packages/domain/src/index.ts (added one export line). Added packages/domain/test/extraction.test.ts (12 new tests) covering valid/invalid facts, confidence bounds, evidence requirement, unresolved-question defaults, and the full M3 acceptance-input shape (3 time/equipment facts + material + job note + billable opportunity). Only zod is imported — no vendor SDK. No DB/RLS/auth/side-effect surface introduced (pure types+schema, no persistence), so those checklist items are N/A. pnpm lint/typecheck/test all pass repo-wide (domain 40 tests, workspace total 260+ core, 36 integrations, 16 web, 9 agents, 1 workflows). Next: M3-T09 \"Deterministic test extractor\" — a fixture StructuredExtractor<FieldCaptureExtraction> (likely in packages/workflows) returning the M3 acceptance extraction validated against fieldCaptureExtractionSchema, for use by later workflow tests without any LLM call.",
+  "current_task_index": 9,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The provider-independent StructuredExtractor contract and zod schemas for field-capture facts, evidence spans, and unresolved questions are implemented with no vendor SDK imports. Tests cover valid/invalid fact types, confidence bounds, evidence requirement, unresolved defaults, and the M3 acceptance extraction shape; they pass. Scope is limited to domain types, no persistence or side effects. Minor future improvement (non-blocking): consider validating that the confidence record includes entries for all populated fields, either via schema refinement or a separate validator.. M3-T08 is done. Next: M3-T09 \"Deterministic test extractor\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "54dea8c4e8d5f1202f1c1752e6e197b5f2b80252",
-  "updated_at": "2026-09-26T22:58:12.701Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T22:58:43.359Z",
   "last_error": "",
   "consecutive_failures": 0
 }
