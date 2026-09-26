@@ -4,7 +4,8 @@
 -- Access model: leads are a client-writable record table like employees/tasks (0002 §5), so staff
 -- get a single "for all" policy and mutations are audited by trigger (CLAUDE.md rule 8).
 -- lead_activities is a system-authored timeline (like notes/business_events, 0002 §5): trusted
--- server/agent code writes it after code-level authorization; members get read-only access.
+-- server/agent code writes it after code-level authorization; owner/office_admin/manager get
+-- read-only access (members are excluded, consistent with the leads_staff_all write policy above).
 
 create type public.lead_status as enum (
   'new',
@@ -101,3 +102,5 @@ revoke insert, update, delete on public.lead_activities from authenticated;
 
 create trigger leads_audit after insert or update or delete on public.leads
   for each row execute function public.audit_row_mutation('lead');
+create trigger lead_activities_audit after insert or update or delete on public.lead_activities
+  for each row execute function public.audit_row_mutation('lead_activity');

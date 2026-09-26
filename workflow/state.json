@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 4,
-  "status": "CHANGES_REQUESTED",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "Attempt 2 was sent back. Fix review_notes, then resubmit.",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "Addressed review_notes on M2-T04 (supabase/migrations/0004_leads.sql only): added `lead_activities_audit` AFTER INSERT/UPDATE/DELETE trigger calling public.audit_row_mutation('lead_activity'), matching the pattern used for leads_audit and the other M1 tables. Also clarified the header comment so it states lead_activities read access is owner/office_admin/manager only (matching the actual lead_activities_select policy) instead of the previous 'members' wording. No schema/behavior changes beyond the new trigger. Ran pnpm lint, pnpm typecheck, pnpm test — all pass; core package tests apply all migrations (including 0004) against pglite, confirming the migration still applies cleanly on the test harness. Next: ChatGPT review.",
   "attempts": 2,
   "review_notes": "ChatGPT requested changes: Good fix on the scoped SET NULL actions. One blocker: the task and rule #8 require audit logs, but there’s no audit trigger on public.lead_activities. Please add an AFTER INSERT/UPDATE/DELETE trigger using public.audit_row_mutation (e.g., public.audit_row_mutation('lead_activity')). Optional (non-blocking): your comment says members get read-only access, but the lead_activities select policy only includes owner/office_admin/manager; consider adding member or adjust the comment if intentional.",
   "review_base": "b38d47febc098d1e824be6df3fcc7fba63d0ef05",
-  "updated_at": "2026-09-26T06:58:42.644Z",
+  "updated_at": "2026-09-26T07:29:13.569Z",
   "last_error": "",
   "consecutive_failures": 0
 }
