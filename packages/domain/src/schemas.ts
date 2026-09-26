@@ -40,6 +40,7 @@ const optionalPhone = z
   .optional()
   .transform((v) => (v ? v : undefined));
 const isoDateTime = z.iso.datetime({ offset: true });
+const isoDate = z.iso.date();
 const jsonObject = z.record(z.string(), z.unknown());
 
 const entityRef = {
@@ -282,6 +283,62 @@ export const createLeadInput = z.object({
   idempotencyKey: z.string().trim().min(8).max(200),
 });
 
+/** Shared by every draft-fact create input: pairs sourceCommunicationId with factKey for idempotency. */
+const draftFactFields = {
+  sourceCommunicationId: uuid.optional(),
+  factKey: z.string().trim().min(1).max(200).optional(),
+  confidence: jsonObject.default({}),
+  evidence: jsonObject.default({}),
+};
+function refineFactRef(
+  value: { sourceCommunicationId?: string; factKey?: string },
+  ctx: z.RefinementCtx,
+) {
+  if ((value.sourceCommunicationId === undefined) !== (value.factKey === undefined)) {
+    ctx.addIssue({ code: "custom", message: "sourceCommunicationId and factKey must be provided together" });
+  }
+}
+
+/** Agent-callable: a draft time entry extracted from a crew report (MASTER_SPEC §C, GREEN action). */
+export const createDraftTimeEntryInput = z
+  .object({
+    employeeId: uuid,
+    jobId: uuid,
+    workDate: isoDate,
+    startAt: isoDateTime.optional(),
+    endAt: isoDateTime.optional(),
+    hours: z.number().nonnegative().max(100).optional(),
+    ...draftFactFields,
+  })
+  .superRefine(refineFactRef);
+
+export const createDraftEquipmentUsageInput = z
+  .object({
+    equipmentId: uuid,
+    jobId: uuid,
+    hours: z.number().nonnegative().max(100).optional(),
+    ...draftFactFields,
+  })
+  .superRefine(refineFactRef);
+
+export const createDraftMaterialUsageInput = z
+  .object({
+    jobId: uuid,
+    description: z.string().trim().min(1).max(500),
+    quantity: z.number().nonnegative().max(1_000_000).optional(),
+    unit: optionalText(32),
+    ...draftFactFields,
+  })
+  .superRefine(refineFactRef);
+
+export const createDraftJobNoteInput = z
+  .object({
+    jobId: uuid,
+    body: z.string().trim().min(1).max(4000),
+    ...draftFactFields,
+  })
+  .superRefine(refineFactRef);
+
 export const updateCommunicationSummaryInput = z.object({
   communicationId: uuid,
   status: z.enum(COMMUNICATION_STATUSES).optional(),
@@ -347,5 +404,9 @@ export type RecordCallInput = z.input<typeof recordCallInput>;
 export type RecordMessageInput = z.input<typeof recordMessageInput>;
 export type UpdateCommunicationSummaryInput = z.input<typeof updateCommunicationSummaryInput>;
 export type CreateLeadInput = z.input<typeof createLeadInput>;
+export type CreateDraftTimeEntryInput = z.input<typeof createDraftTimeEntryInput>;
+export type CreateDraftEquipmentUsageInput = z.input<typeof createDraftEquipmentUsageInput>;
+export type CreateDraftMaterialUsageInput = z.input<typeof createDraftMaterialUsageInput>;
+export type CreateDraftJobNoteInput = z.input<typeof createDraftJobNoteInput>;
 export type TransferCallInput = z.input<typeof transferCallInput>;
 export type RecordCallDispositionInput = z.input<typeof recordCallDispositionInput>;

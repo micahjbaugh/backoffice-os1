@@ -399,7 +399,7 @@
           "title": "Draft record services",
           "description": "Validated services to create draft time entries, equipment usage, material usage and job notes; idempotent on (source_communication_id, fact key); event + audit.",
           "done_when": "Service tests incl. idempotent replay pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 7,

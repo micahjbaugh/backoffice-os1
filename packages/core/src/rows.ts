@@ -12,8 +12,11 @@ import type {
   Customer,
   DocumentMetadata,
   Employee,
+  EquipmentUsage,
   Job,
+  JobNote,
   Lead,
+  MaterialUsage,
   Membership,
   Message,
   Note,
@@ -21,6 +24,7 @@ import type {
   OpsCase,
   Organization,
   Task,
+  TimeEntry,
   Vendor,
 } from "@backoffice/domain";
 
@@ -34,6 +38,22 @@ export function iso(value: unknown): string {
 
 export function isoOrNull(value: unknown): string | null {
   return value === null || value === undefined ? null : iso(value);
+}
+
+/**
+ * A `date` column as "YYYY-MM-DD". node-postgres parses `date` into a Date built from local
+ * year/month/day components, so reading those back out (not toISOString, which is UTC) recovers
+ * the original calendar date regardless of process timezone.
+ */
+export function dateOnly(value: unknown): string {
+  if (value instanceof Date) {
+    const y = value.getFullYear();
+    const m = String(value.getMonth() + 1).padStart(2, "0");
+    const d = String(value.getDate()).padStart(2, "0");
+    return `${y}-${m}-${d}`;
+  }
+  if (typeof value === "string") return value.slice(0, 10);
+  throw new TypeError(`expected date, got ${typeof value}`);
 }
 
 export function numOrNull(value: unknown): number | null {
@@ -326,6 +346,68 @@ export const toLead = (r: Row): Lead => ({
   description: strOrNull(r.description),
   lostReason: strOrNull(r.lost_reason),
   idempotencyKey: strOrNull(r.idempotency_key),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toTimeEntry = (r: Row): TimeEntry => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  employeeId: str(r.employee_id),
+  jobId: str(r.job_id),
+  workDate: dateOnly(r.work_date),
+  startAt: isoOrNull(r.start_at),
+  endAt: isoOrNull(r.end_at),
+  hours: numOrNull(r.hours),
+  status: str(r.status) as TimeEntry["status"],
+  sourceCommunicationId: strOrNull(r.source_communication_id),
+  factKey: strOrNull(r.fact_key),
+  confidence: obj(r.confidence),
+  evidence: obj(r.evidence),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toEquipmentUsage = (r: Row): EquipmentUsage => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  equipmentId: str(r.equipment_id),
+  jobId: str(r.job_id),
+  hours: numOrNull(r.hours),
+  status: str(r.status) as EquipmentUsage["status"],
+  sourceCommunicationId: strOrNull(r.source_communication_id),
+  factKey: strOrNull(r.fact_key),
+  confidence: obj(r.confidence),
+  evidence: obj(r.evidence),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toMaterialUsage = (r: Row): MaterialUsage => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  jobId: str(r.job_id),
+  description: str(r.description),
+  quantity: numOrNull(r.quantity),
+  unit: strOrNull(r.unit),
+  status: str(r.status) as MaterialUsage["status"],
+  sourceCommunicationId: strOrNull(r.source_communication_id),
+  factKey: strOrNull(r.fact_key),
+  confidence: obj(r.confidence),
+  evidence: obj(r.evidence),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toJobNote = (r: Row): JobNote => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  jobId: str(r.job_id),
+  body: str(r.body),
+  sourceCommunicationId: strOrNull(r.source_communication_id),
+  factKey: strOrNull(r.fact_key),
+  confidence: obj(r.confidence),
+  evidence: obj(r.evidence),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });

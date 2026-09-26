@@ -388,3 +388,49 @@ export interface Lead extends TenantEntity {
   idempotencyKey: string | null;
   updatedAt: string;
 }
+
+export const DRAFT_RECORD_STATUSES = ["draft", "approved", "rejected"] as const;
+export type DraftRecordStatus = (typeof DRAFT_RECORD_STATUSES)[number];
+
+/** Fields shared by every fact drafted from a crew communication (MASTER_SPEC §C). */
+export interface DraftFact {
+  sourceCommunicationId: UUID | null;
+  /** Identifies this fact within its communication; pairs with sourceCommunicationId for idempotency. */
+  factKey: string | null;
+  confidence: Record<string, unknown>;
+  evidence: Record<string, unknown>;
+}
+
+export interface TimeEntry extends TenantEntity, DraftFact {
+  employeeId: UUID;
+  jobId: UUID;
+  workDate: string;
+  startAt: string | null;
+  endAt: string | null;
+  hours: number | null;
+  status: DraftRecordStatus;
+  updatedAt: string;
+}
+
+export interface EquipmentUsage extends TenantEntity, DraftFact {
+  equipmentId: UUID;
+  jobId: UUID;
+  hours: number | null;
+  status: DraftRecordStatus;
+  updatedAt: string;
+}
+
+export interface MaterialUsage extends TenantEntity, DraftFact {
+  jobId: UUID;
+  description: string;
+  quantity: number | null;
+  unit: string | null;
+  status: DraftRecordStatus;
+  updatedAt: string;
+}
+
+export interface JobNote extends TenantEntity, DraftFact {
+  jobId: UUID;
+  body: string;
+  updatedAt: string;
+}

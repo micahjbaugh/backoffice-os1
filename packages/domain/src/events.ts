@@ -22,6 +22,10 @@ export const EVENT_TYPES = {
   communicationTransferred: "communication.transferred",
   callDispositionRecorded: "communication.disposition_recorded",
   leadCreated: "lead.created",
+  timeEntryDrafted: "time_entry.drafted",
+  equipmentUsageDrafted: "equipment_usage.drafted",
+  materialUsageDrafted: "material_usage.drafted",
+  jobNoteDrafted: "job_note.drafted",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];

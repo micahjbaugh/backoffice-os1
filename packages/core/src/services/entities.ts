@@ -38,3 +38,16 @@ export async function assertUserIsMember(ctx: ServiceContext, userId: UUID): Pro
   );
   if (rows.length === 0) throw new NotFoundError("member", userId);
 }
+
+/** communications has no entry in ENTITY_TABLES: it is a source reference, not a polymorphic ref. */
+export async function assertCommunicationInOrg(
+  ctx: ServiceContext,
+  communicationId: UUID | undefined,
+): Promise<void> {
+  if (communicationId === undefined) return;
+  const { rows } = await ctx.tx.asService(
+    `select 1 from public.communications where id = $1 and organization_id = $2`,
+    [communicationId, ctx.organizationId],
+  );
+  if (rows.length === 0) throw new NotFoundError("communication", communicationId);
+}
