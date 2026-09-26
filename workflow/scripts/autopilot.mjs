@@ -171,7 +171,7 @@ function renderBuilderPrompt({ state, bp, config }) {
   lines.push(
     ``,
     `Rules for this run:`,
-    `- Work ONLY on ${task.id}. Make ONE step: at most ${config.max_changed_lines_per_file} changed lines per file (split bigger work across runs).`,
+    `- Work ONLY on ${task.id}. Make ONE step: aim for at most ${config.target_changed_lines_per_file} changed lines per file; the hard limit is ${config.max_changed_lines_per_file} (steps over it are discarded). Split bigger work across runs.`,
     `- Run pnpm lint, pnpm typecheck and pnpm test before finishing.`,
     `- Do NOT git commit or push. Do NOT edit: ${config.protected_paths.join(", ")}. Do NOT edit blueprint.json.`,
     `- Finish by editing workflow/state.json only these fields:`,

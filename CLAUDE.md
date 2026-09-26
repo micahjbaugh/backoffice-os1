@@ -55,9 +55,9 @@ rules above and never override them.
    The referee (`workflow/scripts/autopilot.mjs`) owns everything else: it increments
    `current_task_index`, moves between milestones, counts `attempts`, and sets task statuses in
    `workflow/blueprint.json`. Builders must not edit those fields or `blueprint.json`.
-4. **Micro-commit rule.** No more than 40 lines of changes per file per step. If a task needs more,
-   split it into multiple steps (`IN_PROGRESS`) and record the remaining work in `handoff_instructions`.
-   The referee rejects and discards steps that exceed this.
+4. **Micro-commit rule.** Aim for at most 150 changed lines per file per step; the hard limit is 200.
+   If a task needs more, split it into multiple steps (`IN_PROGRESS`) and record the remaining work in
+   `handoff_instructions`. The referee rejects and discards steps over the hard limit.
 5. **Valid JSON always.** Both workflow files must remain valid JSON after every edit.
 6. **Never skip the gate.** Run lint, typecheck and tests before `AWAITING_REVIEW`; the referee reruns
    them and sends failing steps back.
