@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 4,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T04 complete. Added supabase/migrations/0004_leads.sql only (no other files touched): `leads` (organization_id, status/source enums, same-org composite FKs to customers/employees/communications, leads_id_org_unique, updated_at trigger, staff-all RLS policy for owner/office_admin/manager, audit_row_mutation('lead') trigger on insert/update/delete) and `lead_activities` (organization_id, same-org composite FKs to leads/communications, activity_type check, select-only RLS for owner/office_admin/manager, insert/update/delete revoked from authenticated since it's system/agent-authored like notes/business_events). Followed the 0002/0003 pattern exactly (client-writable table gets audit trigger; system-authored timeline table does not, mirroring notes). Verified: pnpm lint, pnpm typecheck, pnpm test all pass (140 tests), which includes packages/core's PGlite harness applying every migration file in order, confirming 0004 applies cleanly. No new tenant-isolation tests added here by design; those are planned for M2-T05 per the M2-T03 handoff note. Next: M2-T05 (tenant isolation tests, should cover leads/lead_activities same-org enforcement and staff-role RLS).",
-  "attempts": 0,
-  "review_notes": "",
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "Attempt 1 was sent back. Fix review_notes, then resubmit.",
+  "attempts": 1,
+  "review_notes": "ChatGPT requested changes: Critical: The composite foreign keys that include organization_id use ON DELETE SET NULL (leads -> customers/employees/communications and lead_activities -> communications). In Postgres, SET NULL applies to all referencing columns in the FK, which will attempt to set organization_id to NULL; this violates the NOT NULL constraint on organization_id and will fail in production PG even if the PGlite harness passes. Please change these to a safe action (e.g., ON DELETE RESTRICT/NO ACTION), or otherwise adjust the design so organization_id is not nulled (do not make organization_id nullable). Update all affected FKs accordingly and re-run the harness. Everything else (RLS, audit trigger, indexes) looks good.",
   "review_base": "b38d47febc098d1e824be6df3fcc7fba63d0ef05",
-  "updated_at": "2026-09-26T06:35:05.767Z",
+  "updated_at": "2026-09-26T06:36:34.711Z",
   "last_error": "",
   "consecutive_failures": 0
 }
