@@ -11,6 +11,7 @@ import {
   DOCUMENT_CLASSIFICATIONS,
   ENTITY_TYPES,
   JOB_STATUSES,
+  LEAD_SOURCES,
   OPS_CASE_REASON_CODES,
   OPS_CASE_STATUSES,
   PRIORITIES,
@@ -256,6 +257,20 @@ export const recordMessageInput = z.object({
   mediaUrls: z.array(z.string().trim().max(2048)).max(20).default([]),
 });
 
+export const createLeadInput = z.object({
+  source: z.enum(LEAD_SOURCES).default("other"),
+  firstName: optionalText(120),
+  lastName: optionalText(120),
+  company: optionalText(200),
+  phone: optionalPhone,
+  email: optionalEmail,
+  description: optionalText(4000),
+  customerId: uuid.optional(),
+  assignedToEmployeeId: uuid.optional(),
+  originatingCommunicationId: uuid.optional(),
+  idempotencyKey: z.string().trim().min(8).max(200),
+});
+
 export const updateCommunicationSummaryInput = z.object({
   communicationId: uuid,
   status: z.enum(COMMUNICATION_STATUSES).optional(),
@@ -297,3 +312,4 @@ export type RegisterDocumentInput = z.input<typeof registerDocumentInput>;
 export type RecordCallInput = z.input<typeof recordCallInput>;
 export type RecordMessageInput = z.input<typeof recordMessageInput>;
 export type UpdateCommunicationSummaryInput = z.input<typeof updateCommunicationSummaryInput>;
+export type CreateLeadInput = z.input<typeof createLeadInput>;

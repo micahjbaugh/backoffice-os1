@@ -349,3 +349,33 @@ export interface CommunicationParticipant {
   displayName: string | null;
   createdAt: string;
 }
+
+export const LEAD_STATUSES = [
+  "new",
+  "contacted",
+  "qualified",
+  "unqualified",
+  "converted",
+  "lost",
+] as const;
+export type LeadStatus = (typeof LEAD_STATUSES)[number];
+
+export const LEAD_SOURCES = ["voice", "sms", "email", "web_form", "referral", "manual", "other"] as const;
+export type LeadSource = (typeof LEAD_SOURCES)[number];
+
+export interface Lead extends TenantEntity {
+  status: LeadStatus;
+  source: LeadSource;
+  firstName: string | null;
+  lastName: string | null;
+  company: string | null;
+  phone: string | null;
+  email: string | null;
+  customerId: UUID | null;
+  assignedToEmployeeId: UUID | null;
+  originatingCommunicationId: UUID | null;
+  description: string | null;
+  lostReason: string | null;
+  idempotencyKey: string | null;
+  updatedAt: string;
+}

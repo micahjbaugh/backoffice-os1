@@ -13,6 +13,7 @@ import type {
   DocumentMetadata,
   Employee,
   Job,
+  Lead,
   Membership,
   Message,
   Note,
@@ -307,6 +308,26 @@ export const toCommunicationParticipant = (r: Row): CommunicationParticipant => 
   email: strOrNull(r.email),
   displayName: strOrNull(r.display_name),
   createdAt: iso(r.created_at),
+});
+
+export const toLead = (r: Row): Lead => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  status: str(r.status) as Lead["status"],
+  source: str(r.source) as Lead["source"],
+  firstName: strOrNull(r.first_name),
+  lastName: strOrNull(r.last_name),
+  company: strOrNull(r.company),
+  phone: strOrNull(r.phone),
+  email: strOrNull(r.email),
+  customerId: strOrNull(r.customer_id),
+  assignedToEmployeeId: strOrNull(r.assigned_to_employee_id),
+  originatingCommunicationId: strOrNull(r.originating_communication_id),
+  description: strOrNull(r.description),
+  lostReason: strOrNull(r.lost_reason),
+  idempotencyKey: strOrNull(r.idempotency_key),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
 });
 
 export const toDocument = (r: Row): DocumentMetadata => ({

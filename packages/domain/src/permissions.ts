@@ -36,6 +36,8 @@ export const PERMISSIONS = [
   "document.write",
   "communication.read",
   "communication.write",
+  "lead.read",
+  "lead.write",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -50,6 +52,7 @@ const STAFF_WRITE: readonly Permission[] = [
   "note.add",
   "ops_case.create",
   "document.write",
+  "lead.write",
 ];
 
 const STAFF_READ: readonly Permission[] = [
@@ -67,6 +70,7 @@ const STAFF_READ: readonly Permission[] = [
   "ops_case.read",
   "document.read",
   "communication.read",
+  "lead.read",
 ];
 
 export const ROLE_PERMISSIONS: Readonly<Record<MembershipRole, ReadonlySet<Permission>>> = {
@@ -101,6 +105,7 @@ const AUTOMATED_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   "note.add",
   "ops_case.create",
   "communication.write",
+  "lead.write",
 ]);
 
 /** Trusted server components (e.g. seeding, background workflows) get the green set plus reads. */
