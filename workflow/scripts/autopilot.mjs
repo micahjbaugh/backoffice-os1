@@ -439,6 +439,8 @@ async function cmdReview() {
     ".",
     ":(exclude)pnpm-lock.yaml",
     ":(exclude)workflow/state.json",
+    // Referee bookkeeping, never builder work (builder edits to it are rejected before review).
+    ":(exclude)workflow/blueprint.json",
   );
   if (diff.length > config.reviewer.max_diff_chars) {
     diff = diff.slice(0, config.reviewer.max_diff_chars) + "\n[diff truncated]";
@@ -451,6 +453,8 @@ async function cmdReview() {
       content:
         "You are the REVIEWER (ChatGPT) in an autopilot pair with Claude (the builder). " +
         "Review one task's diff against the task and repository rules. Lint, typecheck and tests already passed. " +
+        "workflow/state.json and workflow/blueprint.json are maintained by the referee and are excluded from the diff; " +
+        "do not request changes to them. " +
         "Block only for real problems: incorrect behavior, broken multi-tenant isolation, missing authorization or audit, " +
         "missing tests for new behavior, secrets exposure, or work outside the task. Do not block on style. " +
         'Reply with JSON only: {"decision":"approve"|"request_changes","notes":"specific, actionable, brief"}',
