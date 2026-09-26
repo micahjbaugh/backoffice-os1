@@ -16,5 +16,5 @@
   "max_changed_lines_per_file": 200,
   "line_limit_exempt_paths": ["workflow/state.json", "workflow/blueprint.json", "pnpm-lock.yaml"],
   "protected_paths": [".github/", "workflow/scripts/", "workflow/config.json"],
-  "pause_at_milestone_boundary": true
+  "pause_at_milestone_boundary": false
 }

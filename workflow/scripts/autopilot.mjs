@@ -173,6 +173,12 @@ function renderBuilderPrompt({ state, bp, config }) {
     `Rules for this run:`,
     `- Work ONLY on ${task.id}. Make ONE step: aim for at most ${config.target_changed_lines_per_file} changed lines per file; the hard limit is ${config.max_changed_lines_per_file} (steps over it are discarded). Split bigger work across runs.`,
     `- Run pnpm lint, pnpm typecheck and pnpm test before finishing.`,
+    `- Before setting AWAITING_REVIEW, self-review the whole task diff against the reviewer's checklist`,
+    `  (ChatGPT sends the task back for any of these): behavior is correct and matches "done_when";`,
+    `  multi-tenant isolation holds (organization_id on tenant rows, RLS on new tables, same-org references);`,
+    `  authorization is enforced in code, never in prompts; consequential actions write an audit record and`,
+    `  business event; external side effects are idempotent; new behavior has tests (including tenant`,
+    `  isolation for new tables); no secrets; nothing outside this task was changed.`,
     `- Do NOT git commit or push. Do NOT edit: ${config.protected_paths.join(", ")}. Do NOT edit blueprint.json.`,
     `- Finish by editing workflow/state.json only these fields:`,
     `  status: "AWAITING_REVIEW" (task fully done) | "IN_PROGRESS" (more steps needed) | "NEEDS_HUMAN" or "BLOCKED" (explain why)`,
@@ -482,6 +488,7 @@ async function cmdNotify() {
     (i) => !i.pull_request && i.title.startsWith(ISSUE_PREFIX),
   );
   if (need && open.some((i) => i.title === need.title)) {
+    await notifyMilestoneReviews(api, bp, owner, repo);
     return output({ notified: "already-open" });
   }
   for (const issue of open) {
@@ -500,9 +507,42 @@ async function cmdNotify() {
   }
   if (need) {
     const created = await api(`/issues`, { method: "POST", body: JSON.stringify(need) });
+    await notifyMilestoneReviews(api, bp, owner, repo);
     return output({ notified: created.html_url });
   }
+  await notifyMilestoneReviews(api, bp, owner, repo);
   return output({ notified: open.length ? "closed" : "none" });
+}
+
+const REVIEW_PREFIX = "[autopilot review]";
+
+/**
+ * When milestones finish without pausing, ask the owner to review acceptance in parallel.
+ * One informational issue per finished milestone; the owner closes it. Never auto-closed.
+ */
+async function notifyMilestoneReviews(api, bp, owner, repo) {
+  const finished = bp.milestones.filter((m) => m.status === "done" && !m.acceptance_verified);
+  if (finished.length === 0) return;
+  const existing = (await api(`/issues?state=all&per_page=100`)).map((i) => i.title);
+  for (const m of finished) {
+    const title = `${REVIEW_PREFIX} ${m.key} finished: please review acceptance`;
+    if (existing.includes(title)) continue;
+    await api(`/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        body: [
+          `@${owner} the autopilot finished **${m.key}: ${m.name}** and has moved on to the next milestone.`,
+          ``,
+          `Please check these acceptance criteria when you can:`,
+          ...m.acceptance.map((a) => `- [ ] ${a}`),
+          ``,
+          `Work is on the \`autopilot\` branch: https://github.com/${repo}/compare/main...autopilot`,
+          `If something is wrong, Run workflow → **pause**, then tell Claude what to fix. Close this issue when reviewed.`,
+        ].join("\n"),
+      }),
+    });
+  }
 }
 
 /** Human controls, run from the Actions tab ("Run workflow"). */
