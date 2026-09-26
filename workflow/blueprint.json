@@ -391,7 +391,7 @@
           "title": "Migration: job notes and billable opportunities",
           "description": "job_notes and billable_opportunities (job_id, description, quantity, unit, status open|approved|dismissed, evidence). Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 6,

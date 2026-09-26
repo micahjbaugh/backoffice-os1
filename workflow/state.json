@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
-  "current_task_index": 5,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T05 done. Added supabase/migrations/0009_job_notes_billable_opportunities.sql: job_notes (organization_id, job_id, body, source_communication_id, confidence jsonb, evidence jsonb) with same-org FKs to jobs and communications, staff-only RLS (owner/office_admin/manager), updated_at + audit trigger ('job_note'); billable_opportunities (organization_id, job_id, description, quantity, unit, status open|approved|dismissed default open, source_communication_id, confidence jsonb, evidence jsonb) with same-org FKs, staff-only RLS, updated_at + audit trigger ('billable_opportunity'). job_notes has no approval status since creating a note is a GREEN/informational action; billable_opportunities carries the open/approved/dismissed workflow per the task spec since it feeds M4 invoicing. Added packages/core/test/job-notes-billable-opportunity-isolation.test.ts (26 tests, table-driven like the M3-T04 suite): cross-org read/write denial, role restriction (field employee/accountant/outsider/anon), same-org FK isolation for job_id and source_communication_id, and audit logging on create/update. pnpm lint, typecheck and test all pass (packages/core: 244 passed | 7 skipped, including the new 26). No files outside this task's two new files were touched. Next: M3-T06 'Draft record services' (validated services to create draft time entries, equipment usage, material usage and job notes; idempotent on (source_communication_id, fact key); event + audit) — note billable_opportunities is created later by scope-change detection (M3-T15), not by M3-T06.",
+  "current_task_index": 6,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Migration adds job_notes and billable_opportunities with org_id, same-org FKs, RLS (owner/office_admin/manager), audit triggers, and indexes. Tests comprehensively cover cross-tenant read/write denial, role restrictions, same-org FK isolation, and audit logging, and all pass. Scope stays within task; no authorization gaps or isolation leaks found.. M3-T05 is done. Next: M3-T06 \"Draft record services\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "d583fa56a7f20a0a731e160208cbbe1dd80c96be",
-  "updated_at": "2026-09-26T21:33:08.006Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T21:33:57.619Z",
   "last_error": "",
   "consecutive_failures": 0
 }
