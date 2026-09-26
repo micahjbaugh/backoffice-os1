@@ -515,4 +515,12 @@ if (!command) {
   console.error(`usage: autopilot.mjs <${Object.keys(commands).join("|")}>`);
   process.exit(2);
 }
-await command();
+try {
+  await command();
+} catch (error) {
+  // Surface the reason as a GitHub annotation (visible on the run page) instead of a bare exit code.
+  // Messages never include secrets: API errors echo the provider's response body, not the key.
+  const message = String(error?.message ?? error).replace(/\s+/g, " ").slice(0, 900);
+  console.log(`::error title=autopilot ${process.argv[2]} failed::${message}`);
+  process.exit(1);
+}
