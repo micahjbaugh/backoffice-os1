@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 15,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T15 (SMS adapter (Twilio)) done in one step. Added packages/integrations/src/adapters/twilio-sms-provider.ts: TwilioSmsProvider implements SmsProvider using the global fetch (no vendor SDK) against the Twilio REST Messages endpoint with Basic auth; sendSMS caches results by (organizationId, idempotencyKey) so retries don't double-send, maps Twilio message statuses to the domain's queued/sent/delivered/failed, and throws on non-2xx responses; verifyWebhookSignature implements Twilio's real HMAC-SHA1(authToken, webhookUrl + sorted param pairs) base64 scheme with a fail-closed, constant-time comparison; ingestWebhook normalizes MessageSid/SmsSid into ProviderSmsWebhookEvent. Exported the adapter from packages/integrations/src/index.ts (1-line addition). Added packages/integrations/test/twilio-sms-provider.test.ts (22 assertions total across the package) covering: correct request shape/auth/body, status mapping, idempotent send (no second fetch call), cross-org idempotency-key distinction, non-2xx error handling, valid/tampered/missing-header signature verification, and webhook ingestion incl. missing-identifier error. No DB/tables touched (adapter-only, no RLS needed) and no authorization logic added here (kept out of the adapter per rule 4; auth stays in domain services). Nothing outside packages/integrations changed - apps/web/src/server/providers.ts still wires FakeSmsProvider and was intentionally left alone since wiring the real adapter into app code is not part of this task's scope. pnpm lint/typecheck/test all pass at the repo root. Next: M2-T16 \"Voice adapter (Vapi)\" - mirror this same pattern (adapter class + mocked-fetch tests) for VoiceProvider.",
+  "current_task_index": 16,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The Twilio SMS adapter is confined to packages/integrations, uses fetch with Basic auth against the Messages API, maps Twilio statuses to domain statuses, implements idempotency keyed by organizationId + idempotencyKey, and fail-closed signature verification with constant-time compare. Webhook ingestion normalizes payload and validates identifier. Tests cover request shape/auth/body, status mapping, idempotency (including cross-org), non-2xx handling, signature verification (valid/tampered/missing), and webhook ingestion. No multi-tenant or auth leaks, no secrets exposed, and only integration adapter code was touched. Nice job. Potential future enhancement (non-blocking): consider mapping additional Twilio statuses (scheduled/canceled/receiving) as needed by domain semantics.. M2-T15 is done. Next: M2-T16 \"Voice adapter (Vapi)\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "b268f549b16ed130daccc4b30e2916d37f72ee1b",
-  "updated_at": "2026-09-26T17:32:13.622Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T17:32:53.609Z",
   "last_error": "",
   "consecutive_failures": 0
 }
