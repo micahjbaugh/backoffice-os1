@@ -231,7 +231,7 @@
           "title": "Tenant isolation tests for new tables",
           "description": "Org A cannot read/write org B communications, calls, messages, leads.",
           "done_when": "New isolation tests pass.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 6,
