@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
-  "current_task_index": 1,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T01 implemented. New file packages/core/src/services/employee-identity.ts: resolveEmployeeByPhone(ctx, rawPhone) uses normalizeToE164 (M3-T00) to match an inbound number against active employees.phone within ctx.organizationId. Exactly one match -> {status:'matched', employee}. Unparseable number or zero matches -> creates a 'missing_data' ops case, returns {status:'unknown', opsCase}. More than one active employee sharing a number -> creates a 'low_confidence' ops case, returns {status:'ambiguous', candidates, opsCase}. Requires employee.read authorization; reuses createOpsCase (already audited+evented) for the ops-case path. Exported from packages/core/src/index.ts (one-line addition). New tests in packages/core/test/employee-identity.test.ts cover: match regardless of formatting, tenant isolation (same number in org B never matches), unparseable input, no active match, a deactivated employee's number treated as unknown (not matched), and ambiguous with two active employees sharing a line. pnpm lint/typecheck/test all pass (core: 164 passed | 7 skipped). No new tables/migrations in this step, so no RLS changes needed. Next: M3-T02 'Migration: equipment registry'.",
+  "current_task_index": 2,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The service scopes by organization_id, authorizes employee.read, and defers ops-case creation to createOpsCase (audited/evented). Unknown/unparseable and ambiguous paths open ops cases per spec. Tests cover match, no-match, ambiguous, tenant isolation, formatting variance, and inactive employees. Minor, non-blocking suggestions: (1) consider storing/using a normalized phone in DB or filtering at SQL level to avoid scanning all active employees in-org; (2) consider dedup/idempotency keys for ops case creation to avoid duplicate cases on repeated calls for the same input, depending on how this is invoked in workflows.. M3-T01 is done. Next: M3-T02 \"Migration: equipment registry\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "9a7768365e2efb2454ab34ad9700d69e287022dd",
-  "updated_at": "2026-09-26T18:59:10.796Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T18:59:51.874Z",
   "last_error": "",
   "consecutive_failures": 0
 }
