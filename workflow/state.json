@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 13,
-  "status": "CHANGES_REQUESTED",
+  "status": "AWAITING_REVIEW",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Attempt 1 was sent back. Fix review_notes, then resubmit.",
+  "handoff_instructions": "M2-T13 (Transfer tool) complete. Added packages/core/src/services/transfer.ts: transferCall(ctx, provider, input) — authorizes communication.write, loads the in-progress voice call for the communication (policy check: must be channel=voice, status=in_progress, with a provider_call_id), verifies the destination employee is in the same org and has a phone on file, calls provider.transferCall(...) (a locally-declared TransferCallProvider interface structurally matching @backoffice/integrations' VoiceProvider.transferCall, so core stays provider-independent per CLAUDE.md rules 9-10), then records a communication.transferred business event and a communication.transfer_requested audit entry. Idempotent per (organization_id, idempotency_key) via the event's idempotency key. New domain/schemas.ts `transferCallInput` (+ TRANSFER_REASONS in domain/types.ts, `communicationTransferred` in domain/events.ts). Exported from packages/core/src/index.ts. Added @backoffice/integrations as a core devDependency (ran pnpm install --no-frozen-lockfile to update pnpm-lock.yaml) so packages/core/test/transfer.test.ts can drive the real FakeVoiceProvider end-to-end. Test file covers: happy-path transfer with event+audit, idempotent retry, rejecting a non-transferable (not in-progress/no active call) communication, rejecting a cross-org employee target, rejecting an employee with no phone (ConflictError), and denying an actor without communication.write (field employee). Root pnpm lint/typecheck/test all pass (154 core tests incl. 7 new, 26 domain, 12 integrations, 9 agents, 16 web). Nothing outside this task was touched (no migrations, no agents/apps/web wiring — the receptionist's existing request_transfer tool contract in packages/agents is unchanged; a future task will need to dispatch that agent request into this new transferCall domain tool, resolving the destination employee and idempotency key server-side). Next: M2-T14 (call disposition on call-ended webhook).",
   "attempts": 1,
   "review_notes": "Referee rejected the step and discarded it: run ended without a valid workflow/state.json update (likely out of turns). Take a smaller step.",
-  "review_base": null,
-  "updated_at": "2026-09-26T15:54:09.139Z",
+  "review_base": "1dcaf71a302d1ac7059a2040d8c954d551e75f86",
+  "updated_at": "2026-09-26T16:38:47.215Z",
   "last_error": "",
   "consecutive_failures": 0
 }

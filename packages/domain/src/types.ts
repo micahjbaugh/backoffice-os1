@@ -288,6 +288,14 @@ export type CommunicationDirection = (typeof COMMUNICATION_DIRECTIONS)[number];
 export const COMMUNICATION_STATUSES = ["in_progress", "completed", "failed", "abandoned"] as const;
 export type CommunicationStatus = (typeof COMMUNICATION_STATUSES)[number];
 
+export const TRANSFER_REASONS = [
+  "caller_requested_human",
+  "uncertain_intake",
+  "outside_permitted_topics",
+  "provider_failure",
+] as const;
+export type TransferReason = (typeof TRANSFER_REASONS)[number];
+
 export const COMMUNICATION_PARTICIPANT_ROLES = [
   "customer",
   "employee",

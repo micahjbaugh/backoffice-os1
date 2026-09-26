@@ -19,6 +19,7 @@ export const EVENT_TYPES = {
   documentRegistered: "document.registered",
   communicationRecorded: "communication.recorded",
   communicationUpdated: "communication.updated",
+  communicationTransferred: "communication.transferred",
   leadCreated: "lead.created",
 } as const;
 

@@ -16,6 +16,7 @@ import {
   OPS_CASE_STATUSES,
   PRIORITIES,
   TASK_STATUSES,
+  TRANSFER_REASONS,
 } from "./types";
 
 const uuid = z.uuid();
@@ -290,6 +291,15 @@ export const updateCommunicationSummaryInput = z.object({
   structuredExtraction: jsonObject.optional(),
 });
 
+/** Warm-transfer a voice call to an in-org employee, routed through VoiceProvider.transferCall. */
+export const transferCallInput = z.object({
+  communicationId: uuid,
+  toEmployeeId: uuid,
+  reason: z.enum(TRANSFER_REASONS),
+  note: optionalText(500),
+  idempotencyKey: z.string().trim().min(8).max(200),
+});
+
 /** Parse `input` with `schema`, converting failures into a domain ValidationError. */
 export function parseInput<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
   const result = schema.safeParse(input);
@@ -324,3 +334,4 @@ export type RecordCallInput = z.input<typeof recordCallInput>;
 export type RecordMessageInput = z.input<typeof recordMessageInput>;
 export type UpdateCommunicationSummaryInput = z.input<typeof updateCommunicationSummaryInput>;
 export type CreateLeadInput = z.input<typeof createLeadInput>;
+export type TransferCallInput = z.input<typeof transferCallInput>;

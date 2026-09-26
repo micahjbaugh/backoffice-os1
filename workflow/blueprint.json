@@ -295,7 +295,7 @@
           "title": "Transfer tool",
           "description": "Warm transfer tool routed through VoiceProvider.transferCall with policy check and audit.",
           "done_when": "Fake-adapter transfer test passes.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 14,
