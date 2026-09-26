@@ -311,7 +311,7 @@
           "title": "SMS adapter (Twilio)",
           "description": "Twilio SmsProvider adapter inside packages/integrations only.",
           "done_when": "Adapter tests pass against mocked HTTP.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 16,
