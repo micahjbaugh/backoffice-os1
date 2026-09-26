@@ -5,6 +5,9 @@ import { z } from "zod";
 import { ValidationError } from "./errors";
 import { MEMBERSHIP_ROLES } from "./roles";
 import {
+  COMMUNICATION_DIRECTIONS,
+  COMMUNICATION_PARTICIPANT_ROLES,
+  COMMUNICATION_STATUSES,
   DOCUMENT_CLASSIFICATIONS,
   ENTITY_TYPES,
   JOB_STATUSES,
@@ -210,6 +213,58 @@ export const registerDocumentInput = z
   })
   .superRefine(refineEntityRef);
 
+const communicationParticipantInput = z.object({
+  role: z.enum(COMMUNICATION_PARTICIPANT_ROLES).default("unknown"),
+  customerId: uuid.optional(),
+  employeeId: uuid.optional(),
+  vendorId: uuid.optional(),
+  phone: optionalPhone,
+  email: optionalEmail,
+  displayName: optionalText(200),
+});
+
+const communicationEnvelope = {
+  direction: z.enum(COMMUNICATION_DIRECTIONS),
+  provider: z.string().trim().min(1).max(64),
+  providerConversationId: z.string().trim().min(1).max(200),
+  status: z.enum(COMMUNICATION_STATUSES).default("in_progress"),
+  startedAt: isoDateTime.optional(),
+  endedAt: isoDateTime.optional(),
+  summary: optionalText(4000),
+  transcript: optionalText(50000),
+  participants: z.array(communicationParticipantInput).max(20).default([]),
+};
+
+export const recordCallInput = z.object({
+  ...communicationEnvelope,
+  providerCallId: optionalText(200),
+  fromNumber: optionalPhone,
+  toNumber: optionalPhone,
+  durationSeconds: z.number().int().nonnegative().optional(),
+  recordingUrl: optionalText(2048),
+  disposition: optionalText(64),
+  voicemail: z.boolean().default(false),
+});
+
+export const recordMessageInput = z.object({
+  ...communicationEnvelope,
+  channel: z.enum(["sms", "email"]).default("sms"),
+  providerMessageId: optionalText(200),
+  fromAddress: optionalText(320),
+  toAddress: optionalText(320),
+  body: optionalText(4000),
+  mediaUrls: z.array(z.string().trim().max(2048)).max(20).default([]),
+});
+
+export const updateCommunicationSummaryInput = z.object({
+  communicationId: uuid,
+  status: z.enum(COMMUNICATION_STATUSES).optional(),
+  endedAt: isoDateTime.optional(),
+  summary: optionalText(4000),
+  transcript: optionalText(50000),
+  structuredExtraction: jsonObject.optional(),
+});
+
 /** Parse `input` with `schema`, converting failures into a domain ValidationError. */
 export function parseInput<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
   const result = schema.safeParse(input);
@@ -239,3 +294,6 @@ export type UpdateOpsCaseInput = z.input<typeof updateOpsCaseInput>;
 export type GrantOperatorAccessInput = z.input<typeof grantOperatorAccessInput>;
 export type CreateApprovalRuleInput = z.input<typeof createApprovalRuleInput>;
 export type RegisterDocumentInput = z.input<typeof registerDocumentInput>;
+export type RecordCallInput = z.input<typeof recordCallInput>;
+export type RecordMessageInput = z.input<typeof recordMessageInput>;
+export type UpdateCommunicationSummaryInput = z.input<typeof updateCommunicationSummaryInput>;

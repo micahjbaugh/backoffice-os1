@@ -6,11 +6,15 @@ import type {
   AuditLogEntry,
   BusinessEvent,
   BusinessRule,
+  Call,
+  Communication,
+  CommunicationParticipant,
   Customer,
   DocumentMetadata,
   Employee,
   Job,
   Membership,
+  Message,
   Note,
   OperatorGrant,
   OpsCase,
@@ -50,6 +54,12 @@ function strOrNull(value: unknown): string | null {
 function obj(value: unknown): Record<string, unknown> {
   if (typeof value === "string") return JSON.parse(value) as Record<string, unknown>;
   return (value ?? {}) as Record<string, unknown>;
+}
+
+function strArray(value: unknown): string[] {
+  const parsed = typeof value === "string" ? JSON.parse(value) : value ?? [];
+  if (!Array.isArray(parsed)) throw new TypeError(`expected array, got ${typeof parsed}`);
+  return parsed.map(str);
 }
 
 export const toOrganization = (r: Row): Organization => ({
@@ -239,6 +249,63 @@ export const toNote = (r: Row): Note => ({
   body: str(r.body),
   authorActorType: str(r.author_actor_type) as Note["authorActorType"],
   authorUserId: strOrNull(r.author_user_id),
+  createdAt: iso(r.created_at),
+});
+
+export const toCommunication = (r: Row): Communication => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  channel: str(r.channel) as Communication["channel"],
+  direction: str(r.direction) as Communication["direction"],
+  status: str(r.status) as Communication["status"],
+  provider: strOrNull(r.provider),
+  providerConversationId: strOrNull(r.provider_conversation_id),
+  startedAt: iso(r.started_at),
+  endedAt: isoOrNull(r.ended_at),
+  summary: strOrNull(r.summary),
+  transcript: strOrNull(r.transcript),
+  structuredExtraction: obj(r.structured_extraction),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toCall = (r: Row): Call => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  communicationId: str(r.communication_id),
+  providerCallId: strOrNull(r.provider_call_id),
+  fromNumber: strOrNull(r.from_number),
+  toNumber: strOrNull(r.to_number),
+  durationSeconds: numOrNull(r.duration_seconds),
+  recordingUrl: strOrNull(r.recording_url),
+  disposition: strOrNull(r.disposition),
+  voicemail: Boolean(r.voicemail),
+  createdAt: iso(r.created_at),
+});
+
+export const toMessage = (r: Row): Message => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  communicationId: str(r.communication_id),
+  providerMessageId: strOrNull(r.provider_message_id),
+  fromAddress: strOrNull(r.from_address),
+  toAddress: strOrNull(r.to_address),
+  body: strOrNull(r.body),
+  mediaUrls: strArray(r.media_urls),
+  createdAt: iso(r.created_at),
+});
+
+export const toCommunicationParticipant = (r: Row): CommunicationParticipant => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  communicationId: str(r.communication_id),
+  role: str(r.role) as CommunicationParticipant["role"],
+  customerId: strOrNull(r.customer_id),
+  employeeId: strOrNull(r.employee_id),
+  vendorId: strOrNull(r.vendor_id),
+  phone: strOrNull(r.phone),
+  email: strOrNull(r.email),
+  displayName: strOrNull(r.display_name),
   createdAt: iso(r.created_at),
 });
 

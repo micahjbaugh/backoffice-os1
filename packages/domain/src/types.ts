@@ -277,3 +277,75 @@ export interface InternalStaff {
   role: InternalStaffRole;
   active: boolean;
 }
+
+export const COMMUNICATION_CHANNELS = ["voice", "sms", "email"] as const;
+export type CommunicationChannel = (typeof COMMUNICATION_CHANNELS)[number];
+
+export const COMMUNICATION_DIRECTIONS = ["inbound", "outbound"] as const;
+export type CommunicationDirection = (typeof COMMUNICATION_DIRECTIONS)[number];
+
+export const COMMUNICATION_STATUSES = ["in_progress", "completed", "failed", "abandoned"] as const;
+export type CommunicationStatus = (typeof COMMUNICATION_STATUSES)[number];
+
+export const COMMUNICATION_PARTICIPANT_ROLES = [
+  "customer",
+  "employee",
+  "vendor",
+  "agent",
+  "unknown",
+] as const;
+export type CommunicationParticipantRole = (typeof COMMUNICATION_PARTICIPANT_ROLES)[number];
+
+export interface Communication extends TenantEntity {
+  channel: CommunicationChannel;
+  direction: CommunicationDirection;
+  status: CommunicationStatus;
+  provider: string | null;
+  providerConversationId: string | null;
+  startedAt: string;
+  endedAt: string | null;
+  summary: string | null;
+  transcript: string | null;
+  structuredExtraction: Record<string, unknown>;
+  updatedAt: string;
+}
+
+export interface Call {
+  id: UUID;
+  organizationId: UUID;
+  communicationId: UUID;
+  providerCallId: string | null;
+  fromNumber: string | null;
+  toNumber: string | null;
+  durationSeconds: number | null;
+  recordingUrl: string | null;
+  disposition: string | null;
+  voicemail: boolean;
+  createdAt: string;
+}
+
+export interface Message {
+  id: UUID;
+  organizationId: UUID;
+  communicationId: UUID;
+  providerMessageId: string | null;
+  fromAddress: string | null;
+  toAddress: string | null;
+  body: string | null;
+  mediaUrls: string[];
+  createdAt: string;
+}
+
+export interface CommunicationParticipant {
+  id: UUID;
+  organizationId: UUID;
+  communicationId: UUID;
+  role: CommunicationParticipantRole;
+  customerId: UUID | null;
+  employeeId: UUID | null;
+  vendorId: UUID | null;
+  phone: string | null;
+  email: string | null;
+  displayName: string | null;
+  createdAt: string;
+}

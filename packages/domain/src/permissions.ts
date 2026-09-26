@@ -34,6 +34,8 @@ export const PERMISSIONS = [
   "operator_grant.manage",
   "document.read",
   "document.write",
+  "communication.read",
+  "communication.write",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -64,6 +66,7 @@ const STAFF_READ: readonly Permission[] = [
   "event.read",
   "ops_case.read",
   "document.read",
+  "communication.read",
 ];
 
 export const ROLE_PERMISSIONS: Readonly<Record<MembershipRole, ReadonlySet<Permission>>> = {
@@ -97,6 +100,7 @@ const AUTOMATED_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   "approval.request",
   "note.add",
   "ops_case.create",
+  "communication.write",
 ]);
 
 /** Trusted server components (e.g. seeding, background workflows) get the green set plus reads. */

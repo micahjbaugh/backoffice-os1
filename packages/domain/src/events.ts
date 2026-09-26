@@ -17,6 +17,8 @@ export const EVENT_TYPES = {
   opsCaseCreated: "ops_case.created",
   opsCaseUpdated: "ops_case.updated",
   documentRegistered: "document.registered",
+  communicationRecorded: "communication.recorded",
+  communicationUpdated: "communication.updated",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
