@@ -70,7 +70,9 @@ export class TwilioSmsProvider implements SmsProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Twilio send failed with status ${response.status}: ${await response.text()}`);
+      throw new Error(
+        `Twilio send failed with status ${response.status}: ${await response.text()}`,
+      );
     }
 
     const payload = (await response.json()) as TwilioSendMessageResponse;
@@ -92,8 +94,7 @@ export class TwilioSmsProvider implements SmsProvider {
 
     const params = new URLSearchParams(rawBody);
     const sortedKeys = Array.from(new Set(params.keys())).sort();
-    const data =
-      this.config.webhookUrl + sortedKeys.map((k) => `${k}${params.get(k)}`).join("");
+    const data = this.config.webhookUrl + sortedKeys.map((k) => `${k}${params.get(k)}`).join("");
     const expected = createHmac("sha1", this.config.authToken).update(data).digest("base64");
 
     const expectedBuffer = Buffer.from(expected);

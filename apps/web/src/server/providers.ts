@@ -1,6 +1,11 @@
 import "server-only";
 
-import { FakeSmsProvider, FakeVoiceProvider, type SmsProvider, type VoiceProvider } from "@backoffice/integrations";
+import {
+  FakeSmsProvider,
+  FakeVoiceProvider,
+  type SmsProvider,
+  type VoiceProvider,
+} from "@backoffice/integrations";
 
 // Real provider adapters (Twilio, Vapi, ...) are wired behind these accessors in a later M2 task.
 // Fakes keep the webhook route runnable end-to-end today; provider SDKs stay out of app code

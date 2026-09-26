@@ -5,7 +5,12 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ForbiddenError, NotFoundError } from "@backoffice/domain";
 import { createDraftEquipmentUsage } from "../src";
 import { inOrg, userActor } from "./helpers/db";
-import { eventCount, fieldCapture, seedCommunicationId, seedEquipment } from "./helpers/draft-facts";
+import {
+  eventCount,
+  fieldCapture,
+  seedCommunicationId,
+  seedEquipment,
+} from "./helpers/draft-facts";
 import { createWorld, type World } from "./helpers/fixtures";
 
 let w: World;
@@ -29,8 +34,12 @@ describe("createDraftEquipmentUsage", () => {
       sourceCommunicationId: communicationId,
       factKey: "equipment:0",
     };
-    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftEquipmentUsage(ctx, input));
-    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftEquipmentUsage(ctx, input));
+    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftEquipmentUsage(ctx, input),
+    );
+    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftEquipmentUsage(ctx, input),
+    );
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
     expect(second.equipmentUsage.id).toBe(first.equipmentUsage.id);

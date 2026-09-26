@@ -74,18 +74,30 @@ describe("TwilioSmsProvider.sendSMS", () => {
       .mockResolvedValueOnce(jsonResponse({ sid: "SM-org-b", status: "queued" }));
     const provider = new TwilioSmsProvider({ ...CONFIG, fetchFn });
 
-    const orgA = await provider.sendSMS({ ...baseRequest, organizationId: "org-a", idempotencyKey: "same-key" });
-    const orgB = await provider.sendSMS({ ...baseRequest, organizationId: "org-b", idempotencyKey: "same-key" });
+    const orgA = await provider.sendSMS({
+      ...baseRequest,
+      organizationId: "org-a",
+      idempotencyKey: "same-key",
+    });
+    const orgB = await provider.sendSMS({
+      ...baseRequest,
+      organizationId: "org-b",
+      idempotencyKey: "same-key",
+    });
 
     expect(orgA.providerMessageId).not.toBe(orgB.providerMessageId);
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it("throws when Twilio responds with a non-2xx status", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ message: "invalid number" }, false, 400));
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ message: "invalid number" }, false, 400));
     const provider = new TwilioSmsProvider({ ...CONFIG, fetchFn });
 
-    await expect(provider.sendSMS(baseRequest)).rejects.toThrow(/Twilio send failed with status 400/);
+    await expect(provider.sendSMS(baseRequest)).rejects.toThrow(
+      /Twilio send failed with status 400/,
+    );
   });
 });
 
@@ -136,6 +148,8 @@ describe("TwilioSmsProvider.ingestWebhook", () => {
 
   it("throws when the payload has no message identifier", async () => {
     const provider = new TwilioSmsProvider(CONFIG);
-    await expect(provider.ingestWebhook({ MessageStatus: "delivered" })).rejects.toThrow(/MessageSid/);
+    await expect(provider.ingestWebhook({ MessageStatus: "delivered" })).rejects.toThrow(
+      /MessageSid/,
+    );
   });
 });

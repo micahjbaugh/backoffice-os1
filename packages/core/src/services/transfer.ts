@@ -118,5 +118,9 @@ export async function transferCall(
     },
   });
 
-  return { status: result.status, providerCallId: result.providerCallId, toEmployeeId: employee.id };
+  return {
+    status: result.status,
+    providerCallId: result.providerCallId,
+    toEmployeeId: employee.id,
+  };
 }

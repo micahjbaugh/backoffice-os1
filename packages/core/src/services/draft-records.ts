@@ -60,7 +60,12 @@ export async function createDraftTimeEntry(
   );
 
   if (!rows[0]) {
-    const existing = await findFactKeyRow(ctx, "public.time_entries", data.sourceCommunicationId, data.factKey);
+    const existing = await findFactKeyRow(
+      ctx,
+      "public.time_entries",
+      data.sourceCommunicationId,
+      data.factKey,
+    );
     if (!existing) throw new Error("time entry idempotency conflict without existing row");
     return { timeEntry: toTimeEntry(existing), created: false };
   }

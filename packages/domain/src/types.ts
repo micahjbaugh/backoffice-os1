@@ -369,7 +369,15 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
-export const LEAD_SOURCES = ["voice", "sms", "email", "web_form", "referral", "manual", "other"] as const;
+export const LEAD_SOURCES = [
+  "voice",
+  "sms",
+  "email",
+  "web_form",
+  "referral",
+  "manual",
+  "other",
+] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 
 export interface Lead extends TenantEntity {

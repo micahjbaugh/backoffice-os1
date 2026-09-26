@@ -115,9 +115,7 @@ describe("tenant isolation", () => {
     await expect(
       rawAsUser(w.pg, w.orgA.owner, `select * from public.webhook_receipts`),
     ).rejects.toThrow();
-    await expect(
-      rawAsUser(w.pg, null, `select * from public.webhook_receipts`),
-    ).rejects.toThrow();
+    await expect(rawAsUser(w.pg, null, `select * from public.webhook_receipts`)).rejects.toThrow();
     await expect(
       rawAsUser(
         w.pg,

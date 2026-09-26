@@ -78,7 +78,7 @@ function obj(value: unknown): Record<string, unknown> {
 }
 
 function strArray(value: unknown): string[] {
-  const parsed = typeof value === "string" ? JSON.parse(value) : value ?? [];
+  const parsed = typeof value === "string" ? JSON.parse(value) : (value ?? []);
   if (!Array.isArray(parsed)) throw new TypeError(`expected array, got ${typeof parsed}`);
   return parsed.map(str);
 }

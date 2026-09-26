@@ -63,7 +63,12 @@ export async function recordWebhookReceipt(
      values ($1, $2, $3, $4)
      on conflict (provider, provider_event_id) do nothing
      returning *`,
-    [input.provider, input.providerEventId, input.organizationId ?? null, input.payloadHash ?? null],
+    [
+      input.provider,
+      input.providerEventId,
+      input.organizationId ?? null,
+      input.payloadHash ?? null,
+    ],
   );
   if (rows[0]) return { receipt: toWebhookReceipt(rows[0]), duplicate: false };
 

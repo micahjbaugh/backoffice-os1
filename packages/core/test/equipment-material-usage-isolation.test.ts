@@ -85,9 +85,12 @@ describe.each(cases)("M3-T04: $table tenant isolation", (cfg) => {
   });
 
   it("org A cannot fetch org B's row by id", async () => {
-    const { rows } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.${cfg.table} where id = $1`, [
-      cfg.idOf(seedB),
-    ]);
+    const { rows } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.${cfg.table} where id = $1`,
+      [cfg.idOf(seedB)],
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -103,9 +106,12 @@ describe.each(cases)("M3-T04: $table tenant isolation", (cfg) => {
 
   it("field employees, accountants, and outsiders cannot read rows", async () => {
     for (const user of [w.orgA.fieldEmployee, w.orgA.accountant, w.outsider]) {
-      const { rows } = await rawAsUser(w.pg, user, `select * from public.${cfg.table} where id = $1`, [
-        cfg.idOf(seedA),
-      ]);
+      const { rows } = await rawAsUser(
+        w.pg,
+        user,
+        `select * from public.${cfg.table} where id = $1`,
+        [cfg.idOf(seedA)],
+      );
       expect(rows).toHaveLength(0);
     }
   });
@@ -118,7 +124,12 @@ describe.each(cases)("M3-T04: $table tenant isolation", (cfg) => {
 
   it("RLS rejects inserting a row into org B", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, cfg.insertSql, cfg.insertParams(w.orgB.id, w.orgB.job.id, seedB)),
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        cfg.insertSql,
+        cfg.insertParams(w.orgB.id, w.orgB.job.id, seedB),
+      ),
     ).rejects.toThrow(/row-level security/);
   });
 
@@ -138,9 +149,12 @@ describe.each(cases)("M3-T04: $table tenant isolation", (cfg) => {
       [cfg.idOf(seedB)],
     );
     expect(updated.rowCount).toBe(0);
-    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.${cfg.table} where id = $1`, [
-      cfg.idOf(seedB),
-    ]);
+    const deleted = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `delete from public.${cfg.table} where id = $1`,
+      [cfg.idOf(seedB)],
+    );
     expect(deleted.rowCount).toBe(0);
 
     const { rows } = await w.pg.query<{ status: string }>(
@@ -152,10 +166,12 @@ describe.each(cases)("M3-T04: $table tenant isolation", (cfg) => {
 
   it("RLS rejects moving a row into org B", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, `update public.${cfg.table} set organization_id = $2 where id = $1`, [
-        cfg.idOf(seedA),
-        w.orgB.id,
-      ]),
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        `update public.${cfg.table} set organization_id = $2 where id = $1`,
+        [cfg.idOf(seedA), w.orgB.id],
+      ),
     ).rejects.toThrow(/row-level security/);
   });
 

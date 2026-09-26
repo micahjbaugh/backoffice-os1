@@ -28,8 +28,12 @@ describe("createDraftMaterialUsage", () => {
       sourceCommunicationId: communicationId,
       factKey: "material:0",
     };
-    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftMaterialUsage(ctx, input));
-    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftMaterialUsage(ctx, input));
+    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftMaterialUsage(ctx, input),
+    );
+    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftMaterialUsage(ctx, input),
+    );
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
     expect(second.materialUsage.id).toBe(first.materialUsage.id);

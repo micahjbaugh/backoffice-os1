@@ -33,9 +33,11 @@ async function openVoiceCall(orgId: string) {
 }
 
 const recordedEvents = (id: string) =>
-  count(w.pg, `select 1 from public.business_events where type = 'communication.transferred' and entity_id = $1`, [
-    id,
-  ]);
+  count(
+    w.pg,
+    `select 1 from public.business_events where type = 'communication.transferred' and entity_id = $1`,
+    [id],
+  );
 
 describe("transferCall", () => {
   it("routes an in-progress call through VoiceProvider.transferCall and records an event and audit", async () => {
@@ -58,9 +60,11 @@ describe("transferCall", () => {
     expect(result.toEmployeeId).toBe(employee.id);
     expect(await recordedEvents(communication.id)).toBe(1);
     expect(
-      await count(w.pg, `select 1 from public.audit_log where action = 'communication.transfer_requested' and entity_id = $1`, [
-        communication.id,
-      ]),
+      await count(
+        w.pg,
+        `select 1 from public.audit_log where action = 'communication.transfer_requested' and entity_id = $1`,
+        [communication.id],
+      ),
     ).toBe(1);
   });
 

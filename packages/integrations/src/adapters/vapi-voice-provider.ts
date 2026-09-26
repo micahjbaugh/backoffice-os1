@@ -98,7 +98,9 @@ export class VapiVoiceProvider implements VoiceProvider {
     });
 
     if (!response.ok) {
-      throw new Error(`Vapi call creation failed with status ${response.status}: ${await response.text()}`);
+      throw new Error(
+        `Vapi call creation failed with status ${response.status}: ${await response.text()}`,
+      );
     }
 
     const payload = (await response.json()) as VapiCallResponse;
@@ -118,11 +120,16 @@ export class VapiVoiceProvider implements VoiceProvider {
     const response = await this.fetchFn(`${this.baseUrl}/call/${request.providerCallId}/control`, {
       method: "POST",
       headers: this.authHeaders(),
-      body: JSON.stringify({ type: "transfer", destination: { type: "number", number: request.toNumber } }),
+      body: JSON.stringify({
+        type: "transfer",
+        destination: { type: "number", number: request.toNumber },
+      }),
     });
 
     if (!response.ok) {
-      throw new Error(`Vapi call transfer failed with status ${response.status}: ${await response.text()}`);
+      throw new Error(
+        `Vapi call transfer failed with status ${response.status}: ${await response.text()}`,
+      );
     }
 
     const payload = (await response.json()) as VapiCallResponse;

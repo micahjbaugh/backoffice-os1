@@ -11,7 +11,11 @@ export const fieldCapture: Actor = { type: "agent", name: "field-capture-test" }
 /** A communication id in `orgId` to use as a draft's source_communication_id. */
 export async function seedCommunicationId(w: World, orgId: string): Promise<string> {
   const { communication } = await inOrg(w.db, fieldCapture, orgId, (ctx) =>
-    recordMessage(ctx, { direction: "inbound", provider: "twilio", providerConversationId: `sms-${randomUUID()}` }),
+    recordMessage(ctx, {
+      direction: "inbound",
+      provider: "twilio",
+      providerConversationId: `sms-${randomUUID()}`,
+    }),
   );
   return communication.id;
 }
@@ -34,7 +38,10 @@ export async function seedEquipment(w: World, orgId: string): Promise<string> {
 }
 
 export const eventCount = (w: World, type: string, id: string): Promise<number> =>
-  count(w.pg, `select 1 from public.business_events where type = $1 and entity_id = $2`, [type, id]);
+  count(w.pg, `select 1 from public.business_events where type = $1 and entity_id = $2`, [
+    type,
+    id,
+  ]);
 
 export const auditCount = (w: World, action: string, id: string): Promise<number> =>
   count(w.pg, `select 1 from public.audit_log where action = $1 and entity_id = $2`, [action, id]);
@@ -45,7 +52,8 @@ export const factRowCount = (
   communicationId: string,
   factKey: string,
 ): Promise<number> =>
-  count(w.pg, `select 1 from public.${table} where source_communication_id = $1 and fact_key = $2`, [
-    communicationId,
-    factKey,
-  ]);
+  count(
+    w.pg,
+    `select 1 from public.${table} where source_communication_id = $1 and fact_key = $2`,
+    [communicationId, factKey],
+  );

@@ -70,7 +70,12 @@ export async function recordCallDisposition(
         set disposition = $2, duration_seconds = coalesce($3, duration_seconds),
             recording_url = coalesce($4, recording_url)
       where communication_id = $1 returning *`,
-    [data.communicationId, data.disposition, data.durationSeconds ?? null, data.recordingUrl ?? null],
+    [
+      data.communicationId,
+      data.disposition,
+      data.durationSeconds ?? null,
+      data.recordingUrl ?? null,
+    ],
   );
   const { rows: updatedCommRows } = await ctx.tx.asService<Row>(
     `update public.communications

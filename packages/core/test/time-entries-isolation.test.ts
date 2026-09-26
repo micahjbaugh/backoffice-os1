@@ -19,8 +19,11 @@ let seedA: Seed;
 let seedB: Seed;
 
 async function seedTimeEntry(w: World, orgId: string, jobId: string): Promise<Seed> {
-  const employee = await inOrg(w.db, { type: "user", userId: (orgId === w.orgA.id ? w.orgA.owner : w.orgB.owner) }, orgId, (ctx) =>
-    createEmployee(ctx, { displayName: "Jake Tyler", phone: "415-555-0142" }),
+  const employee = await inOrg(
+    w.db,
+    { type: "user", userId: orgId === w.orgA.id ? w.orgA.owner : w.orgB.owner },
+    orgId,
+    (ctx) => createEmployee(ctx, { displayName: "Jake Tyler", phone: "415-555-0142" }),
   );
   const { rows } = await w.pg.query<{ id: string }>(
     `insert into public.time_entries (organization_id, employee_id, job_id, work_date, start_at, end_at, hours)
@@ -55,9 +58,12 @@ describe("M3-T03: org A cannot read org B's time entries", () => {
   );
 
   it("org A cannot fetch org B's time entry by id", async () => {
-    const { rows } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.time_entries where id = $1`, [
-      seedB.timeEntryId,
-    ]);
+    const { rows } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.time_entries where id = $1`,
+      [seedB.timeEntryId],
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -73,9 +79,12 @@ describe("M3-T03: org A cannot read org B's time entries", () => {
 
   it("field employees and accountants cannot read time entries", async () => {
     for (const user of [w.orgA.fieldEmployee, w.orgA.accountant]) {
-      const { rows } = await rawAsUser(w.pg, user, `select * from public.time_entries where id = $1`, [
-        seedA.timeEntryId,
-      ]);
+      const { rows } = await rawAsUser(
+        w.pg,
+        user,
+        `select * from public.time_entries where id = $1`,
+        [seedA.timeEntryId],
+      );
       expect(rows).toHaveLength(0);
     }
   });
@@ -102,9 +111,12 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
       [seedB.timeEntryId],
     );
     expect(updated.rowCount).toBe(0);
-    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.time_entries where id = $1`, [
-      seedB.timeEntryId,
-    ]);
+    const deleted = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `delete from public.time_entries where id = $1`,
+      [seedB.timeEntryId],
+    );
     expect(deleted.rowCount).toBe(0);
 
     const { rows } = await w.pg.query<{ status: string }>(
@@ -116,10 +128,12 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
 
   it("RLS rejects moving org A's time entry into org B", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, `update public.time_entries set organization_id = $2 where id = $1`, [
-        seedA.timeEntryId,
-        w.orgB.id,
-      ]),
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        `update public.time_entries set organization_id = $2 where id = $1`,
+        [seedA.timeEntryId, w.orgB.id],
+      ),
     ).rejects.toThrow(/row-level security/);
   });
 

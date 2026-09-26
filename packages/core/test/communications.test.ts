@@ -19,29 +19,44 @@ afterAll(async () => {
 });
 
 const recordedEvents = (id: string) =>
-  count(w.pg, `select 1 from public.business_events where type = 'communication.recorded' and entity_id = $1`, [id]);
+  count(
+    w.pg,
+    `select 1 from public.business_events where type = 'communication.recorded' and entity_id = $1`,
+    [id],
+  );
 const recordedAudits = (id: string) =>
-  count(w.pg, `select 1 from public.audit_log where action = 'communication.recorded' and entity_id = $1`, [id]);
+  count(
+    w.pg,
+    `select 1 from public.audit_log where action = 'communication.recorded' and entity_id = $1`,
+    [id],
+  );
 const callRows = (communicationId: string) =>
   count(w.pg, `select 1 from public.calls where communication_id = $1`, [communicationId]);
 const communicationRows = (provider: string, conversationId: string) =>
-  count(w.pg, `select 1 from public.communications where provider = $1 and provider_conversation_id = $2`, [
-    provider,
-    conversationId,
-  ]);
+  count(
+    w.pg,
+    `select 1 from public.communications where provider = $1 and provider_conversation_id = $2`,
+    [provider, conversationId],
+  );
 
 describe("recordCall", () => {
   it("persists the communication, call and participants with an event and audit record", async () => {
     const conversationId = `conv-${randomUUID()}`;
-    const { communication, call, participants, created } = await inOrg(w.db, webhook, w.orgA.id, (ctx) =>
-      recordCall(ctx, {
-        direction: "inbound",
-        provider: "vapi",
-        providerConversationId: conversationId,
-        fromNumber: w.orgA.customer.phone ?? "555-0100",
-        toNumber: "+15005550006",
-        participants: [{ role: "customer", customerId: w.orgA.customer.id, displayName: "Test Customer" }],
-      }),
+    const { communication, call, participants, created } = await inOrg(
+      w.db,
+      webhook,
+      w.orgA.id,
+      (ctx) =>
+        recordCall(ctx, {
+          direction: "inbound",
+          provider: "vapi",
+          providerConversationId: conversationId,
+          fromNumber: w.orgA.customer.phone ?? "555-0100",
+          toNumber: "+15005550006",
+          participants: [
+            { role: "customer", customerId: w.orgA.customer.id, displayName: "Test Customer" },
+          ],
+        }),
     );
     expect(created).toBe(true);
     expect(communication.channel).toBe("voice");
@@ -119,18 +134,24 @@ const messageRows = (communicationId: string) =>
 describe("recordMessage", () => {
   it("persists the communication, message and participants with an event and audit record", async () => {
     const conversationId = `conv-${randomUUID()}`;
-    const { communication, message, participants, created } = await inOrg(w.db, webhook, w.orgA.id, (ctx) =>
-      recordMessage(ctx, {
-        direction: "inbound",
-        provider: "twilio",
-        providerConversationId: conversationId,
-        channel: "sms",
-        fromAddress: w.orgA.customer.phone ?? "555-0100",
-        toAddress: "+15005550006",
-        body: "hello",
-        mediaUrls: ["https://example.test/a.jpg"],
-        participants: [{ role: "customer", customerId: w.orgA.customer.id, displayName: "Test Customer" }],
-      }),
+    const { communication, message, participants, created } = await inOrg(
+      w.db,
+      webhook,
+      w.orgA.id,
+      (ctx) =>
+        recordMessage(ctx, {
+          direction: "inbound",
+          provider: "twilio",
+          providerConversationId: conversationId,
+          channel: "sms",
+          fromAddress: w.orgA.customer.phone ?? "555-0100",
+          toAddress: "+15005550006",
+          body: "hello",
+          mediaUrls: ["https://example.test/a.jpg"],
+          participants: [
+            { role: "customer", customerId: w.orgA.customer.id, displayName: "Test Customer" },
+          ],
+        }),
     );
     expect(created).toBe(true);
     expect(communication.channel).toBe("sms");

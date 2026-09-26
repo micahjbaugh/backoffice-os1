@@ -62,7 +62,14 @@ async function upsertEnvelope(
             set status = $3, ended_at = coalesce($4, ended_at), summary = coalesce($5, summary),
                 transcript = coalesce($6, transcript)
           where id = $1 and organization_id = $2 returning *`,
-        [existing.id, ctx.organizationId, d.status, d.endedAt ?? null, d.summary ?? null, d.transcript ?? null],
+        [
+          existing.id,
+          ctx.organizationId,
+          d.status,
+          d.endedAt ?? null,
+          d.summary ?? null,
+          d.transcript ?? null,
+        ],
       )
     : await ctx.tx.asService<Row>(
         `insert into public.communications
@@ -70,8 +77,16 @@ async function upsertEnvelope(
             started_at, ended_at, summary, transcript)
          values ($1, $2, $3, $4, $5, $6, coalesce($7, now()), $8, $9, $10) returning *`,
         [
-          ctx.organizationId, channel, d.direction, d.status, d.provider, d.providerConversationId,
-          d.startedAt ?? null, d.endedAt ?? null, d.summary ?? null, d.transcript ?? null,
+          ctx.organizationId,
+          channel,
+          d.direction,
+          d.status,
+          d.provider,
+          d.providerConversationId,
+          d.startedAt ?? null,
+          d.endedAt ?? null,
+          d.summary ?? null,
+          d.transcript ?? null,
         ],
       );
   const row = rows[0];
@@ -97,9 +112,10 @@ async function setParticipants(
     if (p.employeeId) await assertEntityInOrg(ctx, "employee", p.employeeId);
     if (p.vendorId) await assertEntityInOrg(ctx, "vendor", p.vendorId);
   }
-  await ctx.tx.asService(`delete from public.communication_participants where communication_id = $1`, [
-    communicationId,
-  ]);
+  await ctx.tx.asService(
+    `delete from public.communication_participants where communication_id = $1`,
+    [communicationId],
+  );
   const inserted: CommunicationParticipant[] = [];
   for (const p of participants) {
     const { rows } = await ctx.tx.asService<Row>(
@@ -107,8 +123,15 @@ async function setParticipants(
          (organization_id, communication_id, role, customer_id, employee_id, vendor_id, phone, email, display_name)
        values ($1, $2, $3, $4, $5, $6, $7, $8, $9) returning *`,
       [
-        ctx.organizationId, communicationId, p.role, p.customerId ?? null, p.employeeId ?? null,
-        p.vendorId ?? null, p.phone ?? null, p.email ?? null, p.displayName ?? null,
+        ctx.organizationId,
+        communicationId,
+        p.role,
+        p.customerId ?? null,
+        p.employeeId ?? null,
+        p.vendorId ?? null,
+        p.phone ?? null,
+        p.email ?? null,
+        p.displayName ?? null,
       ],
     );
     inserted.push(toCommunicationParticipant(rows[0] as Row));
@@ -116,12 +139,20 @@ async function setParticipants(
   return inserted;
 }
 
-async function finish(ctx: ServiceContext, communication: Communication, created: boolean): Promise<void> {
+async function finish(
+  ctx: ServiceContext,
+  communication: Communication,
+  created: boolean,
+): Promise<void> {
   const { event } = await recordEvent(ctx, {
     type: created ? EVENT_TYPES.communicationRecorded : EVENT_TYPES.communicationUpdated,
     entityType: "communication",
     entityId: communication.id,
-    payload: { channel: communication.channel, direction: communication.direction, provider: communication.provider },
+    payload: {
+      channel: communication.channel,
+      direction: communication.direction,
+      provider: communication.provider,
+    },
   });
   await writeAudit(ctx, {
     action: created ? "communication.recorded" : "communication.updated",
@@ -144,7 +175,10 @@ export interface RecordedCall {
 }
 
 /** Persist a call and its envelope, keyed on (provider, provider_conversation_id). */
-export async function recordCall(ctx: ServiceContext, input: RecordCallInput): Promise<RecordedCall> {
+export async function recordCall(
+  ctx: ServiceContext,
+  input: RecordCallInput,
+): Promise<RecordedCall> {
   await ctx.authorize("communication.write");
   const data = parseInput(recordCallInput, input);
   const { communication, created } = await upsertEnvelope(ctx, "voice", data);
@@ -162,9 +196,15 @@ export async function recordCall(ctx: ServiceContext, input: RecordCallInput): P
        voicemail = excluded.voicemail or public.calls.voicemail
      returning *`,
     [
-      ctx.organizationId, communication.id, data.providerCallId ?? null, data.fromNumber ?? null,
-      data.toNumber ?? null, data.durationSeconds ?? null, data.recordingUrl ?? null,
-      data.disposition ?? null, data.voicemail,
+      ctx.organizationId,
+      communication.id,
+      data.providerCallId ?? null,
+      data.fromNumber ?? null,
+      data.toNumber ?? null,
+      data.durationSeconds ?? null,
+      data.recordingUrl ?? null,
+      data.disposition ?? null,
+      data.voicemail,
     ],
   );
   const call = toCall(rows[0] as Row);
@@ -181,7 +221,10 @@ export interface RecordedMessage {
 }
 
 /** Persist a message and its envelope, keyed on (provider, provider_conversation_id). */
-export async function recordMessage(ctx: ServiceContext, input: RecordMessageInput): Promise<RecordedMessage> {
+export async function recordMessage(
+  ctx: ServiceContext,
+  input: RecordMessageInput,
+): Promise<RecordedMessage> {
   await ctx.authorize("communication.write");
   const data = parseInput(recordMessageInput, input);
   const { communication, created } = await upsertEnvelope(ctx, data.channel, data);
@@ -199,8 +242,13 @@ export async function recordMessage(ctx: ServiceContext, input: RecordMessageInp
                           then public.messages.media_urls else excluded.media_urls end
      returning *`,
     [
-      ctx.organizationId, communication.id, data.providerMessageId ?? null, data.fromAddress ?? null,
-      data.toAddress ?? null, data.body ?? null, JSON.stringify(data.mediaUrls),
+      ctx.organizationId,
+      communication.id,
+      data.providerMessageId ?? null,
+      data.fromAddress ?? null,
+      data.toAddress ?? null,
+      data.body ?? null,
+      JSON.stringify(data.mediaUrls),
     ],
   );
   const message = toMessage(rows[0] as Row);
@@ -209,7 +257,10 @@ export async function recordMessage(ctx: ServiceContext, input: RecordMessageInp
   return { communication, message, participants, created };
 }
 
-export async function getCommunication(ctx: ServiceContext, id: UUID): Promise<Communication | null> {
+export async function getCommunication(
+  ctx: ServiceContext,
+  id: UUID,
+): Promise<Communication | null> {
   await ctx.authorize("communication.read");
   const { rows } = await ctx.scoped<Row>(
     `select * from public.communications where id = $1 and organization_id = $2`,

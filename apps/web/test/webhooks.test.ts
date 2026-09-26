@@ -59,7 +59,10 @@ describe("handleProviderWebhook", () => {
     const provider = new FakeVoiceProvider();
     const original = JSON.stringify({ providerEventId: "evt-1" });
     const tampered = JSON.stringify({ providerEventId: "evt-1-tampered" });
-    const res = await handleProviderWebhook(provider, request(tampered, provider.signWebhook(original)));
+    const res = await handleProviderWebhook(
+      provider,
+      request(tampered, provider.signWebhook(original)),
+    );
     expect(res.status).toBe(401);
     expect(runAs).not.toHaveBeenCalled();
   });

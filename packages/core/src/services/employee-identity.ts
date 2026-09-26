@@ -65,7 +65,11 @@ export async function resolveEmployeeByPhone(
     title: `Ambiguous employee match for ${rawPhone}`,
     reasonCode: "low_confidence",
     priority: "normal",
-    evidence: { phone: rawPhone, normalized_phone: parsed.e164, candidates: candidateEvidence(candidates) },
+    evidence: {
+      phone: rawPhone,
+      normalized_phone: parsed.e164,
+      candidates: candidateEvidence(candidates),
+    },
   });
   return { status: "ambiguous", candidates, opsCase };
 }

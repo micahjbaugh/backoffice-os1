@@ -31,7 +31,11 @@ export class FakeVoiceProvider implements VoiceProvider {
   }
 
   verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean {
-    return verifyWebhookSignature(this.webhookSecret, rawBody, headers.get(WEBHOOK_SIGNATURE_HEADER));
+    return verifyWebhookSignature(
+      this.webhookSecret,
+      rawBody,
+      headers.get(WEBHOOK_SIGNATURE_HEADER),
+    );
   }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {

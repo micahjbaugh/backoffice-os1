@@ -295,7 +295,10 @@ function refineFactRef(
   ctx: z.RefinementCtx,
 ) {
   if ((value.sourceCommunicationId === undefined) !== (value.factKey === undefined)) {
-    ctx.addIssue({ code: "custom", message: "sourceCommunicationId and factKey must be provided together" });
+    ctx.addIssue({
+      code: "custom",
+      message: "sourceCommunicationId and factKey must be provided together",
+    });
   }
 }
 

@@ -27,7 +27,11 @@ export class FakeSmsProvider implements SmsProvider {
   }
 
   verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean {
-    return verifyWebhookSignature(this.webhookSecret, rawBody, headers.get(WEBHOOK_SIGNATURE_HEADER));
+    return verifyWebhookSignature(
+      this.webhookSecret,
+      rawBody,
+      headers.get(WEBHOOK_SIGNATURE_HEADER),
+    );
   }
 
   async sendSMS(request: SendSmsRequest): Promise<SmsOperationResult> {

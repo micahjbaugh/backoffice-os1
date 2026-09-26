@@ -34,7 +34,10 @@ describe("VapiVoiceProvider.createInboundRoute", () => {
     expect(init.headers.Authorization).toBe("Bearer test-api-key");
     const body = JSON.parse(init.body as string);
     expect(body.number).toBe("+15550000000");
-    expect(body.server).toEqual({ url: "https://example.test/webhooks/voice", secret: "test-webhook-secret" });
+    expect(body.server).toEqual({
+      url: "https://example.test/webhooks/voice",
+      secret: "test-webhook-secret",
+    });
   });
 });
 
@@ -62,10 +65,15 @@ describe("VapiVoiceProvider.initiateOutboundCall", () => {
   });
 
   it("maps Vapi call statuses", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ id: "call-2", status: "in-progress" }));
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ id: "call-2", status: "in-progress" }));
     const provider = new VapiVoiceProvider({ ...CONFIG, fetchFn });
 
-    const result = await provider.initiateOutboundCall({ ...baseRequest, idempotencyKey: "call-key-2" });
+    const result = await provider.initiateOutboundCall({
+      ...baseRequest,
+      idempotencyKey: "call-key-2",
+    });
     expect(result.status).toBe("in_progress");
   });
 
@@ -87,18 +95,30 @@ describe("VapiVoiceProvider.initiateOutboundCall", () => {
       .mockResolvedValueOnce(jsonResponse({ id: "call-org-b", status: "queued" }));
     const provider = new VapiVoiceProvider({ ...CONFIG, fetchFn });
 
-    const orgA = await provider.initiateOutboundCall({ ...baseRequest, organizationId: "org-a", idempotencyKey: "same-key" });
-    const orgB = await provider.initiateOutboundCall({ ...baseRequest, organizationId: "org-b", idempotencyKey: "same-key" });
+    const orgA = await provider.initiateOutboundCall({
+      ...baseRequest,
+      organizationId: "org-a",
+      idempotencyKey: "same-key",
+    });
+    const orgB = await provider.initiateOutboundCall({
+      ...baseRequest,
+      organizationId: "org-b",
+      idempotencyKey: "same-key",
+    });
 
     expect(orgA.providerCallId).not.toBe(orgB.providerCallId);
     expect(fetchFn).toHaveBeenCalledTimes(2);
   });
 
   it("throws when Vapi responds with a non-2xx status", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ message: "invalid number" }, false, 400));
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ message: "invalid number" }, false, 400));
     const provider = new VapiVoiceProvider({ ...CONFIG, fetchFn });
 
-    await expect(provider.initiateOutboundCall(baseRequest)).rejects.toThrow(/Vapi call creation failed with status 400/);
+    await expect(provider.initiateOutboundCall(baseRequest)).rejects.toThrow(
+      /Vapi call creation failed with status 400/,
+    );
   });
 });
 
@@ -120,7 +140,10 @@ describe("VapiVoiceProvider.transferCall", () => {
     const [url, init] = fetchFn.mock.calls.at(0) ?? [];
     expect(url).toBe("https://api.vapi.test/call/call-1/control");
     const body = JSON.parse(init.body as string);
-    expect(body).toEqual({ type: "transfer", destination: { type: "number", number: "+15552222222" } });
+    expect(body).toEqual({
+      type: "transfer",
+      destination: { type: "number", number: "+15552222222" },
+    });
   });
 
   it("is idempotent for transfers with the same key and does not call Vapi twice", async () => {
@@ -135,10 +158,14 @@ describe("VapiVoiceProvider.transferCall", () => {
   });
 
   it("throws when Vapi responds with a non-2xx status", async () => {
-    const fetchFn = vi.fn().mockResolvedValue(jsonResponse({ message: "call not found" }, false, 404));
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValue(jsonResponse({ message: "call not found" }, false, 404));
     const provider = new VapiVoiceProvider({ ...CONFIG, fetchFn });
 
-    await expect(provider.transferCall(baseRequest)).rejects.toThrow(/Vapi call transfer failed with status 404/);
+    await expect(provider.transferCall(baseRequest)).rejects.toThrow(
+      /Vapi call transfer failed with status 404/,
+    );
   });
 });
 

@@ -26,8 +26,12 @@ describe("createDraftJobNote", () => {
       sourceCommunicationId: communicationId,
       factKey: "note:0",
     };
-    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftJobNote(ctx, input));
-    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftJobNote(ctx, input));
+    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftJobNote(ctx, input),
+    );
+    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftJobNote(ctx, input),
+    );
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
     expect(second.jobNote.id).toBe(first.jobNote.id);
@@ -36,7 +40,9 @@ describe("createDraftJobNote", () => {
 
   it("rejects a job from a different organization", async () => {
     await expect(
-      inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftJobNote(ctx, { jobId: w.orgB.job.id, body: "wrong org" })),
+      inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+        createDraftJobNote(ctx, { jobId: w.orgB.job.id, body: "wrong org" }),
+      ),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
 

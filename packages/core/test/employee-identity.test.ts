@@ -56,7 +56,9 @@ describe("resolveEmployeeByPhone", () => {
   });
 
   it("opens a missing_data ops case for an unparseable number", async () => {
-    const result = await inOrg(w.db, system, w.orgA.id, (ctx) => resolveEmployeeByPhone(ctx, "junk"));
+    const result = await inOrg(w.db, system, w.orgA.id, (ctx) =>
+      resolveEmployeeByPhone(ctx, "junk"),
+    );
     expect(result.status).toBe("unknown");
     if (result.status !== "unknown") throw new Error("expected unknown");
     expect(result.opsCase.reasonCode).toBe("missing_data");

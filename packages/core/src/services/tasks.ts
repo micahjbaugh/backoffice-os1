@@ -53,7 +53,10 @@ export async function createTask(ctx: ServiceContext, input: CreateTaskInput): P
  * (MASTER_SPEC §8 GREEN action). A thin wrapper over `createTask` — authorization, the same-org
  * entity check and the task.created event/audit all come from there.
  */
-export async function createCallbackTask(ctx: ServiceContext, input: CreateCallbackTaskInput): Promise<Task> {
+export async function createCallbackTask(
+  ctx: ServiceContext,
+  input: CreateCallbackTaskInput,
+): Promise<Task> {
   const data = parseInput(createCallbackTaskInput, input);
   return createTask(ctx, {
     title: data.title,
