@@ -44,11 +44,11 @@ create table public.leads (
   updated_at timestamptz not null default now(),
   constraint leads_converted_requires_customer check (status <> 'converted' or customer_id is not null),
   constraint leads_customer_same_org_fkey foreign key (customer_id, organization_id)
-    references public.customers(id, organization_id) on delete set null,
+    references public.customers(id, organization_id) on delete set null (customer_id),
   constraint leads_employee_same_org_fkey foreign key (assigned_to_employee_id, organization_id)
-    references public.employees(id, organization_id) on delete set null,
+    references public.employees(id, organization_id) on delete set null (assigned_to_employee_id),
   constraint leads_communication_same_org_fkey foreign key (originating_communication_id, organization_id)
-    references public.communications(id, organization_id) on delete set null
+    references public.communications(id, organization_id) on delete set null (originating_communication_id)
 );
 alter table public.leads add constraint leads_id_org_unique unique (id, organization_id);
 
@@ -70,7 +70,7 @@ create table public.lead_activities (
   constraint lead_activities_lead_same_org_fkey foreign key (lead_id, organization_id)
     references public.leads(id, organization_id) on delete cascade,
   constraint lead_activities_communication_same_org_fkey foreign key (communication_id, organization_id)
-    references public.communications(id, organization_id) on delete set null
+    references public.communications(id, organization_id) on delete set null (communication_id)
 );
 
 create index leads_org_status_idx on public.leads(organization_id, status);
