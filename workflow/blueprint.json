@@ -196,7 +196,7 @@
           "title": "Provider interfaces",
           "description": "Define VoiceProvider (createInboundRoute, initiateOutboundCall, transferCall, ingestWebhook) and SmsProvider (sendSMS, ingestWebhook) interfaces.",
           "done_when": "Interfaces typecheck; no vendor SDK imported.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 2,

@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 1,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T01 complete. Added packages/integrations/src/providers/sms-provider.ts (20 lines) defining SmsProvider (sendSMS, ingestWebhook) with request/result types (SendSmsRequest, SmsOperationResult, ProviderSmsWebhookEvent) — no vendor SDK imports. Re-exported it from packages/integrations/src/index.ts (1 line added). Combined with the previously added voice-provider.ts, both VoiceProvider and SmsProvider interfaces now exist and typecheck. Lint, typecheck, and test pass repo-wide. Next: reviewer to approve M2-T01; next task per blueprint is M2-T02.",
+  "current_task_index": 2,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Interfaces for VoiceProvider and SmsProvider match the task (methods, request/result types), include organizationId and idempotency keys, no vendor SDK imports, and are re-exported from index.ts. Changes are within scope and under the micro-commit limit. Minor non-blocking: consider unifying webhook event type naming across voice/SMS later.. M2-T01 is done. Next: M2-T02 \"Fake provider adapter\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "2fbf64a5cb2cdb3eb286275816962ea99cdf3991",
-  "updated_at": "2026-09-26T04:46:04.639Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T04:46:16.503Z",
   "last_error": "",
   "consecutive_failures": 0
 }
