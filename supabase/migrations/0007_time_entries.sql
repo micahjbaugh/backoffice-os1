@@ -32,7 +32,7 @@ create table public.time_entries (
   constraint time_entries_job_same_org_fkey foreign key (job_id, organization_id)
     references public.jobs(id, organization_id),
   constraint time_entries_communication_same_org_fkey foreign key (source_communication_id, organization_id)
-    references public.communications(id, organization_id) on delete set null (source_communication_id),
+    references public.communications(id, organization_id),
   constraint time_entries_end_after_start check (
     end_at is null or start_at is null or end_at >= start_at
   ),
