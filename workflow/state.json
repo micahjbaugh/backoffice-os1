@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 3,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The fakes implement the provider interfaces, honor idempotency per organizationId+idempotencyKey, and include unit tests that drive the adapters (including cross-org key isolation). No external SDKs or secrets. Exports updated correctly. Non-blocking suggestion: consider scoping the idempotency map by operation (e.g., include the operation name in the key or use separate maps) to avoid potential collisions if the same idempotencyKey is reused across initiateOutboundCall and transferCall.. M2-T02 is done. Next: M2-T03 \"Migration 0003: communications tables\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T03 done. Added supabase/migrations/0003_communications.sql (new file only, 145 lines) with: communications (base record: channel/direction/status/provider ids/summary/transcript/structured_extraction/retention_status), calls and messages (1:1 extensions keyed on communication_id, composite same-org FK to communications), and communication_participants (role + optional customer/employee/vendor ref, each guarded by a composite same-org FK, at most one reference via check constraint). Added employees_id_org_unique and vendors_id_org_unique (mirrors customers_id_org_unique from 0002) so those composite FKs are possible. All four tables have organization_id, RLS enabled, and org-staff (owner/office_admin/manager) select-only policies; insert/update/delete are revoked from authenticated because these rows are written by trusted server/integration code (webhook ingestion, agent tools), not clients directly — same pattern as notes/business_events in 0002. Audit/business-event writes for these tables are intentionally deferred to M2-T09 (Communication record service), which the migration header notes. Verified: packages/core test suite (which builds a fresh PGlite DB from every file in supabase/migrations/ in order) applies 0001-0003 cleanly and all 96 existing tests still pass; pnpm lint, pnpm typecheck, pnpm test all green repo-wide. No tests were added in this step (none required by done_when; M2-T05 'Tenant isolation tests for new tables' is the next task and specifically covers that). Next: M2-T04 'Migration 0004: leads tables'.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T04:55:27.524Z",
+  "review_base": "d2b727b00d23874d8b9322aba5c7997584c11a93",
+  "updated_at": "2026-09-26T05:30:04.891Z",
   "last_error": "",
   "consecutive_failures": 0
 }
