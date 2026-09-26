@@ -215,7 +215,7 @@
           "title": "Migration 0003: communications tables",
           "description": "communications, calls, messages, communication_participants with organization_id and RLS.",
           "done_when": "Migration applies on the test harness.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 4,
