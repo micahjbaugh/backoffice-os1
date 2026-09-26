@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
-  "current_task_index": 2,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T02 done. Added supabase/migrations/0006_equipment.sql: public.equipment (organization_id, name, type, aliases text[], internal_cost_rate_cents, billable_rate_cents nullable bigint, active) following the customers/employees/vendors pattern from 0001/0002 — equipment_member_select (any org member reads), equipment_staff_all (owner/office_admin/manager write), equipment_updated_at trigger, equipment_audit trigger (audit_row_mutation('equipment')), equipment_id_org_unique for future same-org FKs (equipment_usages in M3-T04), and equipment_org_idx(organization_id, active). Added packages/core/test/equipment-isolation.test.ts covering cross-org read/write denial (select/insert/update/delete, moving a row between orgs), role restriction (field_employee/accountant cannot mutate; owner/manager can), outsider/anonymous denial, and audit_log rows for create/update. pnpm lint, typecheck and test all pass (packages/core: 179 passed, 7 skipped). No service layer was added for equipment CRUD — not required by this task's done_when and no blueprint task currently calls for one; M3-T12 (equipment matching) will read this table directly. Next: M3-T03 \"Migration: time entries\".",
+  "current_task_index": 3,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Migration and tests meet M3-T02 requirements. Equipment table includes organization_id, RLS with org-member read and staff write, updated_at trigger, and audit trigger via audit_row_mutation('equipment'). Indexing and unique (id, organization_id) follow existing patterns. Tests cover cross-org read/write denial, role restrictions, moving rows across orgs rejection, outsider/anon denial, and audit log entries for create/update. No multi-tenant isolation, authorization, or audit gaps found. Changes are within scope and under the micro-commit limit.. M3-T02 is done. Next: M3-T03 \"Migration: time entries\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "20342a6b41b30ed9e9f99be6f31060259f939802",
-  "updated_at": "2026-09-26T19:29:35.910Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T19:30:11.516Z",
   "last_error": "",
   "consecutive_failures": 0
 }

@@ -367,7 +367,7 @@
           "title": "Migration: equipment registry",
           "description": "equipment table (name, type, aliases[], internal_cost_rate_cents, billable_rate_cents, active). Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 3,
