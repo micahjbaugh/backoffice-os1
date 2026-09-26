@@ -11,6 +11,7 @@ export * from "./services/business-rules";
 export * from "./services/call-disposition";
 export * from "./services/caller-matching";
 export * from "./services/communications";
+export * from "./services/draft-decisions";
 export * from "./services/draft-records";
 export * from "./services/employee-identity";
 export * from "./services/equipment-usage";

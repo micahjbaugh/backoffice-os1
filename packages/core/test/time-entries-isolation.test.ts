@@ -100,14 +100,15 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
          values ($1, $2, $3, '2026-01-05')`,
         [w.orgB.id, seedB.employeeId, seedB.jobId],
       ),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|permission denied/); // org is not client-updatable (0011)
   });
 
   it("org A cannot update or delete org B's time entry", async () => {
     const updated = await rawAsUser(
       w.pg,
       w.orgA.owner,
-      `update public.time_entries set status = 'approved' where id = $1`,
+      // Status is not client-writable at all (0011); an editable column exercises RLS isolation.
+      `update public.time_entries set hours = 1 where id = $1`,
       [seedB.timeEntryId],
     );
     expect(updated.rowCount).toBe(0);
@@ -134,7 +135,7 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
         `update public.time_entries set organization_id = $2 where id = $1`,
         [seedA.timeEntryId, w.orgB.id],
       ),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|permission denied/); // org is not client-updatable (0011)
   });
 
   it("a same-org employee reference from another org is rejected", async () => {
@@ -159,15 +160,15 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
            values ($1, $2, $3, '2026-01-05')`,
           [w.orgA.id, seedA.employeeId, w.orgA.job.id],
         ),
-      ).rejects.toThrow(/row-level security/);
+      ).rejects.toThrow(/row-level security|permission denied/); // org is not client-updatable (0011)
     }
   });
 
-  it("a manager can approve a draft time entry in their own org, audited", async () => {
+  it("a manager can edit a draft time entry in their own org, audited (decisions go through decideDraftRecord)", async () => {
     const updated = await rawAsUser(
       w.pg,
       w.orgA.manager,
-      `update public.time_entries set status = 'approved' where id = $1`,
+      `update public.time_entries set hours = 9 where id = $1`,
       [seedA.timeEntryId],
     );
     expect(updated.rowCount).toBe(1);

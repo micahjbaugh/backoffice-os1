@@ -115,14 +115,14 @@ describe.each(cases)("M3-T05: $table tenant isolation", (cfg) => {
   it("RLS rejects inserting a row into org B", async () => {
     await expect(
       rawAsUser(w.pg, w.orgA.owner, cfg.insertSql, [w.orgB.id, w.orgB.job.id]),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|permission denied/); // billable org is not client-updatable (0011)
   });
 
   it("field employees and accountants cannot mutate rows", async () => {
     for (const user of [w.orgA.fieldEmployee, w.orgA.accountant]) {
       await expect(
         rawAsUser(w.pg, user, cfg.insertSql, [w.orgA.id, w.orgA.job.id]),
-      ).rejects.toThrow(/row-level security/);
+      ).rejects.toThrow(/row-level security|permission denied/); // billable org is not client-updatable (0011)
     }
   });
 
@@ -149,13 +149,13 @@ describe.each(cases)("M3-T05: $table tenant isolation", (cfg) => {
         `update public.${cfg.table} set organization_id = $2 where id = $1`,
         [cfg.idOf(seedA), w.orgB.id],
       ),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|permission denied/); // billable org is not client-updatable (0011)
   });
 
   it("a manager can update a row in their own org, audited", async () => {
     const updateSql =
       cfg.table === "billable_opportunities"
-        ? `update public.billable_opportunities set status = 'approved' where id = $1`
+        ? `update public.billable_opportunities set quantity = 250 where id = $1` // status: decideBillableOpportunity only
         : `update public.job_notes set body = 'updated note' where id = $1`;
     const updated = await rawAsUser(w.pg, w.orgA.manager, updateSql, [cfg.idOf(seedA)]);
     expect(updated.rowCount).toBe(1);

@@ -2,6 +2,7 @@
 // so normalize here rather than trusting either.
 
 import type {
+  BillableOpportunity,
   Approval,
   AuditLogEntry,
   BusinessEvent,
@@ -365,6 +366,9 @@ export const toTimeEntry = (r: Row): TimeEntry => ({
   factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -380,6 +384,9 @@ export const toEquipmentUsage = (r: Row): EquipmentUsage => ({
   factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -396,6 +403,28 @@ export const toMaterialUsage = (r: Row): MaterialUsage => ({
   factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toBillableOpportunity = (r: Row): BillableOpportunity => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  jobId: str(r.job_id),
+  description: str(r.description),
+  quantity: numOrNull(r.quantity),
+  unit: strOrNull(r.unit),
+  status: str(r.status) as BillableOpportunity["status"],
+  sourceCommunicationId: strOrNull(r.source_communication_id),
+  confidence: obj(r.confidence),
+  evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
+  decisionPolicySource: strOrNull(r.decision_policy_source),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });

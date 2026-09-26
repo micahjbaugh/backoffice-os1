@@ -42,6 +42,10 @@ export const PERMISSIONS = [
   "equipment_usage.write",
   "material_usage.write",
   "job_note.write",
+  /** Approve/reject draft time, equipment and material records. */
+  "draft_record.decide",
+  /** Eligibility to decide billable opportunities; final authority is the approval policy. */
+  "billable.decide",
 ] as const;
 export type Permission = (typeof PERMISSIONS)[number];
 
@@ -88,8 +92,10 @@ export const ROLE_PERMISSIONS: Readonly<Record<MembershipRole, ReadonlySet<Permi
     ...STAFF_WRITE,
     "approval.decide",
     "audit.read",
+    "draft_record.decide",
+    "billable.decide",
   ]),
-  manager: new Set<Permission>([...STAFF_READ, ...STAFF_WRITE]),
+  manager: new Set<Permission>([...STAFF_READ, ...STAFF_WRITE, "draft_record.decide"]),
   field_employee: new Set<Permission>([
     "org.read",
     "customer.read",

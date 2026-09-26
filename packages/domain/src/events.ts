@@ -26,6 +26,8 @@ export const EVENT_TYPES = {
   equipmentUsageDrafted: "equipment_usage.drafted",
   materialUsageDrafted: "material_usage.drafted",
   jobNoteDrafted: "job_note.drafted",
+  draftRecordDecided: "draft_record.decided",
+  billableOpportunityDecided: "billable_opportunity.decided",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];
