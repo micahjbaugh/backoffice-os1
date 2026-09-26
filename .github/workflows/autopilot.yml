@@ -140,14 +140,14 @@ jobs:
             --max-turns ${{ steps.next.outputs.builder_max_turns }}
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(pnpm:*),Bash(node:*),Bash(npx:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*),Bash(docker:*),Bash(curl:*)"
 
-      - name: Claude step failed - discard partial work, record why, retry next run
+      # If Claude still finished the step (valid handoff in state.json), keep it and let the normal
+      # checks below decide. Only unfinished runs are discarded and retried.
+      - name: Claude reported an error - keep finished work, otherwise discard and retry
         id: claude_failed
         if: steps.next.outputs.action == 'build' && steps.claude.outcome != 'success'
         env:
           EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
-          git reset --hard "$BASE_SHA"
-          git clean -fd
           ERROR_MESSAGE="$(node -e '
             const fs = require("fs");
             try {
@@ -157,12 +157,19 @@ jobs:
               console.log(text.replace(/\s+/g, " ").slice(0, 800));
             } catch (e) { console.log("no Claude output file: " + e.message); }
           ')"
+          if node "$REFEREE" can-salvage; then
+            echo "::warning title=Claude action reported an error but the step was finished; keeping it::$ERROR_MESSAGE"
+            echo "SALVAGED=true" >> "$GITHUB_ENV"
+            exit 0
+          fi
+          git reset --hard "$BASE_SHA"
+          git clean -fd
           echo "::error title=Claude step failed::$ERROR_MESSAGE"
           echo "Claude step failed: $ERROR_MESSAGE" >> "$GITHUB_STEP_SUMMARY"
           ERROR_MESSAGE="$ERROR_MESSAGE" node "$REFEREE" record-error builder
 
       - name: Gate (lint, typecheck, tests)
-        if: steps.next.outputs.action == 'build' && steps.claude.outcome == 'success'
+        if: steps.next.outputs.action == 'build' && (steps.claude.outcome == 'success' || env.SALVAGED == 'true')
         run: |
           set +e
           { pnpm lint && pnpm typecheck && pnpm test; } > "$RUNNER_TEMP/gate.log" 2>&1
@@ -172,7 +179,7 @@ jobs:
 
       - name: Referee checks the step
         id: finish
-        if: steps.next.outputs.action == 'build' && steps.claude.outcome == 'success'
+        if: steps.next.outputs.action == 'build' && (steps.claude.outcome == 'success' || env.SALVAGED == 'true')
         env:
           GATE_LOG: ${{ runner.temp }}/gate.log
         run: node "$REFEREE" finish-build
