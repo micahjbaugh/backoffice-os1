@@ -1,3 +1,5 @@
+import type { WebhookHeaders } from "../webhook-signing";
+
 export interface InboundRouteConfig {
   organizationId: string;
   phoneNumber: string;
@@ -32,5 +34,7 @@ export interface VoiceProvider {
   createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute>;
   initiateOutboundCall(request: OutboundCallRequest): Promise<CallOperationResult>;
   transferCall(request: TransferCallRequest): Promise<CallOperationResult>;
+  /** Verify the provider's signature over the raw request body before the payload is trusted. */
+  verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean;
   ingestWebhook(rawEvent: unknown): Promise<ProviderWebhookEvent>;
 }

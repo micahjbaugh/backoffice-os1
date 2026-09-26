@@ -1,3 +1,5 @@
+import type { WebhookHeaders } from "../webhook-signing";
+
 export interface SendSmsRequest {
   organizationId: string;
   fromNumber: string;
@@ -16,5 +18,7 @@ export interface ProviderSmsWebhookEvent {
 }
 export interface SmsProvider {
   sendSMS(request: SendSmsRequest): Promise<SmsOperationResult>;
+  /** Verify the provider's signature over the raw request body before the payload is trusted. */
+  verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean;
   ingestWebhook(rawEvent: unknown): Promise<ProviderSmsWebhookEvent>;
 }

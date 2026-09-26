@@ -84,3 +84,44 @@ describe("FakeSmsProvider", () => {
     expect(provider.webhookLog).toHaveLength(1);
   });
 });
+
+function headersWith(signature: string | null): { get(name: string): string | null } {
+  return { get: (name) => (name === "x-fake-signature" ? signature : null) };
+}
+
+describe("webhook signature verification", () => {
+  it("accepts a signature computed over the exact raw body", () => {
+    const provider = new FakeVoiceProvider();
+    const body = JSON.stringify({ providerEventId: "evt-sig" });
+    expect(provider.verifyWebhookSignature(body, headersWith(provider.signWebhook(body)))).toBe(
+      true,
+    );
+  });
+
+  it("rejects a missing signature header", () => {
+    const provider = new FakeVoiceProvider();
+    expect(provider.verifyWebhookSignature("{}", headersWith(null))).toBe(false);
+  });
+
+  it("rejects a signature for a different body (tampering)", () => {
+    const provider = new FakeVoiceProvider();
+    const signed = provider.signWebhook(JSON.stringify({ providerEventId: "evt-a" }));
+    const tampered = JSON.stringify({ providerEventId: "evt-b" });
+    expect(provider.verifyWebhookSignature(tampered, headersWith(signed))).toBe(false);
+  });
+
+  it("rejects a signature produced with a different secret", () => {
+    const a = new FakeVoiceProvider("secret-a");
+    const b = new FakeVoiceProvider("secret-b");
+    const body = JSON.stringify({ providerEventId: "evt-c" });
+    expect(a.verifyWebhookSignature(body, headersWith(b.signWebhook(body)))).toBe(false);
+  });
+
+  it("SMS provider verifies its own signatures independently of the voice provider's secret", () => {
+    const sms = new FakeSmsProvider();
+    const voice = new FakeVoiceProvider();
+    const body = JSON.stringify({ providerEventId: "evt-d" });
+    expect(sms.verifyWebhookSignature(body, headersWith(voice.signWebhook(body)))).toBe(false);
+    expect(sms.verifyWebhookSignature(body, headersWith(sms.signWebhook(body)))).toBe(true);
+  });
+});

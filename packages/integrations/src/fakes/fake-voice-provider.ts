@@ -7,6 +7,9 @@ import type {
   TransferCallRequest,
   VoiceProvider,
 } from "../providers/voice-provider";
+import { signWebhookBody, verifyWebhookSignature, type WebhookHeaders } from "../webhook-signing";
+
+const WEBHOOK_SIGNATURE_HEADER = "x-fake-signature";
 
 /**
  * In-memory VoiceProvider for tests and local demos. Not a vendor SDK.
@@ -19,6 +22,17 @@ export class FakeVoiceProvider implements VoiceProvider {
   private readonly callsByIdempotencyKey = new Map<string, CallOperationResult>();
   private routeCounter = 0;
   private callCounter = 0;
+
+  constructor(private readonly webhookSecret = "fake-voice-webhook-secret") {}
+
+  /** Signs a raw body the way the real provider would; use this to build valid test requests. */
+  signWebhook(rawBody: string): string {
+    return signWebhookBody(this.webhookSecret, rawBody);
+  }
+
+  verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean {
+    return verifyWebhookSignature(this.webhookSecret, rawBody, headers.get(WEBHOOK_SIGNATURE_HEADER));
+  }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {
     const route: InboundRoute = {

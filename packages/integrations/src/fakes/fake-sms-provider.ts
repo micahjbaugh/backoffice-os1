@@ -4,6 +4,9 @@ import type {
   SmsOperationResult,
   SmsProvider,
 } from "../providers/sms-provider";
+import { signWebhookBody, verifyWebhookSignature, type WebhookHeaders } from "../webhook-signing";
+
+const WEBHOOK_SIGNATURE_HEADER = "x-fake-signature";
 
 /**
  * In-memory SmsProvider for tests and local demos. Not a vendor SDK.
@@ -15,6 +18,17 @@ export class FakeSmsProvider implements SmsProvider {
   private readonly messagesByIdempotencyKey = new Map<string, SmsOperationResult>();
   private readonly sentBodies: SendSmsRequest[] = [];
   private messageCounter = 0;
+
+  constructor(private readonly webhookSecret = "fake-sms-webhook-secret") {}
+
+  /** Signs a raw body the way the real provider would; use this to build valid test requests. */
+  signWebhook(rawBody: string): string {
+    return signWebhookBody(this.webhookSecret, rawBody);
+  }
+
+  verifyWebhookSignature(rawBody: string, headers: WebhookHeaders): boolean {
+    return verifyWebhookSignature(this.webhookSecret, rawBody, headers.get(WEBHOOK_SIGNATURE_HEADER));
+  }
 
   async sendSMS(request: SendSmsRequest): Promise<SmsOperationResult> {
     const key = `${request.organizationId}:${request.idempotencyKey}`;

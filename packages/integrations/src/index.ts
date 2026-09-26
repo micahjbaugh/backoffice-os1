@@ -6,3 +6,4 @@ export * from "./providers/voice-provider";
 export * from "./providers/sms-provider";
 export * from "./fakes/fake-voice-provider";
 export * from "./fakes/fake-sms-provider";
+export * from "./webhook-signing";
