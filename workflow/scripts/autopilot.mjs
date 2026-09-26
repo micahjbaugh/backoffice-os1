@@ -201,6 +201,7 @@ function cmdStatus() {
   );
   console.log(`Handoff: ${ctx.state.handoff_instructions}`);
   if (ctx.state.review_notes) console.log(`Review notes: ${ctx.state.review_notes}`);
+  if (ctx.state.last_error) console.log(`Last error: ${ctx.state.last_error}`);
 }
 
 function cmdValidate() {
@@ -338,6 +339,7 @@ function cmdFinishBuild() {
     bp: readJson(BLUEPRINT),
     config,
   };
+  ctx.state.last_error = ""; // Claude completed a run, so any earlier outage is resolved.
   if (problems.length) {
     sendBack(ctx, "claude", `Referee rejected the step and discarded it: ${problems.join(" ")}`);
     save(ctx);
@@ -380,6 +382,15 @@ function discardWorkIf(condition, base) {
   }
   // Even on success, never let the builder's edits to blueprint/config survive.
   git("checkout", base, "--", BLUEPRINT, CONFIG_IN_REPO);
+}
+
+/** Claude could not finish (auth, usage limit, outage). Record why; no attempt is used up. */
+function cmdRecordError() {
+  const ctx = load();
+  const message = String(process.env.ERROR_MESSAGE ?? "unknown error").slice(0, 1000);
+  ctx.state.last_error = `${now()} builder run failed: ${message}`;
+  save(ctx);
+  output({ commit: true, message: "autopilot: claude run failed (will retry next run)" });
 }
 
 /** Human controls, run from the Actions tab ("Run workflow"). */
@@ -497,6 +508,7 @@ const commands = {
   pause: () => cmdControl("pause"),
   resume: () => cmdControl("resume"),
   "resume-mark-done": () => cmdControl("resume-mark-done"),
+  "record-error": cmdRecordError,
 };
 const command = commands[process.argv[2]];
 if (!command) {

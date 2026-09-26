@@ -109,12 +109,26 @@ jobs:
             --max-turns ${{ steps.next.outputs.builder_max_turns }}
             --allowedTools "Read,Write,Edit,Glob,Grep,Bash(pnpm:*),Bash(node:*),Bash(npx:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*),Bash(docker:*),Bash(curl:*)"
 
-      - name: Claude unavailable (limits/outage) - discard partial work, retry next run
+      - name: Claude step failed - discard partial work, record why, retry next run
+        id: claude_failed
         if: steps.next.outputs.action == 'build' && steps.claude.outcome != 'success'
+        env:
+          EXEC_FILE: ${{ steps.claude.outputs.execution_file }}
         run: |
           git reset --hard "$BASE_SHA"
           git clean -fd
-          echo "Claude step did not finish; state unchanged. The next scheduled run retries." >> "$GITHUB_STEP_SUMMARY"
+          ERROR_MESSAGE="$(node -e '
+            const fs = require("fs");
+            try {
+              const log = JSON.parse(fs.readFileSync(process.env.EXEC_FILE, "utf8"));
+              const result = [].concat(log).reverse().find((m) => m && m.type === "result");
+              const text = String(result?.result ?? result?.subtype ?? "no result message");
+              console.log(text.replace(/\s+/g, " ").slice(0, 800));
+            } catch (e) { console.log("no Claude output file: " + e.message); }
+          ')"
+          echo "::error title=Claude step failed::$ERROR_MESSAGE"
+          echo "Claude step failed: $ERROR_MESSAGE" >> "$GITHUB_STEP_SUMMARY"
+          ERROR_MESSAGE="$ERROR_MESSAGE" node "$REFEREE" record-error
 
       - name: Gate (lint, typecheck, tests)
         if: steps.next.outputs.action == 'build' && steps.claude.outcome == 'success'
@@ -142,9 +156,9 @@ jobs:
 
       # ----------------------------------------------------------------------- save progress
       - name: Commit and push
-        if: steps.finish.outputs.commit == 'true' || steps.review.outputs.commit == 'true'
+        if: steps.finish.outputs.commit == 'true' || steps.review.outputs.commit == 'true' || steps.claude_failed.outputs.commit == 'true'
         env:
-          MSG: ${{ steps.finish.outputs.message || steps.review.outputs.message }}
+          MSG: ${{ steps.finish.outputs.message || steps.review.outputs.message || steps.claude_failed.outputs.message }}
         run: |
           git add -A
           git diff --cached --quiet || git commit -m "$MSG"
