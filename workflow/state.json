@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 13,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The new @backoffice/agents package cleanly defines versioned prompts and tool contracts without embedding authorization. The receptionist agent bundles only green-risk tools, and tests cover schema acceptance/rejection, prompt rendering with fail-closed placeholders, and tool listing. Reusing @backoffice/domain schemas prevents drift and keeps agent contracts aligned with server validation. No multi-tenant or auth violations, no side effects, and scope matches the task. Next: implement server-side service for request_transfer per M2-T13 (authorize, same-org check, idempotency, audit). As a minor follow-up, ensure zod versions remain aligned across the workspace to avoid multiple instances.. M2-T12 is done. Next: M2-T13 \"Transfer tool\".",
-  "attempts": 0,
-  "review_notes": "",
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "Attempt 1 was sent back. Fix review_notes, then resubmit.",
+  "attempts": 1,
+  "review_notes": "Referee rejected the step and discarded it: run ended without a valid workflow/state.json update (likely out of turns). Take a smaller step.",
   "review_base": null,
-  "updated_at": "2026-09-26T15:35:01.961Z",
+  "updated_at": "2026-09-26T15:54:09.139Z",
   "last_error": "",
   "consecutive_failures": 0
 }
