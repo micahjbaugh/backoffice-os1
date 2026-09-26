@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 14,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Transfer tool implementation meets requirements. Authorization (communication.write) enforced, queries scoped by organization_id, and policy checks ensure voice/in_progress with provider_call_id. Destination employee validated for same org and phone presence. Provider kept abstract; idempotency handled via provider idempotencyKey and event idempotency key. Business event and audit entry recorded. Tests cover happy path, idempotency, cross-org/permission failures, and untransferable conditions. No multi-tenant or security issues detected.. M2-T13 is done. Next: M2-T14 \"Call disposition\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T14 (Call disposition) implemented in one step. Files changed: packages/domain/src/events.ts (added EVENT_TYPES.callDispositionRecorded = 'communication.disposition_recorded'); packages/domain/src/schemas.ts (added recordCallDispositionInput zod schema + RecordCallDispositionInput type: communicationId, disposition, providerEventId, endedAt?, durationSeconds?, recordingUrl?); packages/core/src/index.ts (export new service); new packages/core/src/services/call-disposition.ts exporting recordCallDisposition(ctx, input) - authorizes communication.write, loads the voice call scoped to ctx.organizationId (404 if cross-org or not a voice call), then calls recordEvent with idempotencyKey `communication.disposition_recorded:${orgId}:${providerEventId}`; only when recordEvent reports created=true does it update calls.disposition/duration_seconds/recording_url, set communications.status='completed' (ended_at coalesced), and writeAudit - a replay with the same providerEventId is a no-op (no second mutation/event/audit), satisfying the done_when. New test file packages/core/test/call-disposition.test.ts (4 tests: happy path records disposition+event+audit once, idempotent replay via same providerEventId leaves counts at 1, cross-org communication rejected with NotFoundError, field employee denied with ForbiddenError). No other files touched; webhook route (apps/web) was not wired to call this service, matching the existing precedent from M2-T09/T13 where the domain service itself was built and tested directly (via inOrg) without route wiring - real provider adapters (M2-T15/T16) are still pending so there is no real call-ended payload to parse yet. Lint, typecheck, and full test suite (pnpm -w lint/typecheck/test) all pass, including the 4 new tests. Next: referee/ChatGPT review of M2-T14; if approved, M2-T15 'SMS adapter (Twilio)' is next.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T16:39:46.254Z",
+  "review_base": "d16152b3dfda67eed8269be912ecd14a8cad6047",
+  "updated_at": "2026-09-26T17:00:06.802Z",
   "last_error": "",
   "consecutive_failures": 0
 }

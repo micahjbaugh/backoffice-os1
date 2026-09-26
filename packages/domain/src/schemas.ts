@@ -300,6 +300,19 @@ export const transferCallInput = z.object({
   idempotencyKey: z.string().trim().min(8).max(200),
 });
 
+/**
+ * Record the outcome of an ended voice call. Idempotent on (organization_id, providerEventId): a
+ * replayed call-ended webhook must reuse `providerEventId` so the disposition is written once.
+ */
+export const recordCallDispositionInput = z.object({
+  communicationId: uuid,
+  disposition: z.string().trim().min(1).max(64),
+  providerEventId: z.string().trim().min(1).max(200),
+  endedAt: isoDateTime.optional(),
+  durationSeconds: z.number().int().nonnegative().optional(),
+  recordingUrl: optionalText(2048),
+});
+
 /** Parse `input` with `schema`, converting failures into a domain ValidationError. */
 export function parseInput<S extends z.ZodType>(schema: S, input: unknown): z.output<S> {
   const result = schema.safeParse(input);
@@ -335,3 +348,4 @@ export type RecordMessageInput = z.input<typeof recordMessageInput>;
 export type UpdateCommunicationSummaryInput = z.input<typeof updateCommunicationSummaryInput>;
 export type CreateLeadInput = z.input<typeof createLeadInput>;
 export type TransferCallInput = z.input<typeof transferCallInput>;
+export type RecordCallDispositionInput = z.input<typeof recordCallDispositionInput>;
