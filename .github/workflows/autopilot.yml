@@ -1,7 +1,11 @@
 # Back Office OS autopilot: Claude builds, ChatGPT reviews, a deterministic referee keeps score.
 # Runs in GitHub's cloud on a schedule, so it keeps going while your computer is off.
-# Each run does ONE turn (one build step or one review) and saves progress to the `autopilot`
-# branch. If a run fails (rate limit, token limit, outage) nothing is lost: the next run retries.
+# Each run does one build step and, if that step finished a task, ChatGPT's review of it.
+# Progress is saved to the `autopilot` branch. If a run fails (rate limit, token limit, outage)
+# nothing is lost: the next run retries.
+#
+# When a person is needed, it opens a GitHub issue that @mentions the repo owner (email/phone push)
+# and closes it again once the autopilot is moving.
 #
 # Controls: Actions tab -> "autopilot" -> Run workflow -> command
 #   step              run one turn now
@@ -9,12 +13,15 @@
 #   resume            continue after BLOCKED / NEEDS_HUMAN / MILESTONE_COMPLETE / PAUSED
 #   resume-mark-done  you finished the current (human) task; mark it done and continue
 # Kill switch: Actions tab -> "autopilot" -> "..." -> Disable workflow.
+#
+# Public-repo safety: this workflow must only run on schedule/workflow_dispatch. Do not add
+# pull_request_target, issues or issue_comment triggers.
 
 name: autopilot
 
 on:
   schedule:
-    - cron: "17 * * * *" # every hour at :17 (GitHub may delay scheduled runs)
+    - cron: "17,47 * * * *" # every 30 minutes (GitHub may delay scheduled runs)
   workflow_dispatch:
     inputs:
       command:
@@ -25,6 +32,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
   id-token: write
 
 concurrency:
@@ -51,6 +59,7 @@ jobs:
           cp workflow/config.json "$RUNNER_TEMP/config.json"
           echo "AUTOPILOT_CONFIG=$RUNNER_TEMP/config.json" >> "$GITHUB_ENV"
           echo "REFEREE=$RUNNER_TEMP/autopilot.mjs" >> "$GITHUB_ENV"
+          echo "AUTOPILOT_ERROR_FILE=$RUNNER_TEMP/autopilot-error.txt" >> "$GITHUB_ENV"
 
       - name: Switch to autopilot branch
         run: |
@@ -128,7 +137,7 @@ jobs:
           ')"
           echo "::error title=Claude step failed::$ERROR_MESSAGE"
           echo "Claude step failed: $ERROR_MESSAGE" >> "$GITHUB_STEP_SUMMARY"
-          ERROR_MESSAGE="$ERROR_MESSAGE" node "$REFEREE" record-error
+          ERROR_MESSAGE="$ERROR_MESSAGE" node "$REFEREE" record-error builder
 
       - name: Gate (lint, typecheck, tests)
         if: steps.next.outputs.action == 'build' && steps.claude.outcome == 'success'
@@ -146,23 +155,47 @@ jobs:
           GATE_LOG: ${{ runner.temp }}/gate.log
         run: node "$REFEREE" finish-build
 
-      # --------------------------------------------------------------- review turn (ChatGPT)
-      - name: ChatGPT reviews the task
-        id: review
-        if: steps.next.outputs.action == 'review'
+      - name: Save build step
+        if: steps.finish.outputs.commit == 'true' || steps.claude_failed.outputs.commit == 'true'
         env:
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-        run: node "$REFEREE" review
-
-      # ----------------------------------------------------------------------- save progress
-      - name: Commit and push
-        if: steps.finish.outputs.commit == 'true' || steps.review.outputs.commit == 'true' || steps.claude_failed.outputs.commit == 'true'
-        env:
-          MSG: ${{ steps.finish.outputs.message || steps.review.outputs.message || steps.claude_failed.outputs.message }}
+          MSG: ${{ steps.finish.outputs.message || steps.claude_failed.outputs.message }}
         run: |
           git add -A
           git diff --cached --quiet || git commit -m "$MSG"
           git push origin "HEAD:$AUTOPILOT_BRANCH"
+
+      # ------------------------------------------------ review turn (ChatGPT), same run when possible
+      - name: ChatGPT reviews the task
+        id: review
+        if: steps.next.outputs.action == 'review' || steps.finish.outputs.review_now == 'true'
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node "$REFEREE" review
+
+      - name: ChatGPT review failed - record why, retry next run
+        id: review_failed
+        if: steps.review.outcome == 'failure'
+        run: |
+          git checkout -- workflow/state.json workflow/blueprint.json
+          node "$REFEREE" record-error reviewer
+
+      - name: Save review
+        if: steps.review.outputs.commit == 'true' || steps.review_failed.outputs.commit == 'true'
+        env:
+          MSG: ${{ steps.review.outputs.message || steps.review_failed.outputs.message }}
+        run: |
+          git add -A
+          git diff --cached --quiet || git commit -m "$MSG"
+          git push origin "HEAD:$AUTOPILOT_BRANCH"
+
+      # ------------------------------------------------------------------ tell the human
+      - name: Notify if a person is needed
+        if: always()
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node "$REFEREE" notify
 
       - name: Summary
         if: always()

@@ -339,7 +339,9 @@ function cmdFinishBuild() {
     bp: readJson(BLUEPRINT),
     config,
   };
-  ctx.state.last_error = ""; // Claude completed a run, so any earlier outage is resolved.
+  // Claude completed a run, so any earlier outage is resolved.
+  ctx.state.last_error = "";
+  ctx.state.consecutive_failures = 0;
   if (problems.length) {
     sendBack(ctx, "claude", `Referee rejected the step and discarded it: ${problems.join(" ")}`);
     save(ctx);
@@ -371,6 +373,8 @@ function cmdFinishBuild() {
   save(ctx);
   return output({
     commit: true,
+    // Lets CI run ChatGPT's review in the same run instead of waiting for the next one.
+    review_now: ctx.state.status === "AWAITING_REVIEW",
     message: `autopilot(${task?.id}): claude step -> ${ctx.state.status}`,
   });
 }
@@ -386,11 +390,119 @@ function discardWorkIf(condition, base) {
 
 /** Claude could not finish (auth, usage limit, outage). Record why; no attempt is used up. */
 function cmdRecordError() {
+  const who = process.argv[3] === "reviewer" ? "reviewer (ChatGPT)" : "builder (Claude)";
+  const fromFile =
+    process.env.AUTOPILOT_ERROR_FILE && existsSync(process.env.AUTOPILOT_ERROR_FILE)
+      ? readFileSync(process.env.AUTOPILOT_ERROR_FILE, "utf8")
+      : "";
+  const message = String(process.env.ERROR_MESSAGE || fromFile || "unknown error").slice(0, 1000);
   const ctx = load();
-  const message = String(process.env.ERROR_MESSAGE ?? "unknown error").slice(0, 1000);
-  ctx.state.last_error = `${now()} builder run failed: ${message}`;
+  ctx.state.last_error = `${now()} ${who} run failed: ${message}`;
+  ctx.state.consecutive_failures = (ctx.state.consecutive_failures ?? 0) + 1;
   save(ctx);
-  output({ commit: true, message: "autopilot: claude run failed (will retry next run)" });
+  output({ commit: true, message: `autopilot: ${who} run failed (will retry next run)` });
+}
+
+const NOTIFY_FAILURE_THRESHOLD = 3;
+const ISSUE_PREFIX = "[autopilot]";
+
+/**
+ * Open a GitHub issue (which @mentions the repo owner, so GitHub emails/pushes them) whenever the
+ * autopilot needs a person; close it automatically once the autopilot is moving again.
+ */
+async function cmdNotify() {
+  const { state, bp } = load();
+  const { milestone, task } = locate(state, bp);
+  const repo = process.env.GITHUB_REPOSITORY;
+  const token = process.env.GITHUB_TOKEN;
+  if (!repo || !token) throw new Error("GITHUB_REPOSITORY and GITHUB_TOKEN are required");
+  const owner = process.env.NOTIFY_USER || repo.split("/")[0];
+  const actionsUrl = `https://github.com/${repo}/actions/workflows/autopilot.yml`;
+
+  let need = null;
+  if (["NEEDS_HUMAN", "BLOCKED", "MILESTONE_COMPLETE"].includes(state.status)) {
+    const label = {
+      NEEDS_HUMAN: "needs you for a task",
+      BLOCKED: "is blocked",
+      MILESTONE_COMPLETE: `finished ${milestone?.key}`,
+    }[state.status];
+    const action = {
+      NEEDS_HUMAN: `Do the task, then Run workflow → **resume-mark-done**.`,
+      BLOCKED: `Read the notes above, fix or adjust, then Run workflow → **resume**.`,
+      MILESTONE_COMPLETE: `Review ${milestone?.key}'s acceptance criteria (merge \`autopilot\` into \`main\` if happy), then Run workflow → **resume**.`,
+    }[state.status];
+    need = {
+      title: `${ISSUE_PREFIX} ${label}: ${task?.id ?? milestone?.key}`,
+      body: [
+        `@${owner} the autopilot ${label}.`,
+        ``,
+        `**Task:** ${task?.id} ${task?.title ?? ""}`,
+        `**Status:** ${state.status}`,
+        ``,
+        `**Details:** ${state.handoff_instructions}`,
+        state.review_notes ? `\n**Last review notes:** ${state.review_notes}` : "",
+        ``,
+        `**What to do:** ${action}`,
+        ``,
+        `Controls: ${actionsUrl}`,
+      ].join("\n"),
+    };
+  } else if ((state.consecutive_failures ?? 0) >= NOTIFY_FAILURE_THRESHOLD) {
+    need = {
+      title: `${ISSUE_PREFIX} keeps failing: ${state.consecutive_failures} runs in a row`,
+      body: [
+        `@${owner} the autopilot has failed ${state.consecutive_failures} runs in a row and is retrying each run.`,
+        ``,
+        `**Last error:** ${state.last_error}`,
+        ``,
+        `Common fixes: add OpenAI API credits, or refresh the \`CLAUDE_CODE_OAUTH_TOKEN\` / \`OPENAI_API_KEY\` secrets.`,
+        `It resumes on its own once runs succeed. Runs: ${actionsUrl}`,
+      ].join("\n"),
+    };
+  }
+
+  const api = async (path, init = {}) => {
+    const response = await fetch(
+      `${process.env.GITHUB_API_URL ?? "https://api.github.com"}/repos/${repo}${path}`,
+      {
+        ...init,
+        headers: {
+          authorization: `Bearer ${token}`,
+          accept: "application/vnd.github+json",
+          "content-type": "application/json",
+        },
+      },
+    );
+    if (!response.ok)
+      throw new Error(`GitHub API ${response.status}: ${(await response.text()).slice(0, 300)}`);
+    return response.json();
+  };
+
+  const open = (await api(`/issues?state=open&per_page=100`)).filter(
+    (i) => !i.pull_request && i.title.startsWith(ISSUE_PREFIX),
+  );
+  if (need && open.some((i) => i.title === need.title)) {
+    return output({ notified: "already-open" });
+  }
+  for (const issue of open) {
+    await api(`/issues/${issue.number}/comments`, {
+      method: "POST",
+      body: JSON.stringify({
+        body: need
+          ? "Superseded by a newer autopilot notice."
+          : "Resolved: the autopilot is running again.",
+      }),
+    });
+    await api(`/issues/${issue.number}`, {
+      method: "PATCH",
+      body: JSON.stringify({ state: "closed" }),
+    });
+  }
+  if (need) {
+    const created = await api(`/issues`, { method: "POST", body: JSON.stringify(need) });
+    return output({ notified: created.html_url });
+  }
+  return output({ notified: open.length ? "closed" : "none" });
 }
 
 /** Human controls, run from the Actions tab ("Run workflow"). */
@@ -471,6 +583,8 @@ async function cmdReview() {
     },
   ]);
 
+  state.last_error = "";
+  state.consecutive_failures = 0;
   if (verdict.decision === "approve") {
     advance(ctx, "chatgpt", `ChatGPT approved: ${verdict.notes || "no notes"}.`);
   } else {
@@ -513,6 +627,7 @@ const commands = {
   resume: () => cmdControl("resume"),
   "resume-mark-done": () => cmdControl("resume-mark-done"),
   "record-error": cmdRecordError,
+  notify: cmdNotify,
 };
 const command = commands[process.argv[2]];
 if (!command) {
@@ -524,7 +639,11 @@ try {
 } catch (error) {
   // Surface the reason as a GitHub annotation (visible on the run page) instead of a bare exit code.
   // Messages never include secrets: API errors echo the provider's response body, not the key.
-  const message = String(error?.message ?? error).replace(/\s+/g, " ").slice(0, 900);
+  const message = String(error?.message ?? error)
+    .replace(/\s+/g, " ")
+    .slice(0, 900);
   console.log(`::error title=autopilot ${process.argv[2]} failed::${message}`);
+  // Lets CI record the reason in state.json (and count consecutive failures for notifications).
+  if (process.env.AUTOPILOT_ERROR_FILE) writeFileSync(process.env.AUTOPILOT_ERROR_FILE, message);
   process.exit(1);
 }
