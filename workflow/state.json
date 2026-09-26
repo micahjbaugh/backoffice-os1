@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 8,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good and matches M2-T07. Signature is verified via the adapter against the raw body before payload parsing, invalid signatures return 401 and record nothing, valid requests record exactly one receipt via recordWebhookReceipt/runAs, and an invalid JSON body returns 400. Routes are thin and delegate to a shared handler. Fakes implement HMAC signing/verification and tests cover missing/invalid/tampered/wrong-secret and valid cases, plus cross-provider isolation. No multi-tenant leakage (no trust in tenant id from payload), no provider SDKs in app code, and side effects go through the idempotent receipt service. Minor non-blocking note: the comment says “record the receipt before any further processing,” but handleProviderWebhook calls adapter.ingestWebhook before recording. Ensure ingestWebhook remains side-effect-free (pure parsing) or consider splitting out an event-id extractor in future adapters so the receipt truly precedes any processing.. M2-T07 is done. Next: M2-T08 \"Caller matching service\".",
-  "attempts": 0,
-  "review_notes": "",
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "Attempt 1 was sent back. Fix review_notes, then resubmit.",
+  "attempts": 1,
+  "review_notes": "Referee rejected the step and discarded it: run ended without a valid workflow/state.json update (likely out of turns). Take a smaller step.",
   "review_base": null,
-  "updated_at": "2026-09-26T12:00:51.957Z",
+  "updated_at": "2026-09-26T12:31:45.946Z",
   "last_error": "",
   "consecutive_failures": 0
 }
