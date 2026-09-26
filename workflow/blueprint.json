@@ -303,7 +303,7 @@
           "title": "Call disposition",
           "description": "Record call outcome/disposition on call end event, idempotent on provider event.",
           "done_when": "Replayed call-ended webhook does not duplicate disposition.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 15,
