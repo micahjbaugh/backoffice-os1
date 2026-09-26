@@ -375,7 +375,7 @@
           "title": "Migration: time entries",
           "description": "time_entries (employee_id, job_id, work_date, start_at, end_at, hours, status draft|approved|rejected, source_communication_id, confidence jsonb, evidence jsonb) with same-org FKs. Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 4,
