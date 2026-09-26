@@ -7,7 +7,7 @@
   "attempts": 0,
   "review_notes": "",
   "review_base": null,
-  "updated_at": "2026-09-26T10:04:01.427Z",
-  "last_error": "2026-09-26T10:04:01.427Z builder (Claude) run failed: M2-T06 is complete and set to `AWAITING_REVIEW`. Summary: added an idempotent webhook-receipt service on the existing `webhook_receipts` table (no schema changes needed — table/RLS/privileges were already in place from 0001/0002). - `packages/core/src/services/webhooks.ts` — `receiveWebhook(tx, input)` (insert-on-conflict-do-nothing, falls back to select-existing so duplicates return the original row) and `markWebhookReceiptStatus(tx, id, status)`. - `packages/domain/src/types.ts` + `schemas.ts` — `WebhookReceipt`/`WebhookReceiptStatus` type and `receiveWebhookInput` validation. - `packages/core/src/rows.ts`, `index.ts` — row mapper and export wiring. - `packages/core/test/webhook-receipts.test.ts` — new receipt, duplicate dedup, cross-provider distinctness, validation rejection, status li",
-  "consecutive_failures": 4
+  "updated_at": "2026-09-26T10:30:34.758Z",
+  "last_error": "2026-09-26T10:30:34.758Z builder (Claude) run failed: error_max_turns",
+  "consecutive_failures": 5
 }
