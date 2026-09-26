@@ -3,3 +3,4 @@
 export const INTEGRATIONS_PACKAGE = "@backoffice/integrations";
 
 export * from "./providers/voice-provider";
+export * from "./providers/sms-provider";
