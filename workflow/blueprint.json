@@ -359,7 +359,7 @@
           "title": "Employee phone identity lookup",
           "description": "Service resolving an inbound phone number to exactly one active employee in one organization; ambiguous or unknown numbers create an ops case.",
           "done_when": "Match, no-match and ambiguous tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 2,
