@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
   "current_task_index": 8,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Workflows package skeleton added correctly with package.json, tsconfig, eslint config, vitest config, and a simple test/marker export. It follows existing package patterns and should be auto-included via packages/* so pnpm -r lint/typecheck/test will cover it. No multi-tenant, auth, or side-effect concerns introduced. Scope limited to the task. Approved.. M3-T07 is done. Next: M3-T08 \"Extraction contract\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M3-T08 done in one step. Added packages/domain/src/extraction.ts: FIELD_CAPTURE_FACT_TYPES, evidenceSpanSchema, fieldCaptureFactSchema (zod discriminated union on `type` for time_entry/equipment_usage/material_usage/job_note/billable_opportunity, each with raw unmatched ref fields, a per-field `confidence` record 0-1, and `evidence` evidence-span array requiring at least one span), unresolvedQuestionSchema, fieldCaptureExtractionSchema (facts[] + unresolvedQuestions[] default []), plus the provider-independent ExtractionInput/ExtractionResult<T>/StructuredExtractor<T> contract from ARCHITECTURE.md §8. Exported via packages/domain/src/index.ts (added one export line). Added packages/domain/test/extraction.test.ts (12 new tests) covering valid/invalid facts, confidence bounds, evidence requirement, unresolved-question defaults, and the full M3 acceptance-input shape (3 time/equipment facts + material + job note + billable opportunity). Only zod is imported — no vendor SDK. No DB/RLS/auth/side-effect surface introduced (pure types+schema, no persistence), so those checklist items are N/A. pnpm lint/typecheck/test all pass repo-wide (domain 40 tests, workspace total 260+ core, 36 integrations, 16 web, 9 agents, 1 workflows). Next: M3-T09 \"Deterministic test extractor\" — a fixture StructuredExtractor<FieldCaptureExtraction> (likely in packages/workflows) returning the M3 acceptance extraction validated against fieldCaptureExtractionSchema, for use by later workflow tests without any LLM call.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T22:29:39.532Z",
+  "review_base": "54dea8c4e8d5f1202f1c1752e6e197b5f2b80252",
+  "updated_at": "2026-09-26T22:58:12.701Z",
   "last_error": "",
   "consecutive_failures": 0
 }

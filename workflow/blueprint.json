@@ -415,7 +415,7 @@
           "title": "Extraction contract",
           "description": "StructuredExtractor interface + zod schema for field-capture extraction: facts with per-field confidence and evidence spans, plus unresolved questions.",
           "done_when": "Schema tests pass; no vendor imports.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 9,
