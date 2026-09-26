@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
   "current_task_index": 2,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The service scopes by organization_id, authorizes employee.read, and defers ops-case creation to createOpsCase (audited/evented). Unknown/unparseable and ambiguous paths open ops cases per spec. Tests cover match, no-match, ambiguous, tenant isolation, formatting variance, and inactive employees. Minor, non-blocking suggestions: (1) consider storing/using a normalized phone in DB or filtering at SQL level to avoid scanning all active employees in-org; (2) consider dedup/idempotency keys for ops case creation to avoid duplicate cases on repeated calls for the same input, depending on how this is invoked in workflows.. M3-T01 is done. Next: M3-T02 \"Migration: equipment registry\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M3-T02 done. Added supabase/migrations/0006_equipment.sql: public.equipment (organization_id, name, type, aliases text[], internal_cost_rate_cents, billable_rate_cents nullable bigint, active) following the customers/employees/vendors pattern from 0001/0002 — equipment_member_select (any org member reads), equipment_staff_all (owner/office_admin/manager write), equipment_updated_at trigger, equipment_audit trigger (audit_row_mutation('equipment')), equipment_id_org_unique for future same-org FKs (equipment_usages in M3-T04), and equipment_org_idx(organization_id, active). Added packages/core/test/equipment-isolation.test.ts covering cross-org read/write denial (select/insert/update/delete, moving a row between orgs), role restriction (field_employee/accountant cannot mutate; owner/manager can), outsider/anonymous denial, and audit_log rows for create/update. pnpm lint, typecheck and test all pass (packages/core: 179 passed, 7 skipped). No service layer was added for equipment CRUD — not required by this task's done_when and no blueprint task currently calls for one; M3-T12 (equipment matching) will read this table directly. Next: M3-T03 \"Migration: time entries\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T18:59:51.874Z",
+  "review_base": "20342a6b41b30ed9e9f99be6f31060259f939802",
+  "updated_at": "2026-09-26T19:29:35.910Z",
   "last_error": "",
   "consecutive_failures": 0
 }
