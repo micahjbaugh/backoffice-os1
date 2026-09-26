@@ -1,11 +1,12 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 1,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The new @backoffice/integrations package includes eslint, tsconfig, vitest config, a minimal src export, and a trivial test. It stays within the task scope, follows rule 9 (provider SDKs confined here), and doesn’t touch unrelated files. Lint/typecheck/tests passed and the package is included in the workspace. Proceed to M2-T01 to define provider-independent interfaces.. M2-T00 is done. Next: M2-T01 \"Provider interfaces\".",
-  "attempts": 0,
-  "review_notes": "",
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "Attempt 1 was sent back. Fix review_notes, then resubmit.",
+  "attempts": 1,
+  "review_notes": "Referee rejected the step and discarded it: over the 40-line-per-file limit: packages/integrations/src/providers/voice-provider.ts (47). Split the work into smaller steps.",
   "review_base": null,
-  "updated_at": "2026-09-26T04:22:28.841Z"
+  "updated_at": "2026-09-26T04:28:27.493Z",
+  "last_error": ""
 }
