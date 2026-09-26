@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 4,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Migration 0003 looks correct and within scope. All new tenant tables include organization_id, have RLS enabled, and use same-org composite FKs for isolation. Select-only policies align with the existing pattern; write operations are restricted for clients. Adding composite unique constraints on employees/vendors to support same-org FKs is appropriate and mirrors customers. Indices and constraints are sensible, and the 1:1 extensions for calls/messages are enforced. No authorization gaps or multi-tenant leaks detected. Audit/event handling deferred to M2-T09 is acceptable per plan. Proceed to M2-T04; ensure tenant-isolation tests are added in M2-T05 as planned.. M2-T03 is done. Next: M2-T04 \"Migration 0004: leads tables\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T04 complete. Added supabase/migrations/0004_leads.sql only (no other files touched): `leads` (organization_id, status/source enums, same-org composite FKs to customers/employees/communications, leads_id_org_unique, updated_at trigger, staff-all RLS policy for owner/office_admin/manager, audit_row_mutation('lead') trigger on insert/update/delete) and `lead_activities` (organization_id, same-org composite FKs to leads/communications, activity_type check, select-only RLS for owner/office_admin/manager, insert/update/delete revoked from authenticated since it's system/agent-authored like notes/business_events). Followed the 0002/0003 pattern exactly (client-writable table gets audit trigger; system-authored timeline table does not, mirroring notes). Verified: pnpm lint, pnpm typecheck, pnpm test all pass (140 tests), which includes packages/core's PGlite harness applying every migration file in order, confirming 0004 applies cleanly. No new tenant-isolation tests added here by design; those are planned for M2-T05 per the M2-T03 handoff note. Next: M2-T05 (tenant isolation tests, should cover leads/lead_activities same-org enforcement and staff-role RLS).",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T05:56:45.082Z",
-  "last_error": "2026-09-26T05:56:45.082Z builder (Claude) run failed: M2-T04 is complete. Added `supabase/migrations/0004_leads.sql` (leads + lead_activities tables with organization_id, same-org composite FKs, RLS staff policies, and audit_row_mutation triggers), verified with `pnpm lint`, `pnpm typecheck`, and `pnpm test` (all pass, migration applies cleanly on the PGlite test harness). `workflow/state.json` updated to `AWAITING_REVIEW` for ChatGPT's review; next task is M2-T05 (tenant isolation tests).",
-  "consecutive_failures": 1
+  "review_base": "b38d47febc098d1e824be6df3fcc7fba63d0ef05",
+  "updated_at": "2026-09-26T06:35:05.767Z",
+  "last_error": "",
+  "consecutive_failures": 0
 }
