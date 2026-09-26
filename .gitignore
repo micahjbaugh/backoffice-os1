@@ -3,7 +3,11 @@
 !.env.example
 node_modules
 .next
+.next-*
+next-env.d.ts
+*.tsbuildinfo
 dist
 coverage
 .DS_Store
 supabase/.temp
+supabase/.branches

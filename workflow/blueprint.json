@@ -1,0 +1,820 @@
+{
+  "schema_version": "1.0",
+  "project": "Back Office OS",
+  "source": "docs/MILESTONES.md, docs/MASTER_SPEC.md, docs/M1_BUILD_REPORT.md",
+  "schema": {
+    "milestone": {
+      "id": "integer, unique, matches state.json current_milestone_id",
+      "key": "string, e.g. M1",
+      "name": "string",
+      "status": "one of task_statuses",
+      "acceptance": "array of strings: gate that must pass before the next milestone starts",
+      "tasks": "array of task objects, ordered; position = current_task_index"
+    },
+    "task": {
+      "index": "integer, 0-based position inside the milestone's tasks array",
+      "id": "string, globally unique, format M<milestone>-T<nn>",
+      "title": "string",
+      "description": "string: one isolated, bite-sized unit of work",
+      "done_when": "string: objective completion check",
+      "status": "one of task_statuses",
+      "requires_human": "optional string: why a person must do or approve this task; autopilot stops here"
+    },
+    "task_statuses": ["pending", "in_progress", "done", "blocked"]
+  },
+  "milestones": [
+    {
+      "id": 1,
+      "key": "M1",
+      "name": "Business Brain + Owner Inbox Foundation",
+      "status": "done",
+      "acceptance": [
+        "user belongs to org A and cannot access org B data",
+        "owner creates customer/job/vendor",
+        "server can create approval",
+        "owner can approve/reject",
+        "every decision produces audit record and business event",
+        "internal operator can access a tenant only via explicit grant",
+        "database RLS tests exist"
+      ],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M1-T00",
+          "title": "Workspace scaffolding",
+          "description": "pnpm workspace, strict tsconfig, ESLint 9, Prettier, Vitest, root scripts.",
+          "done_when": "pnpm lint / typecheck / test run from root.",
+          "status": "done"
+        },
+        {
+          "index": 1,
+          "id": "M1-T01",
+          "title": "Domain package",
+          "description": "packages/domain: types, roles, permission matrix, approval policy, zod schemas, errors.",
+          "done_when": "packages/domain tests pass (26).",
+          "status": "done"
+        },
+        {
+          "index": 2,
+          "id": "M1-T02",
+          "title": "Migration 0002_m1_foundation.sql",
+          "description": "Internal staff, grant expiry/revocation, notes, RLS fixes, privilege revokes, append-only audit/events, approval immutability, audit triggers.",
+          "done_when": "Migrations apply cleanly on PGlite with the Supabase shim.",
+          "status": "done"
+        },
+        {
+          "index": 3,
+          "id": "M1-T03",
+          "title": "Core DB layer",
+          "description": "packages/core Tx (asUser/asService), runAs with denial auditing, ServiceContext, pg adapter.",
+          "done_when": "pg-adapter.test.ts passes.",
+          "status": "done"
+        },
+        {
+          "index": 4,
+          "id": "M1-T04",
+          "title": "Business Brain services",
+          "description": "Organization, Membership, Customer, Employee, Vendor, Job, Task, Approval, BusinessRule, BusinessEvent, AuditLog, OpsCase, grants, notes, documents.",
+          "done_when": "All services exported from packages/core/src/index.ts.",
+          "status": "done"
+        },
+        {
+          "index": 5,
+          "id": "M1-T05",
+          "title": "RLS and authorization test suite",
+          "description": "Required tests 1-6 and 8 plus supporting tenant-isolation, audit and privilege tests.",
+          "done_when": "packages/core tests pass (96).",
+          "status": "done"
+        },
+        {
+          "index": 6,
+          "id": "M1-T06",
+          "title": "Web auth and session",
+          "description": "Supabase AuthProvider adapter, proxy.ts session refresh, tenant/operator session helpers, login and onboarding pages.",
+          "done_when": "Unauthenticated routes redirect to /login.",
+          "status": "done"
+        },
+        {
+          "index": 7,
+          "id": "M1-T07",
+          "title": "Owner Inbox and record pages",
+          "description": "/inbox (approve, reject, add note, tasks, escalate), /customers, /jobs, /vendors, /settings, server actions.",
+          "done_when": "next build succeeds with all routes.",
+          "status": "done"
+        },
+        {
+          "index": 8,
+          "id": "M1-T08",
+          "title": "Ops Console",
+          "description": "/ops/cases and /ops/cases/[id], internal staff only, grant-scoped, audited views.",
+          "done_when": "Route builds; ops-access tests pass.",
+          "status": "done"
+        },
+        {
+          "index": 9,
+          "id": "M1-T09",
+          "title": "Browser bundle secret test",
+          "description": "Required test 7: production build with sentinel secrets, scan client output; static boundary guards.",
+          "done_when": "apps/web tests pass (11).",
+          "status": "done"
+        },
+        {
+          "index": 10,
+          "id": "M1-T10",
+          "title": "Plan and build report",
+          "description": "docs/M1_IMPLEMENTATION_PLAN.md and docs/M1_BUILD_REPORT.md.",
+          "done_when": "Both files exist and reflect final test results.",
+          "status": "done"
+        },
+        {
+          "index": 11,
+          "id": "M1-T11",
+          "title": "Live Supabase: apply migrations",
+          "description": "Start Docker, install Supabase CLI, run `supabase start` so 0001 and 0002 apply on real Supabase.",
+          "done_when": "`supabase start` completes with no migration errors.",
+          "status": "done"
+        },
+        {
+          "index": 12,
+          "id": "M1-T12",
+          "title": "Live Supabase: verify role assumptions",
+          "description": "Confirm the postgres role owns public tables (bypasses RLS) and can `SET ROLE authenticated`.",
+          "done_when": "Both checks confirmed in psql; results noted in M1_BUILD_REPORT.md.",
+          "status": "done"
+        },
+        {
+          "index": 13,
+          "id": "M1-T13",
+          "title": "Live Supabase: verify seed and sign-in",
+          "description": "Confirm seed.sql loads and owner@acme.test can sign in at http://localhost:3000.",
+          "done_when": "Owner sees the seeded inbox.",
+          "status": "done"
+        },
+        {
+          "index": 14,
+          "id": "M1-T14",
+          "title": "Live walkthrough",
+          "description": "Run the build report §6 walkthrough: double approve, admin delegation rule, operator grant.",
+          "done_when": "All three walkthrough steps behave as documented.",
+          "status": "done",
+          "requires_human": "Needs a person clicking through the UI in a browser."
+        }
+      ]
+    },
+    {
+      "id": 2,
+      "key": "M2",
+      "name": "Communications Core",
+      "status": "in_progress",
+      "acceptance": [
+        "call business number",
+        "agent identifies company",
+        "qualifies fake lead",
+        "safely looks up permitted business info",
+        "creates lead and call summary",
+        "warm transfer works",
+        "duplicate webhook does not duplicate lead",
+        "all calls/actions auditable"
+      ],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M2-T00",
+          "title": "Integrations package skeleton",
+          "description": "Create packages/integrations with package.json, tsconfig, eslint and vitest config.",
+          "done_when": "pnpm -r lint/typecheck include the new package.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M2-T01",
+          "title": "Provider interfaces",
+          "description": "Define VoiceProvider (createInboundRoute, initiateOutboundCall, transferCall, ingestWebhook) and SmsProvider (sendSMS, ingestWebhook) interfaces.",
+          "done_when": "Interfaces typecheck; no vendor SDK imported.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M2-T02",
+          "title": "Fake provider adapter",
+          "description": "In-memory fake VoiceProvider/SmsProvider for tests and local demos.",
+          "done_when": "Unit test drives the fake adapter.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M2-T03",
+          "title": "Migration 0003: communications tables",
+          "description": "communications, calls, messages, communication_participants with organization_id and RLS.",
+          "done_when": "Migration applies on the test harness.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M2-T04",
+          "title": "Migration 0004: leads tables",
+          "description": "leads and lead_activities with organization_id, RLS and audit triggers.",
+          "done_when": "Migration applies on the test harness.",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M2-T05",
+          "title": "Tenant isolation tests for new tables",
+          "description": "Org A cannot read/write org B communications, calls, messages, leads.",
+          "done_when": "New isolation tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 6,
+          "id": "M2-T06",
+          "title": "Webhook receipt service",
+          "description": "Idempotent insert on webhook_receipts (provider, provider_event_id) with status tracking.",
+          "done_when": "Duplicate receipt returns existing row; test passes.",
+          "status": "pending"
+        },
+        {
+          "index": 7,
+          "id": "M2-T07",
+          "title": "Webhook route handler",
+          "description": "apps/web API route that verifies signatures via adapter and records the receipt before processing.",
+          "done_when": "Invalid signature rejected; valid one recorded once.",
+          "status": "pending"
+        },
+        {
+          "index": 8,
+          "id": "M2-T08",
+          "title": "Caller matching service",
+          "description": "Match normalized phone number to customer/employee within one organization; ambiguous matches create an ops case.",
+          "done_when": "Match, no-match and ambiguous tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 9,
+          "id": "M2-T09",
+          "title": "Communication record service",
+          "description": "Persist call/message with participants, provider IDs via integration links, transcript and summary fields.",
+          "done_when": "Service tests pass with event + audit.",
+          "status": "pending"
+        },
+        {
+          "index": 10,
+          "id": "M2-T10",
+          "title": "Create lead tool",
+          "description": "Agent-callable, validated, idempotent createLead domain tool (GREEN).",
+          "done_when": "Duplicate call with same key creates one lead.",
+          "status": "pending"
+        },
+        {
+          "index": 11,
+          "id": "M2-T11",
+          "title": "Callback task tool",
+          "description": "Agent-callable createCallbackTask wrapping createTask with call linkage.",
+          "done_when": "Task created and audited with agent actor.",
+          "status": "pending"
+        },
+        {
+          "index": 12,
+          "id": "M2-T12",
+          "title": "Agents package and receptionist definition",
+          "description": "packages/agents with receptionist agent definition, versioned prompt (no authorization logic), tool contracts.",
+          "done_when": "Tool contract schemas typecheck and are tested.",
+          "status": "pending"
+        },
+        {
+          "index": 13,
+          "id": "M2-T13",
+          "title": "Transfer tool",
+          "description": "Warm transfer tool routed through VoiceProvider.transferCall with policy check and audit.",
+          "done_when": "Fake-adapter transfer test passes.",
+          "status": "pending"
+        },
+        {
+          "index": 14,
+          "id": "M2-T14",
+          "title": "Call disposition",
+          "description": "Record call outcome/disposition on call end event, idempotent on provider event.",
+          "done_when": "Replayed call-ended webhook does not duplicate disposition.",
+          "status": "pending"
+        },
+        {
+          "index": 15,
+          "id": "M2-T15",
+          "title": "SMS adapter (Twilio)",
+          "description": "Twilio SmsProvider adapter inside packages/integrations only.",
+          "done_when": "Adapter tests pass against mocked HTTP.",
+          "status": "pending"
+        },
+        {
+          "index": 16,
+          "id": "M2-T16",
+          "title": "Voice adapter (Vapi)",
+          "description": "Vapi VoiceProvider adapter inside packages/integrations only.",
+          "done_when": "Adapter tests pass against mocked HTTP.",
+          "status": "pending"
+        },
+        {
+          "index": 17,
+          "id": "M2-T17",
+          "title": "M2 acceptance run",
+          "description": "Live demo: call number, fake lead qualified, lead + summary created, transfer works, duplicate webhook ignored.",
+          "done_when": "All M2 acceptance items verified and reported in docs/M2_BUILD_REPORT.md.",
+          "status": "pending",
+          "requires_human": "Needs a real phone call to a provisioned business number."
+        }
+      ]
+    },
+    {
+      "id": 3,
+      "key": "M3",
+      "name": "Field Capture",
+      "status": "pending",
+      "acceptance": [
+        "Input 'Me Jake Tyler 7-5:30 Wilson. Hoe 8 hrs D6 6.5, 21 ton rock. Customer had us grade another 200 ft.' produces three draft time entries, equipment usages, material usage, job note and billable opportunity",
+        "owner sees only necessary approval/clarification"
+      ],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M3-T00",
+          "title": "Employee phone identity",
+          "description": "Map inbound phone numbers to employees per organization.",
+          "done_when": "Identity lookup tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M3-T01",
+          "title": "Migration: time entries, equipment, usage, materials",
+          "description": "Draft time_entries, equipment, equipment_usages, material_usages, job_notes with RLS.",
+          "done_when": "Migration applies; isolation tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M3-T02",
+          "title": "StructuredExtractor interface",
+          "description": "Provider-independent extractor returning fields, per-field confidence and evidence spans.",
+          "done_when": "Interface and fake extractor tested.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M3-T03",
+          "title": "Job matching",
+          "description": "Match extracted job references to jobs; low confidence creates clarification task.",
+          "done_when": "Match and ambiguity tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M3-T04",
+          "title": "Draft writers",
+          "description": "Write draft time entries, equipment usage, material usage and job note from validated extraction.",
+          "done_when": "Acceptance input produces expected drafts.",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M3-T05",
+          "title": "Scope-change detection",
+          "description": "Detect possible change orders and create billable opportunity.",
+          "done_when": "Acceptance input yields one billable opportunity.",
+          "status": "pending"
+        },
+        {
+          "index": 6,
+          "id": "M3-T06",
+          "title": "Clarification workflow",
+          "description": "Low-confidence fields stay draft and create clarification task or ops case.",
+          "done_when": "No ambiguous field is silently finalized (test).",
+          "status": "pending"
+        },
+        {
+          "index": 7,
+          "id": "M3-T07",
+          "title": "M3 acceptance run",
+          "description": "Run the MILESTONES.md acceptance input end-to-end.",
+          "done_when": "Output matches acceptance; report written.",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 4,
+      "key": "M4",
+      "name": "Revenue Protection + Invoicing",
+      "status": "pending",
+      "acceptance": [
+        "completed job activity can create invoice draft",
+        "line items trace back to evidence",
+        "owner approval required",
+        "approved invoice syncs to sandbox accounting provider",
+        "external IDs stored in integration links",
+        "repeated sync is idempotent"
+      ],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M4-T00",
+          "title": "Migration: estimates, scope items, invoices",
+          "description": "estimates, estimate_lines, scope_items, invoices, invoice_lines, external_object_links with RLS.",
+          "done_when": "Migration applies; isolation tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M4-T01",
+          "title": "Unbilled-work detector",
+          "description": "Compare job activity to estimate/scope and last invoice.",
+          "done_when": "Detector tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M4-T02",
+          "title": "Invoice draft builder",
+          "description": "Build invoice drafts whose lines reference evidence records.",
+          "done_when": "Every line traces to evidence (test).",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M4-T03",
+          "title": "Invoice approval",
+          "description": "Invoice send requires owner approval via existing approval service.",
+          "done_when": "Unapproved invoice cannot sync (test).",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M4-T04",
+          "title": "AccountingProvider interface + fake",
+          "description": "syncCustomer, syncVendor, createDraftInvoice, createBill, fetchPayments, fetchChartOfAccounts.",
+          "done_when": "Interface and fake adapter tested.",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M4-T05",
+          "title": "QuickBooks adapter",
+          "description": "QBO sandbox adapter in packages/integrations with transactional outbox.",
+          "done_when": "Sandbox sync works; repeated sync idempotent.",
+          "status": "pending",
+          "requires_human": "Needs QuickBooks Online sandbox credentials."
+        },
+        {
+          "index": 6,
+          "id": "M4-T06",
+          "title": "M4 acceptance run",
+          "description": "Verify all M4 acceptance items.",
+          "done_when": "Report written.",
+          "status": "pending",
+          "requires_human": "Acceptance depends on QuickBooks sandbox sync."
+        }
+      ]
+    },
+    {
+      "id": 5,
+      "key": "M5",
+      "name": "Procurement Voice Agent",
+      "status": "pending",
+      "acceptance": [
+        "owner submits natural-language purchase request",
+        "system calls at least two test vendors/numbers",
+        "normalized quotes returned",
+        "no substitution/spec change without rule/approval",
+        "approval creates order",
+        "complete audit trail"
+      ],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M5-T00",
+          "title": "Migration: purchase requests, quotes, orders",
+          "description": "purchase_requests, items, vendor_quotes, quote_items, purchase_orders, order_items with RLS.",
+          "done_when": "Migration applies; isolation tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M5-T01",
+          "title": "Purchase request intake",
+          "description": "Natural-language request to structured items/specifications; ambiguity creates clarification.",
+          "done_when": "Intake tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M5-T02",
+          "title": "Outbound call workflow",
+          "description": "Call at least two vendors via VoiceProvider; idempotent per vendor per request.",
+          "done_when": "Fake-adapter workflow test passes.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M5-T03",
+          "title": "Quote extraction and normalization",
+          "description": "Normalize unit price, freight, availability, lead time.",
+          "done_when": "Normalization tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M5-T04",
+          "title": "Comparison by business rules",
+          "description": "Rank quotes by configured rules; substitutions require rule or approval.",
+          "done_when": "Substitution-blocking test passes.",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M5-T05",
+          "title": "Approval to order",
+          "description": "Approved purchase creates order exactly once via validated tool.",
+          "done_when": "Double approval creates one order (test).",
+          "status": "pending"
+        },
+        {
+          "index": 6,
+          "id": "M5-T06",
+          "title": "M5 acceptance run",
+          "description": "Verify all M5 acceptance items.",
+          "done_when": "Report written.",
+          "status": "pending",
+          "requires_human": "Needs live outbound calls to test vendor numbers."
+        }
+      ]
+    },
+    {
+      "id": 6,
+      "key": "M6",
+      "name": "AR / AP",
+      "status": "pending",
+      "acceptance": ["scope items delivered with tests and audit"],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M6-T00",
+          "title": "AR reminders",
+          "description": "Approved reminder cadence per invoice.",
+          "done_when": "Cadence tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M6-T01",
+          "title": "Promise-to-pay",
+          "description": "Capture customer promise-to-pay and follow-up task.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M6-T02",
+          "title": "Invoice status tracking",
+          "description": "Due date and payment status sync.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M6-T03",
+          "title": "Vendor bills and receipts",
+          "description": "Ingest vendor bills and receipts with document metadata.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M6-T04",
+          "title": "PO/bill/receipt match",
+          "description": "Three-way match with discrepancy detection.",
+          "done_when": "Match and mismatch tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M6-T05",
+          "title": "Discrepancy approval",
+          "description": "Discrepancies route to approval.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 7,
+      "key": "M7",
+      "name": "Time Close + Payroll Prep",
+      "status": "pending",
+      "acceptance": ["scope items delivered with tests and audit"],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M7-T00",
+          "title": "Pay periods",
+          "description": "Pay period model and close lifecycle.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M7-T01",
+          "title": "Overtime detection",
+          "description": "Detect overtime from approved time entries.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M7-T02",
+          "title": "Time approval",
+          "description": "Owner/manager approval of period time.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M7-T03",
+          "title": "Missing time detection",
+          "description": "Flag employees/days missing time.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M7-T04",
+          "title": "Payroll export adapter",
+          "description": "PayrollProvider.exportApprovedTime; only approved time exported.",
+          "done_when": "Unapproved time never exported (test).",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 8,
+      "key": "M8",
+      "name": "Scheduling / Dispatch",
+      "status": "pending",
+      "acceptance": ["scope items delivered with tests and audit"],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M8-T00",
+          "title": "Crew availability",
+          "description": "Model crew availability.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M8-T01",
+          "title": "Job dependencies",
+          "description": "Model job dependencies.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M8-T02",
+          "title": "Equipment conflicts",
+          "description": "Detect equipment double-booking.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M8-T03",
+          "title": "Schedule",
+          "description": "Schedule view and assignment.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M8-T04",
+          "title": "Customer updates",
+          "description": "Customer notifications within configured rules.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 9,
+      "key": "M9",
+      "name": "Tax Ready + Accountant Portal",
+      "status": "pending",
+      "acceptance": ["scope items delivered with tests and audit"],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M9-T00",
+          "title": "Reconciliation status",
+          "description": "Track reconciliation status per period.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M9-T01",
+          "title": "W-9 tracking",
+          "description": "Vendor W-9 status and documents.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M9-T02",
+          "title": "Asset packet",
+          "description": "Equipment/asset purchase packet.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M9-T03",
+          "title": "Missing receipt queue",
+          "description": "Queue of transactions missing receipts.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M9-T04",
+          "title": "Accountant role and portal",
+          "description": "Read-only accountant access with audit.",
+          "done_when": "Accountant cannot mutate (test).",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M9-T05",
+          "title": "Year-end packet",
+          "description": "Generate year-end packet export.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        }
+      ]
+    },
+    {
+      "id": 10,
+      "key": "M10",
+      "name": "Analytics / Owner Assistant",
+      "status": "pending",
+      "acceptance": ["scope items delivered with tests and audit"],
+      "tasks": [
+        {
+          "index": 0,
+          "id": "M10-T00",
+          "title": "Validated query layer",
+          "description": "Natural-language analytics through a validated, tenant-scoped query layer.",
+          "done_when": "Cross-tenant query impossible (test).",
+          "status": "pending"
+        },
+        {
+          "index": 1,
+          "id": "M10-T01",
+          "title": "Profitability",
+          "description": "Job profitability report.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 2,
+          "id": "M10-T02",
+          "title": "Unbilled work",
+          "description": "Unbilled work report.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 3,
+          "id": "M10-T03",
+          "title": "Vendor spend",
+          "description": "Vendor spend report.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 4,
+          "id": "M10-T04",
+          "title": "AR and overtime",
+          "description": "AR aging and overtime reports.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        },
+        {
+          "index": 5,
+          "id": "M10-T05",
+          "title": "Equipment economics",
+          "description": "Equipment cost vs billable report.",
+          "done_when": "Tests pass.",
+          "status": "pending"
+        }
+      ]
+    }
+  ]
+}

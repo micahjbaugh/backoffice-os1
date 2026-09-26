@@ -1,0 +1,156 @@
+# Back Office OS autopilot: Claude builds, ChatGPT reviews, a deterministic referee keeps score.
+# Runs in GitHub's cloud on a schedule, so it keeps going while your computer is off.
+# Each run does ONE turn (one build step or one review) and saves progress to the `autopilot`
+# branch. If a run fails (rate limit, token limit, outage) nothing is lost: the next run retries.
+#
+# Controls: Actions tab -> "autopilot" -> Run workflow -> command
+#   step              run one turn now
+#   pause             stop until resumed
+#   resume            continue after BLOCKED / NEEDS_HUMAN / MILESTONE_COMPLETE / PAUSED
+#   resume-mark-done  you finished the current (human) task; mark it done and continue
+# Kill switch: Actions tab -> "autopilot" -> "..." -> Disable workflow.
+
+name: autopilot
+
+on:
+  schedule:
+    - cron: "17 * * * *" # every hour at :17 (GitHub may delay scheduled runs)
+  workflow_dispatch:
+    inputs:
+      command:
+        description: What to do
+        type: choice
+        options: [step, pause, resume, resume-mark-done]
+        default: step
+
+permissions:
+  contents: write
+  id-token: write
+
+concurrency:
+  group: autopilot
+  cancel-in-progress: false
+
+env:
+  AUTOPILOT_BRANCH: autopilot
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  turn:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # Trusted referee + config come from the default branch, never from the autopilot branch.
+      - name: Pin referee and config from default branch
+        run: |
+          cp workflow/scripts/autopilot.mjs "$RUNNER_TEMP/autopilot.mjs"
+          cp workflow/config.json "$RUNNER_TEMP/config.json"
+          echo "AUTOPILOT_CONFIG=$RUNNER_TEMP/config.json" >> "$GITHUB_ENV"
+          echo "REFEREE=$RUNNER_TEMP/autopilot.mjs" >> "$GITHUB_ENV"
+
+      - name: Switch to autopilot branch
+        run: |
+          git config user.name "backoffice-autopilot"
+          git config user.email "autopilot@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin "$AUTOPILOT_BRANCH" >/dev/null; then
+            git checkout -B "$AUTOPILOT_BRANCH" "origin/$AUTOPILOT_BRANCH"
+          else
+            git checkout -B "$AUTOPILOT_BRANCH"
+            git push -u origin "$AUTOPILOT_BRANCH"
+          fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Human control command
+        id: control
+        if: github.event_name == 'workflow_dispatch' && inputs.command != 'step'
+        run: node "$REFEREE" "${{ inputs.command }}"
+
+      - name: Decide whose turn it is
+        id: next
+        if: steps.control.outcome == 'skipped'
+        run: node "$REFEREE" next
+
+      - name: Save referee bookkeeping
+        if: steps.control.outcome == 'success' || steps.next.outputs.state_changed == 'true'
+        run: |
+          git add workflow/state.json workflow/blueprint.json
+          git diff --cached --quiet || git commit -m "autopilot: referee update"
+          git push origin "HEAD:$AUTOPILOT_BRANCH"
+
+      # ---------------------------------------------------------------- build turn (Claude)
+      - uses: pnpm/action-setup@v4
+        if: steps.next.outputs.action == 'build'
+
+      - name: Install dependencies
+        if: steps.next.outputs.action == 'build'
+        run: |
+          pnpm install --frozen-lockfile
+          echo "BASE_SHA=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
+
+      - name: Claude builds one step
+        id: claude
+        if: steps.next.outputs.action == 'build'
+        continue-on-error: true
+        uses: anthropics/claude-code-action@v1
+        with:
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
+          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          prompt: ${{ steps.next.outputs.prompt }}
+          claude_args: >-
+            --model ${{ steps.next.outputs.builder_model }}
+            --max-turns ${{ steps.next.outputs.builder_max_turns }}
+            --allowedTools "Read,Write,Edit,Glob,Grep,Bash(pnpm:*),Bash(node:*),Bash(npx:*),Bash(git status:*),Bash(git diff:*),Bash(git log:*),Bash(ls:*),Bash(docker:*),Bash(curl:*)"
+
+      - name: Claude unavailable (limits/outage) - discard partial work, retry next run
+        if: steps.next.outputs.action == 'build' && steps.claude.outcome != 'success'
+        run: |
+          git reset --hard "$BASE_SHA"
+          git clean -fd
+          echo "Claude step did not finish; state unchanged. The next scheduled run retries." >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Gate (lint, typecheck, tests)
+        if: steps.next.outputs.action == 'build' && steps.claude.outcome == 'success'
+        run: |
+          set +e
+          { pnpm lint && pnpm typecheck && pnpm test; } > "$RUNNER_TEMP/gate.log" 2>&1
+          rc=$?
+          tail -n 60 "$RUNNER_TEMP/gate.log"
+          if [ $rc -eq 0 ]; then echo "GATE_OK=true" >> "$GITHUB_ENV"; else echo "GATE_OK=false" >> "$GITHUB_ENV"; fi
+
+      - name: Referee checks the step
+        id: finish
+        if: steps.next.outputs.action == 'build' && steps.claude.outcome == 'success'
+        env:
+          GATE_LOG: ${{ runner.temp }}/gate.log
+        run: node "$REFEREE" finish-build
+
+      # --------------------------------------------------------------- review turn (ChatGPT)
+      - name: ChatGPT reviews the task
+        id: review
+        if: steps.next.outputs.action == 'review'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: node "$REFEREE" review
+
+      # ----------------------------------------------------------------------- save progress
+      - name: Commit and push
+        if: steps.finish.outputs.commit == 'true' || steps.review.outputs.commit == 'true'
+        env:
+          MSG: ${{ steps.finish.outputs.message || steps.review.outputs.message }}
+        run: |
+          git add -A
+          git diff --cached --quiet || git commit -m "$MSG"
+          git push origin "HEAD:$AUTOPILOT_BRANCH"
+
+      - name: Summary
+        if: always()
+        run: |
+          node "$REFEREE" status >> "$GITHUB_STEP_SUMMARY" || true

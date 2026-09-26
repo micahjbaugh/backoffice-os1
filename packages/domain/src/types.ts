@@ -1,0 +1,279 @@
+// Shared domain types. Provider-independent: nothing here knows about Supabase, pg, or any vendor.
+
+import type { MembershipRole, InternalStaffRole } from "./roles";
+
+export type UUID = string;
+
+export type ActorType = "user" | "agent" | "internal_operator" | "integration" | "system";
+
+export type RiskClass = "green" | "yellow" | "red";
+
+export type ApprovalStatus = "pending" | "approved" | "rejected" | "expired" | "cancelled";
+
+export type ApprovalDecision = "approved" | "rejected";
+
+export const TASK_STATUSES = ["open", "in_progress", "done", "cancelled"] as const;
+export type TaskStatus = (typeof TASK_STATUSES)[number];
+
+export const PRIORITIES = ["low", "normal", "high", "urgent"] as const;
+export type Priority = (typeof PRIORITIES)[number];
+
+export const JOB_STATUSES = [
+  "draft",
+  "scheduled",
+  "active",
+  "paused",
+  "completed",
+  "invoiced",
+  "closed",
+] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+
+export const OPS_CASE_STATUSES = [
+  "new",
+  "assigned",
+  "waiting_external",
+  "resolved",
+  "closed",
+] as const;
+export type OpsCaseStatus = (typeof OPS_CASE_STATUSES)[number];
+
+/** Why a workflow escalated to the human backstop (MASTER_SPEC §9). */
+export const OPS_CASE_REASON_CODES = [
+  "low_confidence",
+  "policy_conflict",
+  "missing_data",
+  "integration_failure",
+  "caller_requested_human",
+  "unusual_financial_decision",
+  "external_dispute",
+  "other",
+] as const;
+export type OpsCaseReasonCode = (typeof OPS_CASE_REASON_CODES)[number];
+
+export const DOCUMENT_CLASSIFICATIONS = [
+  "public",
+  "internal",
+  "confidential",
+  "financial",
+  "employee_sensitive",
+  "credential_secret",
+] as const;
+export type DocumentClassification = (typeof DOCUMENT_CLASSIFICATIONS)[number];
+
+/** Entity types that polymorphic references (entity_type/entity_id) may point at. */
+export const ENTITY_TYPES = [
+  "customer",
+  "employee",
+  "vendor",
+  "job",
+  "task",
+  "approval",
+  "ops_case",
+  "document",
+] as const;
+export type EntityType = (typeof ENTITY_TYPES)[number];
+
+/**
+ * Who is performing an action. Users and internal operators are authenticated humans;
+ * agents, integrations and system components are trusted server-side code paths.
+ */
+export type Actor =
+  | { type: "user"; userId: UUID }
+  | { type: "internal_operator"; userId: UUID }
+  | { type: "agent"; name: string }
+  | { type: "integration"; name: string }
+  | { type: "system"; name: string };
+
+export function actorUserId(actor: Actor): UUID | null {
+  return actor.type === "user" || actor.type === "internal_operator" ? actor.userId : null;
+}
+
+export function actorLabel(actor: Actor): string {
+  return actor.type === "user" || actor.type === "internal_operator"
+    ? `${actor.type}:${actor.userId}`
+    : `${actor.type}:${actor.name}`;
+}
+
+export interface TenantEntity {
+  id: UUID;
+  organizationId: UUID;
+  createdAt: string;
+}
+
+export interface Organization {
+  id: UUID;
+  name: string;
+  slug: string | null;
+  timezone: string;
+  createdAt: string;
+}
+
+export interface Membership {
+  id: UUID;
+  organizationId: UUID;
+  userId: UUID;
+  role: MembershipRole;
+  email: string | null;
+  createdAt: string;
+}
+
+export interface Customer extends TenantEntity {
+  displayName: string;
+  phone: string | null;
+  email: string | null;
+  notes: string | null;
+  updatedAt: string;
+}
+
+export interface Employee extends TenantEntity {
+  displayName: string;
+  phone: string | null;
+  email: string | null;
+  active: boolean;
+  updatedAt: string;
+}
+
+export interface Vendor extends TenantEntity {
+  displayName: string;
+  phone: string | null;
+  email: string | null;
+  approved: boolean;
+  preferred: boolean;
+  updatedAt: string;
+}
+
+export interface Job extends TenantEntity {
+  customerId: UUID | null;
+  customerName: string | null;
+  name: string;
+  status: JobStatus;
+  scheduledStart: string | null;
+  scheduledEnd: string | null;
+  updatedAt: string;
+}
+
+export interface Task extends TenantEntity {
+  title: string;
+  description: string | null;
+  status: TaskStatus;
+  priority: Priority;
+  dueAt: string | null;
+  entityType: string | null;
+  entityId: UUID | null;
+  assignedUserId: UUID | null;
+  updatedAt: string;
+}
+
+export interface Approval extends TenantEntity {
+  type: string;
+  title: string;
+  description: string | null;
+  status: ApprovalStatus;
+  riskClass: RiskClass;
+  amountCents: number | null;
+  currency: string | null;
+  entityType: string | null;
+  entityId: UUID | null;
+  requestedByActorType: ActorType;
+  requestedByActorId: UUID | null;
+  decidedByUserId: UUID | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+  idempotencyKey: string;
+  expiresAt: string | null;
+  updatedAt: string;
+}
+
+export interface BusinessRule extends TenantEntity {
+  ruleKey: string;
+  action: string;
+  version: number;
+  enabled: boolean;
+  definition: Record<string, unknown>;
+  effectiveFrom: string;
+  effectiveTo: string | null;
+  createdByUserId: UUID | null;
+}
+
+export interface BusinessEvent {
+  id: UUID;
+  organizationId: UUID;
+  type: string;
+  occurredAt: string;
+  source: string;
+  sourceRef: string | null;
+  actorType: ActorType;
+  actorId: UUID | null;
+  entityType: string | null;
+  entityId: UUID | null;
+  payload: Record<string, unknown>;
+  correlationId: UUID | null;
+  causationId: UUID | null;
+  idempotencyKey: string | null;
+}
+
+export interface AuditLogEntry {
+  id: UUID;
+  organizationId: UUID | null;
+  actorType: ActorType;
+  actorId: UUID | null;
+  action: string;
+  entityType: string | null;
+  entityId: UUID | null;
+  approvalId: UUID | null;
+  sourceEventId: UUID | null;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface OpsCase extends TenantEntity {
+  title: string;
+  reasonCode: string;
+  status: OpsCaseStatus;
+  priority: Priority;
+  entityType: string | null;
+  entityId: UUID | null;
+  evidence: Record<string, unknown>;
+  assignedOperatorUserId: UUID | null;
+  resolution: string | null;
+  slaDueAt: string | null;
+  automationGapCategory: string | null;
+  organizationName?: string;
+  updatedAt: string;
+}
+
+export interface OperatorGrant extends TenantEntity {
+  operatorUserId: UUID;
+  operatorEmail: string | null;
+  grantedByUserId: UUID | null;
+  reason: string | null;
+  expiresAt: string;
+  revokedAt: string | null;
+  /** Not revoked and not expired, per the database clock. */
+  active: boolean;
+}
+
+export interface Note extends TenantEntity {
+  entityType: string;
+  entityId: UUID;
+  body: string;
+  authorActorType: ActorType;
+  authorUserId: UUID | null;
+}
+
+export interface DocumentMetadata extends TenantEntity {
+  storagePath: string;
+  fileName: string;
+  mimeType: string | null;
+  classification: DocumentClassification;
+  entityType: string | null;
+  entityId: UUID | null;
+  sha256: string | null;
+}
+
+export interface InternalStaff {
+  userId: UUID;
+  role: InternalStaffRole;
+  active: boolean;
+}

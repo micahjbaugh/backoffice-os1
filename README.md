@@ -48,11 +48,15 @@ If automation is uncertain, the workflow escalates to an internal operator. The 
 - `docs/SECURITY.md` — tenant isolation, permissions, audit, sensitive actions
 - `docs/MILESTONES.md` — build order and acceptance gates
 - `docs/FIRST_CUSTOMER_PLAYBOOK.md` — onboarding + operations
-- `supabase/migrations/0001_core.sql` — initial core schema
-- `packages/domain/` — shared domain types/invariants
-- `packages/agents/` — agent definitions and tool contracts
-- `packages/integrations/` — provider adapters
-- `packages/workflows/` — deterministic workflows
+- `docs/M1_IMPLEMENTATION_PLAN.md` / `docs/M1_BUILD_REPORT.md` — M1 plan and build report (how to run locally)
+- `supabase/migrations/` — `0001_core.sql` initial schema, `0002_m1_foundation.sql` M1 security foundation
+- `supabase/README.md` — applying migrations, access model
+- `apps/web/` — Next.js Owner Inbox + Ops Console
+- `packages/domain/` — shared domain types, permission matrix, approval policy, validation
+- `packages/core/` — Business Brain services/repositories (server-only) + RLS/authorization tests
+- `packages/agents/` — agent definitions and tool contracts *(from M2)*
+- `packages/integrations/` — provider adapters *(from M2)*
+- `packages/workflows/` — deterministic workflows *(from M2)*
 - `.claude/IMPLEMENT_M1.md` — first implementation brief for Claude Code
 - `CLAUDE.md` — repository rules for Claude Code
 

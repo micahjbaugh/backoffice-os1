@@ -1,0 +1,19 @@
+{
+  "enabled": true,
+  "builder": {
+    "engineer": "claude",
+    "model": "claude-sonnet-5",
+    "max_turns": 40
+  },
+  "reviewer": {
+    "engineer": "chatgpt",
+    "provider": "openai",
+    "model": "gpt-5",
+    "max_diff_chars": 60000
+  },
+  "max_attempts_per_task": 3,
+  "max_changed_lines_per_file": 40,
+  "line_limit_exempt_paths": ["workflow/state.json", "workflow/blueprint.json", "pnpm-lock.yaml"],
+  "protected_paths": [".github/", "workflow/scripts/", "workflow/config.json"],
+  "pause_at_milestone_boundary": true
+}

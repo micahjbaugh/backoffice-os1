@@ -1,0 +1,289 @@
+import { randomUUID } from "node:crypto";
+import {
+  listNotes,
+  listOpenTasks,
+  listPendingApprovals,
+  loadApprovalDelegationRules,
+} from "@backoffice/core";
+import {
+  evaluateApprovalDecision,
+  OPS_CASE_REASON_CODES,
+  PRIORITIES,
+  roleHasPermission,
+  type Approval,
+  type DecisionAuthority,
+  type Note,
+} from "@backoffice/domain";
+import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { formatDateTime, formatMoney, humanize } from "@/lib/format";
+import { withTenant } from "@/server/session";
+import {
+  addNoteAction,
+  completeTaskAction,
+  createApprovalAction,
+  createOpsCaseAction,
+  createTaskAction,
+  decideApprovalAction,
+} from "../../actions/tenant";
+
+export const dynamic = "force-dynamic";
+
+const DENIAL_TEXT: Record<string, string> = {
+  financial_requires_owner: "Financial approval — needs the owner (or a delegation rule).",
+  red_requires_owner: "High-risk approval — owner only.",
+  role_cannot_decide: "Your role can't decide approvals.",
+};
+
+export default async function InboxPage() {
+  const data = await withTenant(async (ctx, session) => {
+    const can = (p: Parameters<typeof roleHasPermission>[1]) => roleHasPermission(session.role, p);
+    const approvals = can("approval.read") ? await listPendingApprovals(ctx) : [];
+    const rules = can("approval.decide") ? await loadApprovalDelegationRules(ctx) : [];
+    const notes = can("note.read")
+      ? await listNotes(
+          ctx,
+          "approval",
+          approvals.map((a) => a.id),
+        )
+      : [];
+    const tasks = can("task.read") ? await listOpenTasks(ctx) : [];
+    const authority = new Map<string, DecisionAuthority>(
+      approvals.map((a) => [a.id, evaluateApprovalDecision(ctx.actor, session.role, a, rules)]),
+    );
+    return { session, approvals, notes, tasks, authority, can };
+  });
+  const { session, approvals, notes, tasks, authority, can } = data;
+  const tz = session.organization.timezone;
+
+  return (
+    <>
+      <div className="page-head">
+        <h1>Inbox</h1>
+        <p>Only the decisions and exceptions that need you.</p>
+      </div>
+
+      <section className="section">
+        <h2>Needs your decision ({approvals.length})</h2>
+        {!can("approval.read") ? (
+          <p className="empty">Approvals are handled by the office.</p>
+        ) : approvals.length === 0 ? (
+          <p className="empty">Nothing waiting on you.</p>
+        ) : (
+          approvals.map((approval) => (
+            <ApprovalCard
+              key={approval.id}
+              approval={approval}
+              authority={authority.get(approval.id)}
+              notes={notes.filter((n) => n.entityId === approval.id)}
+              canNote={can("note.add")}
+              timeZone={tz}
+            />
+          ))
+        )}
+      </section>
+
+      <section className="section">
+        <h2>High-priority tasks ({tasks.length})</h2>
+        {tasks.length === 0 ? (
+          <p className="empty">No open high-priority tasks.</p>
+        ) : (
+          tasks.map((task) => (
+            <div className="card" key={task.id}>
+              <div className="card-head">
+                <div>
+                  <h3>{task.title}</h3>
+                  <div className="meta">
+                    <span className={`badge ${task.priority === "urgent" ? "red" : "yellow"}`}>
+                      {task.priority}
+                    </span>
+                    Due {formatDateTime(task.dueAt, tz)}
+                  </div>
+                  {task.description ? <p>{task.description}</p> : null}
+                </div>
+                {can("task.update") ? (
+                  <ActionForm action={completeTaskAction}>
+                    <input type="hidden" name="taskId" value={task.id} />
+                    <SubmitButton variant="secondary">Mark done</SubmitButton>
+                  </ActionForm>
+                ) : null}
+              </div>
+            </div>
+          ))
+        )}
+      </section>
+
+      {can("task.create") ? (
+        <section className="section card">
+          <h2>New task</h2>
+          <ActionForm action={createTaskAction} className="grid-form">
+            <label>
+              Title
+              <input name="title" required maxLength={200} />
+            </label>
+            <label>
+              Priority
+              <select name="priority" defaultValue="high">
+                {PRIORITIES.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Due
+              <input name="dueAt" type="datetime-local" />
+            </label>
+            <label>
+              Details
+              <input name="description" maxLength={4000} />
+            </label>
+            <SubmitButton>Create task</SubmitButton>
+          </ActionForm>
+        </section>
+      ) : null}
+
+      {can("approval.request") ? (
+        <section className="section card">
+          <h2>Request an approval</h2>
+          <ActionForm action={createApprovalAction} className="grid-form">
+            <input type="hidden" name="idempotencyKey" value={`web-${randomUUID()}`} />
+            <label>
+              Type
+              <select name="type" defaultValue="purchase">
+                <option value="purchase">Purchase</option>
+                <option value="overtime">Overtime</option>
+                <option value="change_order">Change order</option>
+                <option value="schedule.change">Schedule change</option>
+              </select>
+            </label>
+            <label>
+              What
+              <input name="title" required maxLength={200} />
+            </label>
+            <label>
+              Amount ($, optional)
+              <input name="amount" inputMode="decimal" pattern="[$]?[0-9,]+(\.[0-9]{1,2})?" />
+            </label>
+            <label>
+              Why
+              <input name="description" maxLength={4000} />
+            </label>
+            <SubmitButton>Request</SubmitButton>
+          </ActionForm>
+        </section>
+      ) : null}
+
+      {can("ops_case.create") ? (
+        <section className="section card">
+          <h2>Hand something to the Back Office team</h2>
+          <ActionForm action={createOpsCaseAction} className="grid-form">
+            <label>
+              What do you need?
+              <input name="title" required maxLength={200} />
+            </label>
+            <label>
+              Reason
+              <select name="reasonCode" defaultValue="other">
+                {OPS_CASE_REASON_CODES.map((r) => (
+                  <option key={r} value={r}>
+                    {humanize(r)}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Priority
+              <select name="priority" defaultValue="normal">
+                {PRIORITIES.map((p) => (
+                  <option key={p}>{p}</option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Details
+              <input name="details" maxLength={2000} />
+            </label>
+            <SubmitButton>Send</SubmitButton>
+          </ActionForm>
+        </section>
+      ) : null}
+    </>
+  );
+}
+
+function ApprovalCard({
+  approval,
+  authority,
+  notes,
+  canNote,
+  timeZone,
+}: {
+  approval: Approval;
+  authority: DecisionAuthority | undefined;
+  notes: Note[];
+  canNote: boolean;
+  timeZone: string;
+}) {
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h3>{approval.title}</h3>
+          <div className="meta">
+            <span className={`badge ${approval.riskClass}`}>{approval.riskClass} risk</span>
+            <span className="badge">{humanize(approval.type)}</span>
+            Requested by {humanize(approval.requestedByActorType)} ·{" "}
+            {formatDateTime(approval.createdAt, timeZone)}
+            {approval.expiresAt ? ` · expires ${formatDateTime(approval.expiresAt, timeZone)}` : ""}
+          </div>
+        </div>
+        <div className="amount">{formatMoney(approval.amountCents, approval.currency)}</div>
+      </div>
+      {approval.description ? <p>{approval.description}</p> : null}
+      {notes.length > 0 ? (
+        <ul className="notes">
+          {notes.map((n) => (
+            <li key={n.id}>
+              {n.body} <span className="meta">— {formatDateTime(n.createdAt, timeZone)}</span>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+
+      {authority?.allowed ? (
+        <ActionForm action={decideApprovalAction} className="stack">
+          <input type="hidden" name="approvalId" value={approval.id} />
+          <label>
+            Note (optional)
+            <input name="note" maxLength={2000} />
+          </label>
+          <div className="row">
+            <SubmitButton name="decision" value="approved">
+              Approve
+            </SubmitButton>
+            <SubmitButton name="decision" value="rejected" variant="danger">
+              Reject
+            </SubmitButton>
+          </div>
+        </ActionForm>
+      ) : (
+        <p className="meta">
+          {authority && !authority.allowed
+            ? (DENIAL_TEXT[authority.reason] ?? "Awaiting decision.")
+            : ""}
+        </p>
+      )}
+
+      {canNote ? (
+        <details>
+          <summary>Add note</summary>
+          <ActionForm action={addNoteAction} className="row">
+            <input type="hidden" name="entityType" value="approval" />
+            <input type="hidden" name="entityId" value={approval.id} />
+            <input name="body" required maxLength={4000} aria-label="Note" />
+            <SubmitButton variant="secondary">Add note</SubmitButton>
+          </ActionForm>
+        </details>
+      ) : null}
+    </div>
+  );
+}

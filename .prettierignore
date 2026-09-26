@@ -1,0 +1,10 @@
+node_modules
+.next
+.next-*
+dist
+coverage
+pnpm-lock.yaml
+supabase/.temp
+*.md
+*.sql
+*.toml
