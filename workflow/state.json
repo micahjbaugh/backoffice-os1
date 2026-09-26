@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
   "current_task_index": 4,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Migration and tests align with M3-T03. Table includes organization_id, same-org composite FKs, RLS for staff-only access, audit trigger, and constraints. Tenant-isolation tests comprehensively verify read/write isolation, role restrictions, and audit logging. The composite FK fix (removing per-column ON DELETE) is correct for Postgres. No multi-tenant, auth, or audit gaps detected; scope stays within task. Approved.. M3-T03 is done. Next: M3-T04 \"Migration: equipment and material usage\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M3-T04 done. Added supabase/migrations/0008_equipment_material_usage.sql: equipment_usages (equipment_id, job_id, hours) and material_usages (job_id, description, quantity, unit), both organization_id-scoped drafts (status draft/approved/rejected) with source_communication_id, confidence jsonb, evidence jsonb, same-org composite FKs to equipment/jobs/communications, staff-only RLS (owner/office_admin/manager), updated_at trigger, and audit trigger (equipment_usage.*/material_usage.* actions) — modeled on 0007_time_entries.sql. Added packages/core/test/equipment-material-usage-isolation.test.ts: table-driven tenant-isolation tests (describe.each over both tables) covering cross-org read/write rejection, role restrictions (field employee/accountant/outsider/anon), same-org FK enforcement, and audit logging on manager approval. pnpm lint, typecheck, and test all pass (core: 218 passed, 7 skipped). Nothing else touched. Next: M3-T05 per blueprint.json.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T20:28:55.522Z",
+  "review_base": "79550c9a2bd9b9a91f15f8e356682707203662d8",
+  "updated_at": "2026-09-26T21:00:02.538Z",
   "last_error": "",
   "consecutive_failures": 0
 }

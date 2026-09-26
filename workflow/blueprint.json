@@ -383,7 +383,7 @@
           "title": "Migration: equipment and material usage",
           "description": "equipment_usages (equipment_id, job_id, hours) and material_usages (job_id, description, quantity, unit) as drafts with source + confidence. Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 5,
