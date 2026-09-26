@@ -407,7 +407,7 @@
           "title": "Workflows package skeleton",
           "description": "Create packages/workflows (package.json, tsconfig, eslint, vitest) wired into the workspace.",
           "done_when": "pnpm -r lint/typecheck/test include it.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 8,

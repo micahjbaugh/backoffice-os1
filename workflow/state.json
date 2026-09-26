@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
   "current_task_index": 7,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks solid. Draft services for time entries, equipment usage, material usage, and job notes validate input, enforce permissions, assert cross-org isolation (employee/job/equipment/communication), and implement idempotency via (organization_id, source_communication_id, fact_key) with partial unique indexes and ON CONFLICT DO NOTHING. Events are emitted with idempotency keys; audit logs rely on existing DB triggers (verified for time entries in tests). Tests cover persistence, idempotent replay, tenant isolation, and permission denial across all four services. Minor note (non-blocking): findFactKeyRow interpolates the table name; keep it internal to known tables to avoid accidental misuse.. M3-T06 is done. Next: M3-T07 \"Workflows package skeleton\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M3-T07 done. Added packages/workflows skeleton mirroring the packages/integrations pattern: package.json (@backoffice/workflows, lint/typecheck/test scripts, no deps yet), tsconfig.json (extends root tsconfig.base.json), eslint.config.mjs (re-exports eslint.config.base.mjs), vitest.config.ts (test/**/*.test.ts), src/index.ts (exports WORKFLOWS_PACKAGE marker; comment notes field-capture and other cross-service workflows land in later M3 tasks), test/index.test.ts (asserts the marker). Ran `pnpm install --frozen-lockfile` to link the new workspace package (pnpm-lock.yaml updated, 2 lines). Verified `pnpm -r lint`, `pnpm -r typecheck`, `pnpm -r test` all pass and include packages/workflows (1 test passed). No other files touched. Next: M3-T08 \"Extraction contract\" (StructuredExtractor interface + zod schema in a package to be decided, likely packages/domain or packages/integrations per CLAUDE.md provider-independence rule) can now depend on packages/workflows existing.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T22:04:13.154Z",
+  "review_base": "00bc3dbb76efb48092daf59c391648bf49c290ab",
+  "updated_at": "2026-09-26T22:29:14.496Z",
   "last_error": "",
   "consecutive_failures": 0
 }

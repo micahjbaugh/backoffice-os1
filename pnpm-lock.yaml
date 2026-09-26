@@ -121,6 +121,8 @@ importers:
 
   packages/integrations: {}
 
+  packages/workflows: {}
+
 packages:
 
   '@babel/code-frame@7.29.7':
