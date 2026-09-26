@@ -20,7 +20,12 @@
       "status": "one of task_statuses",
       "requires_human": "optional string: why a person must do or approve this task; autopilot stops here"
     },
-    "task_statuses": ["pending", "in_progress", "done", "blocked"]
+    "task_statuses": [
+      "pending",
+      "in_progress",
+      "done",
+      "blocked"
+    ]
   },
   "milestones": [
     {
@@ -183,7 +188,7 @@
           "title": "Integrations package skeleton",
           "description": "Create packages/integrations with package.json, tsconfig, eslint and vitest config.",
           "done_when": "pnpm -r lint/typecheck include the new package.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 1,
@@ -552,7 +557,9 @@
       "key": "M6",
       "name": "AR / AP",
       "status": "pending",
-      "acceptance": ["scope items delivered with tests and audit"],
+      "acceptance": [
+        "scope items delivered with tests and audit"
+      ],
       "tasks": [
         {
           "index": 0,
@@ -609,7 +616,9 @@
       "key": "M7",
       "name": "Time Close + Payroll Prep",
       "status": "pending",
-      "acceptance": ["scope items delivered with tests and audit"],
+      "acceptance": [
+        "scope items delivered with tests and audit"
+      ],
       "tasks": [
         {
           "index": 0,
@@ -658,7 +667,9 @@
       "key": "M8",
       "name": "Scheduling / Dispatch",
       "status": "pending",
-      "acceptance": ["scope items delivered with tests and audit"],
+      "acceptance": [
+        "scope items delivered with tests and audit"
+      ],
       "tasks": [
         {
           "index": 0,
@@ -707,7 +718,9 @@
       "key": "M9",
       "name": "Tax Ready + Accountant Portal",
       "status": "pending",
-      "acceptance": ["scope items delivered with tests and audit"],
+      "acceptance": [
+        "scope items delivered with tests and audit"
+      ],
       "tasks": [
         {
           "index": 0,
@@ -764,7 +777,9 @@
       "key": "M10",
       "name": "Analytics / Owner Assistant",
       "status": "pending",
-      "acceptance": ["scope items delivered with tests and audit"],
+      "acceptance": [
+        "scope items delivered with tests and audit"
+      ],
       "tasks": [
         {
           "index": 0,
