@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
   "current_task_index": 3,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T03 done in one step. Added supabase/migrations/0007_time_entries.sql: new enum public.time_entry_status ('draft'|'approved'|'rejected'); adds jobs_id_org_unique (needed for the same-org FK, not previously present); creates public.time_entries (organization_id, employee_id, job_id, work_date, start_at, end_at, hours, status, source_communication_id, confidence jsonb, evidence jsonb, created_at/updated_at) with composite same-org FKs to employees/jobs/communications, unique (id, organization_id), indexes, updated_at trigger, RLS enabled with a single staff-only policy (owner/office_admin/manager, mirroring leads_staff_all in 0004_leads.sql since time entries carry payroll data and field employees/accountants get no direct table access), and an audit trigger via audit_row_mutation('time_entry'). Added packages/core/test/time-entries-isolation.test.ts (14 tests): cross-org read/write denial for all roles, role restriction (field_employee/accountant denied), cross-org FK rejection, moving a row across orgs rejected, outsider/anon denial, and audit log entries on create/update. Ran pnpm lint, pnpm typecheck, pnpm test at the repo root — all green (193 passed / 7 pre-existing skipped). No other files touched. Next: M3-T04 per workflow/blueprint.json.",
-  "attempts": 0,
-  "review_notes": "",
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "Attempt 1 was sent back. Fix review_notes, then resubmit.",
+  "attempts": 1,
+  "review_notes": "ChatGPT requested changes: Migration contains an invalid foreign key clause. Postgres does not support ON DELETE SET NULL for only one column in a composite FK, and organization_id is NOT NULL, so this cannot work. Fix time_entries_communication_same_org_fkey by removing the per-column clause. Easiest safe correction: keep the composite same-org FK to communications without ON DELETE SET NULL (default NO ACTION/RESTRICT), or redesign with a single-column FK plus a trigger to enforce same-org. Update the migration accordingly and re-run to ensure it applies; tests should still pass with the NO ACTION approach. No other issues found.",
   "review_base": "c44f3d342a5d2f2c1a8e12cac4ab73a72cdc18bc",
-  "updated_at": "2026-09-26T19:57:41.927Z",
+  "updated_at": "2026-09-26T19:58:55.374Z",
   "last_error": "",
   "consecutive_failures": 0
 }
