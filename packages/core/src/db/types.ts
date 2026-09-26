@@ -6,6 +6,15 @@ export interface QueryResult<R> {
   rowCount: number;
 }
 
+/**
+ * Driver contract for value types that are easy to get wrong:
+ * - `date` columns are returned as "YYYY-MM-DD" strings (never JS Date objects), so calendar dates
+ *   never shift with the process timezone;
+ * - `int8` is returned as a JS number (amounts are integer cents).
+ * Adapters: node-postgres (./pg.ts) and PGlite (test/helpers/db.ts) both configure this.
+ */
+export const DATE_OID = 1082;
+
 export interface SqlExecutor {
   query<R = Record<string, unknown>>(
     sql: string,

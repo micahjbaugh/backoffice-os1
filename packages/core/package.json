@@ -12,7 +12,8 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:tz": "node scripts/test-timezones.mjs"
   },
   "dependencies": {
     "@backoffice/domain": "workspace:*",

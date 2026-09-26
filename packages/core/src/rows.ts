@@ -40,20 +40,21 @@ export function isoOrNull(value: unknown): string | null {
   return value === null || value === undefined ? null : iso(value);
 }
 
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
- * A `date` column as "YYYY-MM-DD". node-postgres parses `date` into a Date built from local
- * year/month/day components, so reading those back out (not toISOString, which is UTC) recovers
- * the original calendar date regardless of process timezone.
+ * A SQL `date` column as "YYYY-MM-DD". Adapters must return dates as text (see the SqlExecutor
+ * contract in ./db/types.ts). A JS Date here means an adapter is misconfigured: whether its local
+ * or UTC fields hold the calendar date depends on the driver, so refuse to guess.
  */
 export function dateOnly(value: unknown): string {
+  if (typeof value === "string" && CALENDAR_DATE.test(value)) return value;
   if (value instanceof Date) {
-    const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, "0");
-    const d = String(value.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    throw new TypeError(
+      "date column arrived as a JS Date; configure the driver to return DATE as text (DATE_OID)",
+    );
   }
-  if (typeof value === "string") return value.slice(0, 10);
-  throw new TypeError(`expected date, got ${typeof value}`);
+  throw new TypeError(`expected a YYYY-MM-DD date, got ${JSON.stringify(value)}`);
 }
 
 export function numOrNull(value: unknown): number | null {
