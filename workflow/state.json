@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
-  "current_task_index": 6,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T06 done. Added migration 0010_draft_record_idempotency.sql (nullable fact_key column + partial unique index on (organization_id, source_communication_id, fact_key) for time_entries, equipment_usages, material_usages, job_notes, mirroring the leads.idempotency_key pattern). Domain: types.ts (TimeEntry/EquipmentUsage/MaterialUsage/JobNote + DraftFact/DraftRecordStatus), schemas.ts (createDraftTimeEntryInput/createDraftEquipmentUsageInput/createDraftMaterialUsageInput/createDraftJobNoteInput with shared draftFactFields/refineFactRef), permissions.ts (time_entry.write/equipment_usage.write/material_usage.write/job_note.write; staff + agent/system automated), events.ts (four *.drafted event types). Core: rows.ts (dateOnly helper + 4 row mappers), services/entities.ts (+assertCommunicationInOrg export), new services/draft-fact.ts (shared findFactKeyRow), services/draft-records.ts (createDraftTimeEntry), services/equipment-usage.ts, services/material-usage.ts, services/job-notes.ts — one file per entity to stay under the per-file diff limit; all exported from src/index.ts. Tests: test/draft-records.test.ts, test/equipment-usage.test.ts, test/material-usage.test.ts, test/job-notes.test.ts (+ test/helpers/draft-facts.ts) cover persistence+event, idempotent replay on (source_communication_id, fact_key), distinct fact keys creating separate rows, cross-org employee/job/equipment rejection (NotFoundError), and permission denial (ForbiddenError) for each service. lint/typecheck/test all pass (core: 267 tests, 260 passed + 7 pre-existing skipped). Next: M3-T07 \"Workflows package skeleton\".",
+  "current_task_index": 7,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks solid. Draft services for time entries, equipment usage, material usage, and job notes validate input, enforce permissions, assert cross-org isolation (employee/job/equipment/communication), and implement idempotency via (organization_id, source_communication_id, fact_key) with partial unique indexes and ON CONFLICT DO NOTHING. Events are emitted with idempotency keys; audit logs rely on existing DB triggers (verified for time entries in tests). Tests cover persistence, idempotent replay, tenant isolation, and permission denial across all four services. Minor note (non-blocking): findFactKeyRow interpolates the table name; keep it internal to known tables to avoid accidental misuse.. M3-T06 is done. Next: M3-T07 \"Workflows package skeleton\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "1409b29b30fc162619ae176511b9c9afbad21867",
-  "updated_at": "2026-09-26T22:03:06.599Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T22:04:13.154Z",
   "last_error": "",
   "consecutive_failures": 0
 }
