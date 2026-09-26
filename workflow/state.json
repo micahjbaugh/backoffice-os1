@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 6,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good and in scope for M2-T05. The new test file validates tenant isolation across communications, calls, messages, communication_participants, leads, and lead_activities using rawAsUser and privileged seeding, and checks both read and write constraints, outsider and anonymous behavior. Minor, non-blocking suggestions: (1) In the calls write test, the UPDATE uses id = seedA.commVoiceId (a communications id). Consider updating by calls.id or WHERE communication_id = $1 to avoid a zero-row update path if privileges change. (2) Optionally mirror the anonymous denial check across the other new tables for consistency. Otherwise, approve.. M2-T05 is done. Next: M2-T06 \"Webhook receipt service\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T06 done. Added packages/core/src/services/webhooks.ts: recordWebhookReceipt (idempotent insert on webhook_receipts via ON CONFLICT (provider, provider_event_id) DO NOTHING, falling back to a select of the existing row so a duplicate delivery returns it instead of writing a second row), getWebhookReceipt, and updateWebhookReceiptStatus (updates status, stamps processed_at once the row leaves 'received', throws NotFoundError for an unknown id). All three take a raw Tx and always run asService, matching the createOrganizationWithOwner precedent for server-internal code that runs before any tenant/org is known; webhook_receipts already has RLS enabled with all privileges revoked from authenticated (0001/0002), so no migration was needed and no client policy was added. Exported the new service from packages/core/src/index.ts (one line). Added packages/core/test/webhook-receipts.test.ts: duplicate-returns-existing-row, cross-provider distinctness, org association, status update + processed_at stamping, not-found, null lookup, and a direct-SQL check that no authenticated or anonymous client role can read/write webhook_receipts. pnpm lint, typecheck and test all pass (packages/core now 122 passing, 7 skipped, up from the prior 115). Only files touched: packages/core/src/services/webhooks.ts (new), packages/core/src/index.ts (+1 export), packages/core/test/webhook-receipts.test.ts (new). Next: M2-T07 \"Webhook route handler\" (apps/web API route that verifies signatures via a VoiceProvider/SmsProvider adapter and calls recordWebhookReceipt before processing).",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T11:29:45.906Z",
-  "last_error": "2026-09-26T11:29:45.906Z builder (Claude) run failed: M2-T06 is complete. Summary: - Added `packages/core/src/services/webhooks.ts`: `recordWebhookReceipt` (idempotent insert on `webhook_receipts` via `ON CONFLICT (provider, provider_event_id) DO NOTHING`, falling back to the existing row) and `updateWebhookReceiptStatus` (status tracking with `processed_at` stamping). Both operate on a raw `Tx` as service-role, matching the existing precedent for server-internal, non-client-callable paths — `webhook_receipts` already has RLS with no client policies. - Exported the new service from `packages/core/src/index.ts` (one line). - Added `packages/core/test/webhook-receipts.test.ts` covering duplicate dedup, cross-provider distinctness, status updates, not-found, and RLS denial for direct client access. - No new migration needed — `webhook_receipts` ",
-  "consecutive_failures": 7
+  "review_base": "8f28e54efbac1186bae8b4ccc60115f135469b95",
+  "updated_at": "2026-09-26T11:46:13.342Z",
+  "last_error": "",
+  "consecutive_failures": 0
 }

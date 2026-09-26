@@ -15,3 +15,4 @@ export * from "./services/ops";
 export * from "./services/organizations";
 export * from "./services/records";
 export * from "./services/tasks";
+export * from "./services/webhooks";

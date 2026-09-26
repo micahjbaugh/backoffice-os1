@@ -239,7 +239,7 @@
           "title": "Webhook receipt service",
           "description": "Idempotent insert on webhook_receipts (provider, provider_event_id) with status tracking.",
           "done_when": "Duplicate receipt returns existing row; test passes.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 7,
