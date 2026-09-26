@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 10,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T10 'Create lead tool' implemented. New: supabase/migrations/0005_lead_idempotency.sql (nullable leads.idempotency_key + partial unique index on (organization_id, idempotency_key), mirroring business_events); packages/core/src/services/leads.ts (createLead + getLead); packages/core/test/leads.test.ts. Changed: packages/domain/src/types.ts (LEAD_STATUSES/LEAD_SOURCES/Lead type), packages/domain/src/schemas.ts (createLeadInput), packages/domain/src/events.ts (EVENT_TYPES.leadCreated), packages/domain/src/permissions.ts (lead.read/lead.write permissions; lead.write added to STAFF_WRITE and AUTOMATED_PERMISSIONS so the agent actor can call it as a GREEN action), packages/core/src/rows.ts (toLead), packages/core/src/index.ts (export services/leads). createLead validates cross-org customer/employee/communication refs, is idempotent on (organization_id, idempotency_key) (on conflict do nothing + select-existing, same pattern as approvals/business_events), records a lead.created business event, and relies on the existing leads_audit DB trigger (0004_leads.sql) for the audit_log row (services do not double-write audit when a table already has an audit trigger, per the customer/employee/vendor/job/task/document convention). Tests cover: create+event+audit, duplicate-key idempotency (done_when), cross-org customer rejection, cross-org originating-communication rejection, field_employee denial, and cross-org getLead isolation. pnpm lint/typecheck/test all pass (packages/core: 145 passed, 7 skipped). Next: M2-T11 'Callback task tool'.",
+  "current_task_index": 11,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The createLead tool is agent-callable, validates cross-org references, enforces permissions, and is idempotent via (organization_id, idempotency_key) with a partial unique index and ON CONFLICT DO NOTHING + lookup. Multi-tenant isolation is preserved in both create and get paths. An event is recorded exactly once and auditing relies on the existing DB trigger, matching established patterns. Tests cover idempotency (done_when), permissions, cross-org isolation, and linkage to communications. No issues found outside the task scope.. M2-T10 is done. Next: M2-T11 \"Callback task tool\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "008b5364e5a82d1b73c3de627e0ad6731516adb5",
-  "updated_at": "2026-09-26T14:34:53.853Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T14:35:53.725Z",
   "last_error": "",
   "consecutive_failures": 0
 }

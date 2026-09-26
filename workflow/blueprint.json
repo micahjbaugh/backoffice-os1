@@ -271,7 +271,7 @@
           "title": "Create lead tool",
           "description": "Agent-callable, validated, idempotent createLead domain tool (GREEN).",
           "done_when": "Duplicate call with same key creates one lead.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 11,
