@@ -7,7 +7,7 @@
   "attempts": 0,
   "review_notes": "",
   "review_base": null,
-  "updated_at": "2026-09-26T10:56:05.200Z",
-  "last_error": "2026-09-26T10:56:05.200Z builder (Claude) run failed: error_max_turns",
-  "consecutive_failures": 6
+  "updated_at": "2026-09-26T11:29:45.906Z",
+  "last_error": "2026-09-26T11:29:45.906Z builder (Claude) run failed: M2-T06 is complete. Summary: - Added `packages/core/src/services/webhooks.ts`: `recordWebhookReceipt` (idempotent insert on `webhook_receipts` via `ON CONFLICT (provider, provider_event_id) DO NOTHING`, falling back to the existing row) and `updateWebhookReceiptStatus` (status tracking with `processed_at` stamping). Both operate on a raw `Tx` as service-role, matching the existing precedent for server-internal, non-client-callable paths — `webhook_receipts` already has RLS with no client policies. - Exported the new service from `packages/core/src/index.ts` (one line). - Added `packages/core/test/webhook-receipts.test.ts` covering duplicate dedup, cross-provider distinctness, status updates, not-found, and RLS denial for direct client access. - No new migration needed — `webhook_receipts` ",
+  "consecutive_failures": 7
 }
