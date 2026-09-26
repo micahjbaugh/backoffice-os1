@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 8,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T08 caller matching service, done in one step. Added packages/domain/src/phone.ts (normalizePhoneNumber, exported from packages/domain/src/index.ts) and packages/core/src/services/caller-matching.ts (matchCallerByPhone, exported from packages/core/src/index.ts), plus packages/core/test/caller-matching.test.ts. matchCallerByPhone(ctx, rawPhone) normalizes the phone, requires customer.read+employee.read, queries public.customers/public.employees scoped to ctx.organizationId (RLS for user actors, service for trusted actors), and returns {status:'no_match'} | {status:'matched', entityType, entityId, displayName} | {status:'ambiguous', candidates, opsCase}. Ambiguous matches call the existing createOpsCase with reasonCode 'low_confidence' (which already writes the audit record + business event) instead of guessing. No schema/migration changes; no other files touched. Tests cover match (customer and employee), no-match, ambiguous (opens ops case), and cross-org isolation. pnpm lint/typecheck/test all green. Next: M2-T09 (communication record service) can call matchCallerByPhone to attach participants when persisting a call/message.",
-  "attempts": 1,
-  "review_notes": "Referee rejected the step and discarded it: run ended without a valid workflow/state.json update (likely out of turns). Take a smaller step.",
-  "review_base": "1e43c410718a3133ba7aa63de714856909a7b8a9",
-  "updated_at": "2026-09-26T13:00:45.212Z",
+  "current_task_index": 9,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Implements matchCallerByPhone with proper org scoping, required permissions, and ambiguous handling via createOpsCase. normalizePhoneNumber added to domain and exported. Tests cover match, no-match, ambiguous, and cross-org isolation. No schema or security issues observed. Non-blocking: consider future optimization (persist/index normalized phone) and whether partial read permissions (customer-only or employee-only) should return scoped matches instead of requiring both.. M2-T08 is done. Next: M2-T09 \"Communication record service\".",
+  "attempts": 0,
+  "review_notes": "",
+  "review_base": null,
+  "updated_at": "2026-09-26T13:01:40.168Z",
   "last_error": "",
   "consecutive_failures": 0
 }
