@@ -7,7 +7,7 @@
   "attempts": 0,
   "review_notes": "",
   "review_base": null,
-  "updated_at": "2026-09-26T08:56:57.123Z",
-  "last_error": "2026-09-26T08:56:57.123Z builder (Claude) run failed: M2-T06 is complete. Summary: - Added `WebhookReceipt` domain type/status enum and `recordWebhookReceiptInput`/`updateWebhookReceiptStatusInput` zod schemas in `packages/domain`. - Added `toWebhookReceipt` row mapper and a new `packages/core/src/services/webhooks.ts` (`recordWebhookReceipt`, `updateWebhookReceiptStatus`, `getWebhookReceipt`), exported from `packages/core/src/index.ts`. Reused the same idempotent-insert pattern as `recordEvent` (`ON CONFLICT ... DO NOTHING` then select-existing) since `webhook_receipts` already existed from M1 with RLS locking clients out entirely — no new migration was needed. - Added `packages/core/test/webhook-receipts.test.ts` covering duplicate-event dedup, per-provider distinctness, status/`processed_at` tracking, validation/not-found errors, and that ",
-  "consecutive_failures": 2
+  "updated_at": "2026-09-26T09:32:16.493Z",
+  "last_error": "2026-09-26T09:32:16.493Z builder (Claude) run failed: error_max_turns",
+  "consecutive_failures": 3
 }
