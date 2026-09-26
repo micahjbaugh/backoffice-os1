@@ -409,6 +409,27 @@ function discardWorkIf(condition, base) {
   git("checkout", base, "--", BLUEPRINT, CONFIG_IN_REPO);
 }
 
+/**
+ * The Claude action can flag a run as failed even though Claude finished the step (e.g. it reports
+ * a successful result but went over the turn budget). Exit 0 when the builder left a valid, changed
+ * state.json handoff, so the normal referee checks (gate, limits, protected files, review) decide.
+ */
+function cmdCanSalvage() {
+  const base = process.env.BASE_SHA;
+  let current;
+  let before;
+  try {
+    current = readJson(STATE);
+    before = JSON.parse(git("show", `${base}:${STATE}`));
+  } catch {
+    process.exit(1);
+  }
+  const changed =
+    current.status !== before.status ||
+    current.handoff_instructions !== before.handoff_instructions;
+  process.exit(changed && BUILDER_EXIT_STATUSES.has(current.status) ? 0 : 1);
+}
+
 /** Claude could not finish (auth, usage limit, outage). Record why; no attempt is used up. */
 function cmdRecordError() {
   const who = process.argv[3] === "reviewer" ? "reviewer (ChatGPT)" : "builder (Claude)";
@@ -730,6 +751,7 @@ const commands = {
   "resume-mark-done": () => cmdControl("resume-mark-done"),
   "mark-task-done": () => cmdControl("mark-task-done"),
   "record-error": cmdRecordError,
+  "can-salvage": cmdCanSalvage,
   notify: cmdNotify,
 };
 const command = commands[process.argv[2]];

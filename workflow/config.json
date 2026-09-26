@@ -3,7 +3,7 @@
   "builder": {
     "engineer": "claude",
     "model": "claude-sonnet-5",
-    "max_turns": 40
+    "max_turns": 100
   },
   "reviewer": {
     "engineer": "chatgpt",
