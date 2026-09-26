@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 11,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T11 done. Changed files: packages/domain/src/types.ts (added \"communication\" to ENTITY_TYPES so a task's polymorphic entity_type/entity_id can reference the communications table, the same pattern already used for customer/job/etc.); packages/core/src/services/entities.ts (added communication -> public.communications to ENTITY_TABLES so assertEntityInOrg validates it's in the caller's org); packages/domain/src/schemas.ts (added createCallbackTaskInput zod schema + CreateCallbackTaskInput type: communicationId, title, description, priority, dueAt, assignedUserId); packages/core/src/services/tasks.ts (added createCallbackTask(ctx, input), a thin wrapper that parses input and calls the existing createTask with entityType: \"communication\", entityId: communicationId - authorization (task.create, already permitted for the 'agent' actor type), the same-org entity check, and the task.created event/audit all come from createTask, so no logic was duplicated); packages/core/test/callback-tasks.test.ts (new: verifies a callback task links to its call/communication, is audited with actor_type='agent' and a task.created event, rejects a communication from a different organization with NotFoundError, and denies a field_employee actor lacking task.create with ForbiddenError). No idempotency key was added to callback tasks, matching createTask's existing behavior (tasks are not idempotent-keyed like leads; only external side effects require it under CLAUDE.md rule 7, and creating an internal task is not one). pnpm lint / typecheck / test all pass (packages/core: 151 tests incl. the 3 new ones). Next: M2-T12 \"Agents package and receptionist definition\".",
+  "current_task_index": 12,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks solid. The wrapper cleanly delegates to createTask with entityType=communication and parses input via zod. You added communication to ENTITY_TYPES and ENTITY_TABLES so same-org checks work. Tests cover: linkage to the communication, audit with agent actor, business event emission, cross-org NotFound, and permission denial. No multi-tenant or auth gaps; no side effects requiring idempotency. Within scope of the task. Approved.. M2-T11 is done. Next: M2-T12 \"Agents package and receptionist definition\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "042afec4d49b515c614038c386f02df109444a03",
-  "updated_at": "2026-09-26T15:00:03.899Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T15:00:35.307Z",
   "last_error": "",
   "consecutive_failures": 0
 }

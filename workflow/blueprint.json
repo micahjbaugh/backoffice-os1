@@ -279,7 +279,7 @@
           "title": "Callback task tool",
           "description": "Agent-callable createCallbackTask wrapping createTask with call linkage.",
           "done_when": "Task created and audited with agent actor.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 12,
