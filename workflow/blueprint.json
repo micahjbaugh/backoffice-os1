@@ -287,7 +287,7 @@
           "title": "Agents package and receptionist definition",
           "description": "packages/agents with receptionist agent definition, versioned prompt (no authorization logic), tool contracts.",
           "done_when": "Tool contract schemas typecheck and are tested.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 13,

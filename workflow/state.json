@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 12,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks solid. The wrapper cleanly delegates to createTask with entityType=communication and parses input via zod. You added communication to ENTITY_TYPES and ENTITY_TABLES so same-org checks work. Tests cover: linkage to the communication, audit with agent actor, business event emission, cross-org NotFound, and permission denial. No multi-tenant or auth gaps; no side effects requiring idempotency. Within scope of the task. Approved.. M2-T11 is done. Next: M2-T12 \"Agents package and receptionist definition\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T12 done: added new packages/agents workspace package (package.json, tsconfig.json, vitest.config.ts, eslint.config.mjs mirroring packages/domain). New files: src/tool-contract.ts (ToolContract: name/description/riskClass/inputSchema — the agent-facing contract shape, no execution or auth logic), src/prompt.ts (VersionedPrompt + renderPrompt placeholder filler, throws on missing value), src/agent-definition.ts (AgentDefinition: name/description/prompt/tools), src/receptionist/tools.ts (receptionistTools: lookup_business_info and request_transfer are new schemas; create_lead and create_callback_task reuse the existing createLeadInput/createCallbackTaskInput schemas from @backoffice/domain so the contract can't drift from what packages/core actually validates — all four are riskClass 'green', matching AUTOMATED_PERMISSIONS in packages/domain/permissions.ts), src/receptionist/prompt.ts (RECEPTIONIST_PROMPT v1, explicitly disclaims authority and states every tool call is validated/authorized server-side), src/receptionist/agent.ts (receptionistAgent bundling prompt+tools), src/index.ts (exports). Added packages/agents/test/receptionist.test.ts (9 tests: schema accept/reject per tool, all-green risk class, prompt versioning/placeholder rendering/missing-value failure, prompt names every tool, agent bundles prompt+tools). Also updated pnpm-lock.yaml (mechanical, from adding the new workspace package's deps on zod and @backoffice/domain). No DB/services/migrations touched — this task only defines the agent-facing contract+prompt layer, not execution; lookup_business_info and request_transfer have contracts here but no backing service yet (request_transfer's service is M2-T13 'Transfer tool', already next in the blueprint). pnpm lint, pnpm typecheck and pnpm test all pass repo-wide. Next: M2-T13 'Transfer tool' should implement the domain/core service behind request_transfer's contract (authorize, same-org check on communicationId, create an ops case or task, event+audit), matching the pattern in packages/core/src/services/tasks.ts createCallbackTask.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T15:00:35.307Z",
+  "review_base": "bc38fd8926fb397eb8e733d9418b61d7f4d141db",
+  "updated_at": "2026-09-26T15:34:34.084Z",
   "last_error": "",
   "consecutive_failures": 0
 }
