@@ -223,7 +223,7 @@
           "title": "Migration 0004: leads tables",
           "description": "leads and lead_activities with organization_id, RLS and audit triggers.",
           "done_when": "Migration applies on the test harness.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 5,
