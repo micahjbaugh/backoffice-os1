@@ -319,7 +319,7 @@
           "title": "Voice adapter (Vapi)",
           "description": "Vapi VoiceProvider adapter inside packages/integrations only.",
           "done_when": "Adapter tests pass against mocked HTTP.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 17,
@@ -337,7 +337,7 @@
       "id": 3,
       "key": "M3",
       "name": "Field Capture",
-      "status": "pending",
+      "status": "in_progress",
       "acceptance": [
         "Input 'Me Jake Tyler 7-5:30 Wilson. Hoe 8 hrs D6 6.5, 21 ton rock. Customer had us grade another 200 ft.' produces three draft time entries, equipment usages, material usage, job note and billable opportunity",
         "low-confidence or ambiguous facts stay draft and create a clarification task, never a guess",
