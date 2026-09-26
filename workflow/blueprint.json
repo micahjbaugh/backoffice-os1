@@ -351,7 +351,7 @@
           "title": "Phone number normalization",
           "description": "E.164 normalization helper in packages/domain with tests (US formats, extensions, junk input).",
           "done_when": "Unit tests pass.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 1,

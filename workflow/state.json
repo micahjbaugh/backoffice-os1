@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 3,
-  "current_task_index": 0,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T00 done. Added normalizeToE164 (packages/domain/src/phone.ts), returning { e164: \"+1XXXXXXXXXX\", extension } or null, alongside the pre-existing bare-digits normalizePhoneNumber (kept unchanged; still used by M2 caller-matching, not touched). Handles US formats (plain, dashed, dotted, parenthesized, with/without leading 1 or +1), trailing extensions (\"ext. 123\", \"extension 123\", \"x9\"), and rejects junk/wrong-length input and NANP-reserved area/exchange codes (leading 0 or 1). Exported via packages/domain/src/index.ts (already re-exports ./phone). New tests: packages/domain/test/phone.test.ts (5 cases: plain formats, country-code formats, extensions, junk input, NANP-reserved codes). No other files touched. Pure utility, no persistence/RLS/auth surface, no secrets. pnpm lint / typecheck / test all pass repo-wide (domain: 31 tests incl. 5 new). Next: M3-T01 \"Employee phone identity lookup\" — a service resolving an inbound phone number (via this new normalizeToE164) to exactly one active employee within one organization, with an ops case on ambiguous/unknown numbers.",
+  "current_task_index": 1,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. E.164 normalization and extension parsing handled; tests cover US formats, country code, extensions, junk input, and NANP-reserved codes. Export is available via the domain src index (tests import from ../src and pass). Minor robustness note (non-blocking): extMatch.index is typed optional; consider asserting non-null (e.g., extMatch.index!) to avoid accidental inclusion of the extension if an environment ever returns undefined. Otherwise, implementation matches the task and stays within scope.. M3-T00 is done. Next: M3-T01 \"Employee phone identity lookup\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "b7ea6d24a74912163ae1d2a313ee7d938b55b596",
-  "updated_at": "2026-09-26T18:33:02.233Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T18:33:41.441Z",
   "last_error": "",
   "consecutive_failures": 0
 }
