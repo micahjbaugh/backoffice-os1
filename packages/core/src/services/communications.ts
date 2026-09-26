@@ -1,21 +1,24 @@
-// M2-T09 (step 1/2): persist calls with participants and provider identifiers. Idempotent per
+// M2-T09: persist calls and messages with participants and provider identifiers. Idempotent per
 // (organization_id, provider, provider_conversation_id) so a later lifecycle event for the same
-// call (e.g. call.ended after call.started) updates the existing row instead of duplicating it.
-// Duplicate delivery of the *same* provider event is already blocked upstream by webhook_receipts
-// (M2-T06); this only folds distinct lifecycle events for one call into a single record.
-// Message support (SMS/email) lands in a follow-up step — see workflow/state.json handoff.
+// conversation (e.g. call.ended after call.started) updates the existing row instead of
+// duplicating it. Duplicate delivery of the *same* provider event is already blocked upstream by
+// webhook_receipts (M2-T06); this only folds distinct lifecycle events for one conversation into
+// a single record.
 
 import {
   EVENT_TYPES,
   parseInput,
   recordCallInput,
+  recordMessageInput,
   type Call,
   type Communication,
   type CommunicationParticipant,
+  type Message,
   type RecordCallInput,
+  type RecordMessageInput,
   type UUID,
 } from "@backoffice/domain";
-import { toCall, toCommunication, toCommunicationParticipant, type Row } from "../rows";
+import { toCall, toCommunication, toCommunicationParticipant, toMessage, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
 import { assertEntityInOrg } from "./entities";
@@ -168,6 +171,42 @@ export async function recordCall(ctx: ServiceContext, input: RecordCallInput): P
   const participants = await setParticipants(ctx, communication.id, data.participants);
   await finish(ctx, communication, created);
   return { communication, call, participants, created };
+}
+
+export interface RecordedMessage {
+  communication: Communication;
+  message: Message;
+  participants: CommunicationParticipant[];
+  created: boolean;
+}
+
+/** Persist a message and its envelope, keyed on (provider, provider_conversation_id). */
+export async function recordMessage(ctx: ServiceContext, input: RecordMessageInput): Promise<RecordedMessage> {
+  await ctx.authorize("communication.write");
+  const data = parseInput(recordMessageInput, input);
+  const { communication, created } = await upsertEnvelope(ctx, data.channel, data);
+
+  // pg binds bare JS arrays as Postgres array literals, not JSON — media_urls is jsonb, so it
+  // must be serialized before binding.
+  const { rows } = await ctx.tx.asService<Row>(
+    `insert into public.messages
+       (organization_id, communication_id, provider_message_id, from_address, to_address, body, media_urls)
+     values ($1, $2, $3, $4, $5, $6, $7)
+     on conflict (communication_id) do update set
+       provider_message_id = coalesce(excluded.provider_message_id, public.messages.provider_message_id),
+       body = coalesce(excluded.body, public.messages.body),
+       media_urls = case when excluded.media_urls = '[]'::jsonb
+                          then public.messages.media_urls else excluded.media_urls end
+     returning *`,
+    [
+      ctx.organizationId, communication.id, data.providerMessageId ?? null, data.fromAddress ?? null,
+      data.toAddress ?? null, data.body ?? null, JSON.stringify(data.mediaUrls),
+    ],
+  );
+  const message = toMessage(rows[0] as Row);
+  const participants = await setParticipants(ctx, communication.id, data.participants);
+  await finish(ctx, communication, created);
+  return { communication, message, participants, created };
 }
 
 export async function getCommunication(ctx: ServiceContext, id: UUID): Promise<Communication | null> {
