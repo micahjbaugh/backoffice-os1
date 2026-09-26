@@ -55,12 +55,25 @@ function locate(state, bp) {
   return { mIndex, milestone, task };
 }
 
-/** Move the pointer past tasks already marked done (e.g. finished by a human). */
+/** Deferred tasks (human work parked for later) are skipped, but stay open until marked done. */
+const isSkippable = (task) => task.status === "done" || task.deferred === true;
+
+/** A milestone is done only when every task is done, deferred ones included. */
+function refreshMilestoneStatus(milestone) {
+  if (milestone.tasks.every((t) => t.status === "done")) milestone.status = "done";
+  else if (milestone.status === "pending" || milestone.status === "done") {
+    milestone.status = milestone.tasks.some((t) => t.status !== "pending")
+      ? "in_progress"
+      : "pending";
+  }
+}
+
+/** Move the pointer past done and deferred tasks. Returns false when nothing is left to build. */
 function skipDone(state, bp) {
   for (;;) {
     const { mIndex, milestone, task } = locate(state, bp);
     if (!milestone) return false;
-    if (task && task.status !== "done") {
+    if (task && !isSkippable(task)) {
       if (milestone.status === "pending") milestone.status = "in_progress";
       return true;
     }
@@ -68,7 +81,7 @@ function skipDone(state, bp) {
       state.current_task_index += 1;
       continue;
     }
-    milestone.status = "done";
+    refreshMilestoneStatus(milestone);
     const next = bp.milestones[mIndex + 1];
     if (!next) return false;
     state.current_milestone_id = next.id;
@@ -82,38 +95,40 @@ function resetTaskFields(state) {
   state.review_base = null;
 }
 
-/** Mark the current task done and move on, pausing at milestone boundaries if configured. */
+/** Mark the current task done and move to the next buildable task, pausing at milestone boundaries if configured. */
 function advance(ctx, engineer, summary) {
   const { state, bp, config } = ctx;
-  const { mIndex, milestone, task } = locate(state, bp);
+  const { milestone, task } = locate(state, bp);
   task.status = "done";
   resetTaskFields(state);
   state.last_engineer_used = engineer;
-  const nextTask = milestone.tasks[state.current_task_index + 1];
-  if (nextTask) {
-    state.current_task_index += 1;
-    state.status = "READY_TO_START";
-    state.handoff_instructions = `${summary} ${task.id} is done. Next: ${nextTask.id} "${nextTask.title}".`;
-    return;
-  }
-  milestone.status = "done";
-  const nextMilestone = bp.milestones[mIndex + 1];
-  if (!nextMilestone) {
+  state.current_task_index += 1;
+  const more = skipDone(state, bp);
+  const { milestone: nextMilestone, task: nextTask } = locate(state, bp);
+  const deferred = bp.milestones
+    .flatMap((m) => m.tasks)
+    .filter((t) => t.deferred && t.status !== "done");
+  const waiting = deferred.length
+    ? ` Deferred tasks still waiting for a person: ${deferred.map((t) => t.id).join(", ")}.`
+    : "";
+
+  if (!more || !nextTask) {
     state.status = "MILESTONE_COMPLETE";
-    state.handoff_instructions = `${summary} Final task ${task.id} done. All milestones complete.`;
+    state.handoff_instructions = `${summary} ${task.id} is done. No buildable tasks remain.${waiting}`;
     return;
   }
-  if (config.pause_at_milestone_boundary) {
+  state.status = "READY_TO_START";
+  const crossed = nextMilestone.id !== milestone.id;
+  if (crossed && config.pause_at_milestone_boundary) {
     state.status = "MILESTONE_COMPLETE";
     state.handoff_instructions =
-      `${summary} ${milestone.key} is complete. A human must review its acceptance criteria, ` +
-      `then run "resume" from the Actions tab to begin ${nextMilestone.key}.`;
+      `${summary} ${milestone.key} work is complete. A human must review its acceptance criteria, ` +
+      `then run "resume" from the Actions tab to begin ${nextMilestone.key}.${waiting}`;
     return;
   }
-  state.current_milestone_id = nextMilestone.id;
-  state.current_task_index = 0;
-  state.status = "READY_TO_START";
-  state.handoff_instructions = `${summary} ${milestone.key} complete. Next: ${nextMilestone.key} task 0.`;
+  state.handoff_instructions = crossed
+    ? `${summary} ${task.id} is done and ${milestone.key} work is complete. Next: ${nextTask.id} "${nextTask.title}".${waiting}`
+    : `${summary} ${task.id} is done. Next: ${nextTask.id} "${nextTask.title}".`;
 }
 
 /** Record a failed attempt; too many failures on one task stops the autopilot for a human. */
@@ -522,8 +537,39 @@ const REVIEW_PREFIX = "[autopilot review]";
  */
 async function notifyMilestoneReviews(api, bp, owner, repo) {
   const finished = bp.milestones.filter((m) => m.status === "done" && !m.acceptance_verified);
-  if (finished.length === 0) return;
+  // Deferred human tasks the autopilot has already moved past (an earlier task is still being built
+  // or the milestone moved on) get one "waiting for you" issue each.
+  const { state } = load();
+  const order = bp.milestones.flatMap((m) => m.tasks.map((t) => t.id));
+  const pointer = order.indexOf(locate(state, bp).task?.id ?? "");
+  const deferred = bp.milestones
+    .flatMap((m) => m.tasks)
+    .filter(
+      (t) => t.deferred && t.status !== "done" && (pointer === -1 || order.indexOf(t.id) < pointer),
+    );
+  if (finished.length === 0 && deferred.length === 0) return;
   const existing = (await api(`/issues?state=all&per_page=100`)).map((i) => i.title);
+  for (const t of deferred) {
+    const title = `${REVIEW_PREFIX} waiting for you: ${t.id} ${t.title}`;
+    if (existing.includes(title)) continue;
+    await api(`/issues`, {
+      method: "POST",
+      body: JSON.stringify({
+        title,
+        body: [
+          `@${owner} the autopilot skipped this task so it could keep building. It needs a person.`,
+          ``,
+          `**${t.id}: ${t.title}**`,
+          `${t.description}`,
+          ``,
+          `**Why it needs you:** ${t.requires_human ?? "Marked as human work."}`,
+          `**Done when:** ${t.done_when}`,
+          ``,
+          `When finished: https://github.com/${repo}/actions/workflows/autopilot.yml → Run workflow → command **mark-task-done**, task id **${t.id}**. Then close this issue.`,
+        ].join("\n"),
+      }),
+    });
+  }
   for (const m of finished) {
     const title = `${REVIEW_PREFIX} ${m.key} finished: please review acceptance`;
     if (existing.includes(title)) continue;
@@ -556,6 +602,22 @@ function cmdControl(kind) {
   } else if (kind === "resume-mark-done" && task) {
     // Same path as an approved task, so milestone-boundary pauses still apply.
     advance(ctx, "human", `A human completed ${task.id}.`);
+  } else if (kind === "mark-task-done") {
+    // Close out any task by id, typically a deferred human task finished later.
+    const id = String(process.env.TASK_ID ?? "")
+      .trim()
+      .toUpperCase();
+    const owner = bp.milestones.find((m) => m.tasks.some((t) => t.id === id));
+    if (!owner) throw new Error(`unknown task id "${id}" (expected e.g. M2-T17)`);
+    if (id === task?.id) {
+      advance(ctx, "human", `A human completed ${id}.`);
+    } else {
+      owner.tasks.find((t) => t.id === id).status = "done";
+      refreshMilestoneStatus(owner);
+      state.last_engineer_used = "human";
+      const current = task ? `${task.id} "${task.title}"` : "the next task";
+      state.handoff_instructions = `A human completed ${id}. Continue with ${current}.`;
+    }
   } else {
     state.attempts = 0;
     state.status = "READY_TO_START";
@@ -666,6 +728,7 @@ const commands = {
   pause: () => cmdControl("pause"),
   resume: () => cmdControl("resume"),
   "resume-mark-done": () => cmdControl("resume-mark-done"),
+  "mark-task-done": () => cmdControl("mark-task-done"),
   "record-error": cmdRecordError,
   notify: cmdNotify,
 };

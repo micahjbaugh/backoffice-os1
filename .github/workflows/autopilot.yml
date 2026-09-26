@@ -27,8 +27,12 @@ on:
       command:
         description: What to do
         type: choice
-        options: [step, pause, resume, resume-mark-done]
+        options: [step, pause, resume, resume-mark-done, mark-task-done]
         default: step
+      task_id:
+        description: Task id for mark-task-done (e.g. M2-T17)
+        type: string
+        required: false
 
 permissions:
   contents: write
@@ -79,7 +83,10 @@ jobs:
       - name: Human control command
         id: control
         if: github.event_name == 'workflow_dispatch' && inputs.command != 'step'
-        run: node "$REFEREE" "${{ inputs.command }}"
+        env:
+          COMMAND: ${{ inputs.command }}
+          TASK_ID: ${{ inputs.task_id }}
+        run: node "$REFEREE" "$COMMAND"
 
       - name: Decide whose turn it is
         id: next

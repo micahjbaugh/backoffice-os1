@@ -71,6 +71,7 @@ Each stop has a note in `handoff_instructions`.
   - `pause`
   - `resume`: continue after BLOCKED / NEEDS_HUMAN / milestone pause
   - `resume-mark-done`: you finished the current human task
+  - `mark-task-done` + task id: you finished a skipped (deferred) human task, e.g. `M2-T17`
   - `step`: run one turn now
 - **Kill switch:** Actions → autopilot → ⋯ → Disable workflow.
 - **Ship it:** open a pull request from `autopilot` into `main` whenever you want to review and
