@@ -319,7 +319,7 @@
           "title": "Voice adapter (Vapi)",
           "description": "Vapi VoiceProvider adapter inside packages/integrations only.",
           "done_when": "Adapter tests pass against mocked HTTP.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 17,

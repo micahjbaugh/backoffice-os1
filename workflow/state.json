@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
   "current_task_index": 16,
-  "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The Twilio SMS adapter is confined to packages/integrations, uses fetch with Basic auth against the Messages API, maps Twilio statuses to domain statuses, implements idempotency keyed by organizationId + idempotencyKey, and fail-closed signature verification with constant-time compare. Webhook ingestion normalizes payload and validates identifier. Tests cover request shape/auth/body, status mapping, idempotency (including cross-org), non-2xx handling, signature verification (valid/tampered/missing), and webhook ingestion. No multi-tenant or auth leaks, no secrets exposed, and only integration adapter code was touched. Nice job. Potential future enhancement (non-blocking): consider mapping additional Twilio statuses (scheduled/canceled/receiving) as needed by domain semantics.. M2-T15 is done. Next: M2-T16 \"Voice adapter (Vapi)\".",
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M2-T16 (Voice adapter (Vapi)) implemented in one step. Added packages/integrations/src/adapters/vapi-voice-provider.ts: VapiVoiceProvider implementing the existing VoiceProvider interface (packages/integrations/src/providers/voice-provider.ts) using fetch with Bearer auth against the Vapi REST API (POST /phone-number for createInboundRoute, POST /call for initiateOutboundCall, POST /call/{id}/control for transferCall). Maps Vapi call statuses (queued/ringing/in-progress/forwarding/ended) to domain statuses. initiateOutboundCall and transferCall are idempotent via an in-memory map keyed by organizationId+idempotencyKey. verifyWebhookSignature fails closed and does a constant-time compare of the `x-vapi-secret` header against the configured shared secret (Vapi echoes back a configured secret rather than HMAC-signing the body). ingestWebhook normalizes a Vapi server message and throws if message.call.id is missing. Added packages/integrations/test/vapi-voice-provider.test.ts covering request shape/auth/body for all three REST calls, status mapping, idempotency (including cross-org), non-2xx handling for call creation and transfer, signature verification (valid/wrong-secret/missing), and webhook ingestion (normalize + missing-id throw). Exported the new adapter from packages/integrations/src/index.ts. No DB tables/RLS involved (integration-adapter-only task, no persistence layer touched, no AI prompts involved). Ran pnpm lint, pnpm typecheck, pnpm test at repo root: all pass (integrations: 4 files/36 tests passed; full repo: all green). Only packages/integrations/src/adapters/vapi-voice-provider.ts (new), packages/integrations/test/vapi-voice-provider.test.ts (new), and packages/integrations/src/index.ts (+1 export line) were touched. Next: ChatGPT review of M2-T16; if approved, M2-T17 is next per blueprint.json.",
   "attempts": 0,
   "review_notes": "",
-  "review_base": null,
-  "updated_at": "2026-09-26T17:32:53.609Z",
+  "review_base": "c7e2319f9327ec674b79cd7760a68c43fc330400",
+  "updated_at": "2026-09-26T17:56:46.861Z",
   "last_error": "",
   "consecutive_failures": 0
 }
