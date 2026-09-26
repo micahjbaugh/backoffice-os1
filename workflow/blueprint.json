@@ -188,7 +188,7 @@
           "title": "Integrations package skeleton",
           "description": "Create packages/integrations with package.json, tsconfig, eslint and vitest config.",
           "done_when": "pnpm -r lint/typecheck include the new package.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 1,

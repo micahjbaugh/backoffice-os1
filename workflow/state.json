@@ -1,11 +1,11 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 0,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T00 done. Added packages/integrations skeleton: package.json (name @backoffice/integrations, lint/typecheck/test scripts, no deps yet), tsconfig.json (extends ../../tsconfig.base.json), eslint.config.mjs (re-exports ../../eslint.config.base.mjs), vitest.config.ts (include test/**/*.test.ts), src/index.ts (placeholder INTEGRATIONS_PACKAGE export, comment noting provider SDKs stay in this package per CLAUDE.md rule 9), test/index.test.ts (trivial passing test). No other files touched. pnpm -r lint/typecheck/test all pass and include the new package (packages/integrations shows up alongside domain/core/web). Next: M2-T01 'Provider interfaces' - define VoiceProvider (createInboundRoute, initiateOutboundCall, transferCall, ingestWebhook) and SmsProvider (sendSMS, ingestWebhook) interfaces in packages/integrations/src, provider-independent, no vendor SDK imports yet.",
+  "current_task_index": 1,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The new @backoffice/integrations package includes eslint, tsconfig, vitest config, a minimal src export, and a trivial test. It stays within the task scope, follows rule 9 (provider SDKs confined here), and doesn’t touch unrelated files. Lint/typecheck/tests passed and the package is included in the workspace. Proceed to M2-T01 to define provider-independent interfaces.. M2-T00 is done. Next: M2-T01 \"Provider interfaces\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "22ae3b64eccd01eca1c5a56528a333c01ec2983d",
-  "updated_at": "2026-09-26T04:21:08.334Z"
+  "review_base": null,
+  "updated_at": "2026-09-26T04:22:28.841Z"
 }
