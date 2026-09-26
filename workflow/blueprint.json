@@ -263,7 +263,7 @@
           "title": "Communication record service",
           "description": "Persist call/message with participants, provider IDs via integration links, transcript and summary fields.",
           "done_when": "Service tests pass with event + audit.",
-          "status": "in_progress"
+          "status": "done"
         },
         {
           "index": 10,

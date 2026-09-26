@@ -1,13 +1,13 @@
 {
   "current_milestone_id": 2,
-  "current_task_index": 9,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T09 step 2/2 (final): added the message path on top of the prior step's call path, completing the task. Changed only packages/core/src/services/communications.ts and packages/core/test/communications.test.ts (no domain/schema changes needed — recordMessageInput, the messages row mapper toMessage, and the messages/communications tables already existed from step 1 and the earlier M2-T05/T06 migration). In communications.ts: added recordMessage(ctx, input: RecordMessageInput), which reuses the existing upsertEnvelope/setParticipants/finish helpers exactly like recordCall — upserts the shared communications envelope keyed on (organization_id, provider, provider_conversation_id), then inserts/updates public.messages via ON CONFLICT (communication_id) (provider_message_id/body coalesced, media_urls replaced only when the incoming array is non-empty so a later event without media doesn't wipe existing media_urls), JSON.stringify's mediaUrls before binding (jsonb column; pg would otherwise send a bare JS array as a Postgres array literal), replaces participants with the same cross-org validation as calls, and always records a communication.recorded/updated business event + audit row via finish(). Exported RecordedMessage type; recordMessage is re-exported from packages/core/src/index.ts via the existing `export * from './services/communications'`. Added 4 tests mirroring recordCall's: create with event+audit, idempotent replay (status/body update in place, single row), cross-org participant rejected with NotFoundError, field_employee denied with ForbiddenError. communications.test.ts now also keeps the pre-existing getCommunication cross-org test at the bottom. pnpm lint/typecheck/test all green (packages/core: 9 files passed, 1 pre-existing skipped live-stack file; communications.test.ts alone: 9/9 passed, 4 new). git status shows only these two files touched. done_when ('Service tests pass with event + audit') is met for both call and message paths -> task complete. NOT implemented (left for future tasks, not required by done_when): updateCommunicationSummary and a listCommunicationParticipants query — their schemas/mappers already exist unused; wire them up when a task (e.g. M2-T10/T11, likely transcription/summary enrichment after the fact) actually needs them, per CLAUDE.md rule 15 (no features outside the active task).",
+  "current_task_index": 10,
+  "status": "READY_TO_START",
+  "last_engineer_used": "chatgpt",
+  "handoff_instructions": "ChatGPT approved: Looks good. The services enforce org scoping and authorization, are idempotent per (org, provider, provider_conversation_id), and write business events + audit logs. Participants are validated cross-org. Tests cover event+audit, idempotency, multi-tenant isolation, and permissions for both call and message paths. Minor follow-ups (non-blocking): ensure a unique constraint exists on (organization_id, provider, provider_conversation_id) to prevent race-condition duplicates in upsertEnvelope; document the media_urls non-empty update semantics and participant no-op behavior when input is empty.. M2-T09 is done. Next: M2-T10 \"Create lead tool\".",
   "attempts": 0,
   "review_notes": "",
-  "review_base": "e565932c9b8a2835c8c22673a731e9d4640cd2b9",
-  "updated_at": "2026-09-26T13:55:36.671Z",
+  "review_base": null,
+  "updated_at": "2026-09-26T13:56:41.204Z",
   "last_error": "",
   "consecutive_failures": 0
 }
