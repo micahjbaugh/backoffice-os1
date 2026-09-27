@@ -243,7 +243,7 @@
       "id": 2,
       "key": "M2",
       "name": "Communications Core",
-      "status": "in_progress",
+      "status": "code_complete",
       "acceptance": [
         "call business number",
         "agent identifies company",
@@ -679,7 +679,7 @@
           "title": "M2 automated acceptance suite",
           "description": "End-to-end suite with realistic Twilio/Vapi fixtures through the real webhook route handler, event store, processor, receptionist runtime and outbox worker: call -> identify company -> qualify fake lead -> create lead + call summary -> warm transfer -> disposition; duplicate/out-of-order/concurrent webhooks; complete audit trail. Runs in the gate (packages/workflows test/acceptance) and against the local Supabase stack.",
           "done_when": "Every M2 acceptance criterion that does not need a real phone is asserted by the suite; the suite passes in the acceptance gate.",
-          "status": "in_progress",
+          "status": "done",
           "kind": "acceptance",
           "depends_on": [
             "M2-T19",
@@ -690,13 +690,35 @@
             "M2-T24",
             "M2-T25"
           ],
-          "index": 26
+          "index": 26,
+          "verification": {
+            "level": "acceptance_suite",
+            "fingerprint": "8e317e597cd9e80db7496d9a06b6855a4504b4de90bc7337adf7da87c8379bf5",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones",
+              "acceptance: pnpm --filter @backoffice/workflows exec vitest run test/acceptance",
+              "local Supabase: start",
+              "local Supabase: reset + seed",
+              "live-stack tests"
+            ],
+            "accepted_at": "2026-09-27T11:54:44.984Z"
+          }
         }
       ],
       "acceptance_commands": [
         "pnpm --filter @backoffice/workflows exec vitest run test/acceptance"
       ],
-      "acceptance_live_stack": true
+      "acceptance_live_stack": true,
+      "automated_acceptance": {
+        "passed_at": "2026-09-27T11:54:44.984Z",
+        "fingerprint": "8e317e597cd9e80db7496d9a06b6855a4504b4de90bc7337adf7da87c8379bf5"
+      }
     },
     {
       "id": 3,
