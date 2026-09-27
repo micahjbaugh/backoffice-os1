@@ -934,7 +934,21 @@
           "title": "Fact validator",
           "description": "Validate extracted facts: known employee/job/equipment, plausible times ('7-5:30' = 10.5h), duplicates; below-threshold confidence stays draft.",
           "done_when": "Validator tests pass.",
-          "status": "in_progress"
+          "status": "done",
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "ad263f291fbe588c2a2f1d93f271ef6acf93b57ff689061ab5643140c086d911",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T15:34:36.583Z"
+          }
         },
         {
           "index": 14,
