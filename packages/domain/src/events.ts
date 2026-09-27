@@ -32,6 +32,9 @@ export const EVENT_TYPES = {
   jobNoteDrafted: "job_note.drafted",
   draftRecordDecided: "draft_record.decided",
   billableOpportunityDecided: "billable_opportunity.decided",
+  /** Marks one source communication as run through the field capture workflow (M3-T14):
+   *  idempotency key `field_capture.processed:${sourceCommunicationId}` makes a replay a no-op. */
+  fieldCaptureProcessed: "field_capture.processed",
   outboundSucceeded: "outbound.succeeded",
   smsSendRequested: "sms.send_requested",
   webhookDeadLettered: "webhook.dead_lettered",

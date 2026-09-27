@@ -19,6 +19,7 @@ export * from "./services/equipment-matching";
 export * from "./services/equipment-usage";
 export * from "./services/events";
 export * from "./services/fact-validator";
+export * from "./services/field-capture";
 export * from "./services/job-matching";
 export * from "./services/job-notes";
 export * from "./services/jobs";

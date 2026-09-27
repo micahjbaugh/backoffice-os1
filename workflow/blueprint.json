@@ -956,7 +956,7 @@
           "title": "Field capture workflow",
           "description": "Workflow: inbound crew message -> extract -> validate -> drafts -> clarifications; idempotent per communication; every step audited.",
           "done_when": "Workflow test with the fixture extractor passes; replay creates nothing new.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 15,
