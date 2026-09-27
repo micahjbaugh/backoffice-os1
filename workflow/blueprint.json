@@ -724,7 +724,7 @@
       "id": 3,
       "key": "M3",
       "name": "Field Capture",
-      "status": "in_progress",
+      "status": "accepted",
       "acceptance": [
         "Input 'Me Jake Tyler 7-5:30 Wilson. Hoe 8 hrs D6 6.5, 21 ton rock. Customer had us grade another 200 ft.' produces three draft time entries, equipment usages, material usage, job note and billable opportunity",
         "low-confidence or ambiguous facts stay draft and create a clarification task, never a guess",
@@ -1071,7 +1071,21 @@
           "title": "M3 build report",
           "description": "docs/M3_BUILD_REPORT.md: what was built, tests, limitations, security notes.",
           "done_when": "Report exists and matches test results.",
-          "status": "in_progress"
+          "status": "done",
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "b40ffee58b686dab731c5a7803c35149d1bb6303f99dfb6b830048db7241ac67",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T22:41:20.753Z"
+          }
         }
       ],
       "requires": [
