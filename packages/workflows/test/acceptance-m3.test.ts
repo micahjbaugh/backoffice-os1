@@ -20,10 +20,10 @@ import {
   listOrgOpsCases,
   listPendingApprovals,
   runFieldCaptureWorkflow,
-} from "../src";
-import { count, inOrg } from "./helpers/db";
-import { seedCommunicationId } from "./helpers/draft-facts";
-import { createWorld, type World } from "./helpers/fixtures";
+} from "@backoffice/core";
+import { count, inOrg } from "../../core/test/helpers/db";
+import { seedCommunicationId } from "../../core/test/helpers/draft-facts";
+import { createWorld, type World } from "../../core/test/helpers/fixtures";
 
 let w: World;
 let jobId: UUID;
