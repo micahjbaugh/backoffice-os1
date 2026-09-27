@@ -24,6 +24,8 @@ export * from "./services/material-usage";
 export * from "./services/notes";
 export * from "./services/outbound";
 export * from "./services/ops";
+export * from "./services/ops-operations";
+export * from "./services/ops-outbound";
 export * from "./services/organizations";
 export * from "./services/provider-routes";
 export * from "./services/receptionist";

@@ -44,11 +44,13 @@ const input = (key: string, rawBody = `body-${key}`): AcceptWebhookInput => ({
 });
 
 describe("access control", () => {
-  it("clients cannot read or write webhook_receipts at all", async () => {
+  it("tenant members see no webhook_receipts rows (RLS is grant-only) and cannot write them", async () => {
     for (const user of [w.orgA.owner, w.orgA.manager]) {
-      await expect(rawAsUser(w.pg, user, `select * from public.webhook_receipts`)).rejects.toThrow(
-        /permission denied/,
-      );
+      const { rows } = await rawAsUser(w.pg, user, `select * from public.webhook_receipts`);
+      expect(rows).toHaveLength(0);
+      await expect(
+        rawAsUser(w.pg, user, `update public.webhook_receipts set status = 'processed'`),
+      ).rejects.toThrow(/permission denied/);
     }
   });
 

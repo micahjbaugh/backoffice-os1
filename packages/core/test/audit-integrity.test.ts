@@ -159,7 +159,7 @@ describe("client privilege boundaries", () => {
       "internal_staff",
       `insert into public.internal_staff (user_id, role) values (auth.uid(), 'platform_admin')`,
     ],
-    ["webhook_receipts", `select * from public.webhook_receipts`],
+    ["webhook_receipts", `update public.webhook_receipts set status = 'processed'`],
   ])("authenticated clients cannot write %s directly", async (_table, sql) => {
     await expect(rawAsUser(w.pg, w.orgA.owner, sql)).rejects.toThrow(/permission denied/);
   });
