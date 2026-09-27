@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M3-T17",
+  "current_task_id": "M3-T18",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "0e4e448227950ea54b0c1dde22dc2976d66189bc",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "c3e890fec61a20234a4d5f6a016b5f2d12efd5208f6bd63ebf7a811e3747c99d",
-    "at": "2026-09-27T19:14:11.345Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 4
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 10
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 16
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 108
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 15
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
-  "current_task_index": 17,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 18,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T17 done. Added packages/domain: `ops_case.resolve` permission (owner/office_admin/manager) and `decideOpsCaseInput`/`DecideOpsCaseInput` schema (decision resolved|dismissed, note required to resolve). Added packages/core: `decideOpsCase` in services/ops.ts (tenant-side resolve/dismiss of an open ops case, human-actor-only, row-locked, idempotent replay, ConflictError on a conflicting re-decision, event + audit, mirrors decideDraftRecord/decideBillableOpportunity's authority pattern but updates ops_cases, which already has all client privileges revoked by 0002_m1_foundation.sql so no new migration was needed) and `listOpenBillableOpportunities` in services/billable-opportunities.ts (gated on billable.decide, status='open'). Wired both into apps/web: /inbox now shows a 'Billable opportunities' section (approve/dismiss via decideBillableOpportunity, already built in M3-T15 -- never a direct status update) and a 'Clarifications' section (open ops cases, i.e. status not in resolved/closed, from listOrgOpsCases; resolve/dismiss via the new decideOpsCase) between the existing approvals and tasks sections, following the existing ApprovalCard pattern (evaluateApprovalDecision + DENIAL_TEXT for billables, a plain resolve/dismiss form for clarifications). Added server actions decideBillableOpportunityAction and decideOpsCaseAction to apps/web/src/app/actions/tenant.ts. Tests added: packages/core/test/ops-access.test.ts (decideOpsCase: role eligibility, note-required-to-resolve, replay/conflict, forbidden actors, tenant scoping) and packages/core/test/billable-opportunities.test.ts (listOpenBillableOpportunities: org scoping, drops decided rows, forbidden for managers). format/lint/typecheck/test all pass; `next build` succeeds (apps/web). Next: M3-T18 \"M3 acceptance test\" (kind: acceptance) -- automated end-to-end test of the MILESTONES.md acceptance input through the workflow with the fixture extractor.",
-  "updated_at": "2026-09-27T19:14:11.349Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M3-T17 is done. Next: M3-T18 \"M3 acceptance test\".",
+  "updated_at": "2026-09-27T19:15:23.421Z"
 }

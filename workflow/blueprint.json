@@ -1022,7 +1022,21 @@
           "title": "Owner Inbox: clarifications and billables",
           "description": "Show open clarification tasks and billable opportunities in /inbox with resolve/approve/dismiss actions (audited). Decisions must go through decideDraftRecord / decideBillableOpportunity (0011); never update status directly.",
           "done_when": "next build succeeds; action tests pass.",
-          "status": "in_progress"
+          "status": "done",
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "c3e890fec61a20234a4d5f6a016b5f2d12efd5208f6bd63ebf7a811e3747c99d",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T19:15:23.420Z"
+          }
         },
         {
           "index": 18,
