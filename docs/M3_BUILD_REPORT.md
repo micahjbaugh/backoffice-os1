@@ -4,10 +4,13 @@ Date: 2026-09-27 · Milestone acceptance: `docs/MILESTONES.md` (M3) · Prior con
 
 **Status:** The completion gate passes. `pnpm format:check`, `pnpm lint`, `pnpm typecheck` and
 `pnpm test` all succeed (645 tests passing, 7 skipped). The M3 automated acceptance suite
-(`pnpm --filter @backoffice/workflows exec vitest run test/acceptance-m3`) asserts every bullet in
-the MILESTONES.md acceptance list against the exact input text and was accepted by the referee
-after also running against a local Supabase stack (`workflow/blueprint.json`, M3-T18,
-`accepted_at: 2026-09-27T20:07:38.764Z`). This machine had no Supabase CLI installed, so the 7
+(`pnpm --filter @backoffice/workflows exec vitest run test/acceptance-m3`) drives the exact
+MILESTONES.md input text through the real pipeline and asserts the resulting behavior for every
+fact type the current extraction produces, and was accepted by the referee after also running
+against a local Supabase stack (`workflow/blueprint.json`, M3-T18,
+`accepted_at: 2026-09-27T20:07:38.764Z`). **It does not assert the MILESTONES.md text's "three
+draft time entries" bullet** — the current build produces one time-entry draft from this input,
+not three; see the deviation recorded in §4. This machine had no Supabase CLI installed, so the 7
 skipped tests are `packages/core/test/live-stack.test.ts`, which only runs against a real Supabase
 instance — the same caveat M1 and M2 recorded.
 
@@ -133,11 +136,12 @@ pnpm test         -> exit 0
 ### M3 acceptance suite (`packages/workflows/test/acceptance-m3.test.ts`)
 
 Drives `FIELD_CAPTURE_ACCEPTANCE_MESSAGE` — the exact MILESTONES.md text — through the real
-webhook-processor path with the fixture extractor, and asserts every acceptance bullet directly:
+webhook-processor path with the fixture extractor, and asserts the current build's behavior for
+each acceptance bullet **except** "three draft time entries" (§4 records that deviation):
 
 | Bullet | Assertion |
 |---|---|
-| Drafts every fact type | 1 time-entry outcome (`needs_clarification`, not a guess), 2 equipment usages, 1 material usage, 1 job note, 1 billable opportunity, all attached to the matched job |
+| Drafts every fact type | **Deviation:** 1 time-entry outcome, not three (`needs_clarification`, not a guess) — see §4. Also 2 equipment usages, 1 material usage, 1 job note, 1 billable opportunity, all attached to the matched job |
 | Low-confidence facts never guess | The one sub-threshold field (`jobRef` confidence 0.6 < 0.65) stops the time entry at validation; zero rows land in `time_entries`; exactly one `low_confidence` ops case opens |
 | Owner sees only what's necessary | `listPendingApprovals` is empty (field capture never creates an approval); the owner's open ops-case list and open-billables list contain exactly the one clarification and the one billable opportunity |
 | Replay creates nothing new | Re-running the identical message returns `{ processed: false, outcomes: [], unresolvedQuestionCaseIds: [] }` and every table's row count is unchanged |
@@ -154,6 +158,19 @@ directly).
 
 ## 4. Known limitations
 
+- **Deviation from MILESTONES.md: the acceptance input yields one time-entry draft, not three.**
+  The M3 acceptance text reads "three draft time entries", but it names one employee (Jake Tyler)
+  working one shift ("7-5:30"); the only other numbers in the message ("Hoe 8 hrs", "D6 6.5") are
+  hours *against equipment*, not against a second or third employee. The fixture extractor
+  (`FIELD_CAPTURE_ACCEPTANCE_MESSAGE`) and the acceptance suite both reflect that reading: one
+  `time_entry` fact plus two `equipment_usage` facts, not three `time_entry` facts. Inventing two
+  additional employee time entries out of the equipment-hours mentions — with no second or third
+  employee named anywhere in the text — would be exactly the kind of guess CLAUDE.md rule 14
+  forbids, so this was not built. This is a genuine, unresolved deviation from the milestone's
+  literal wording, not a claim of full compliance: the acceptance suite documents it rather than
+  asserting around it, and it should be confirmed with a human (does "three draft time entries"
+  mean three `time_entries` rows, or three drafted records of any type from this message?) before
+  M3 is treated as fully accepted.
 - **No live-phone or live-SMS run in this session.** The M3-T18 acceptance run against local
   Supabase was performed by the referee in an earlier run; this session's environment has Docker but
   no Supabase CLI, so `live-stack.test.ts` is skipped here (same caveat as M1 §4 and M2).
