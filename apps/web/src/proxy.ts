@@ -7,7 +7,16 @@ import { publicEnv } from "@/lib/public-env";
 
 const PUBLIC_PATHS = ["/login"];
 
+// Machine-to-machine endpoints. Providers and the scheduler never carry a user session, so a
+// redirect to /login would silently drop every webhook and job run. Each route authenticates every
+// request itself (provider signature, or the jobs bearer secret) and fails closed.
+const MACHINE_PATHS = ["/api/webhooks/", "/api/internal/"];
+
 export async function proxy(request: NextRequest) {
+  if (MACHINE_PATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
+    return NextResponse.next({ request });
+  }
+
   const { supabaseUrl, supabaseAnonKey } = publicEnv();
   let response = NextResponse.next({ request });
 
