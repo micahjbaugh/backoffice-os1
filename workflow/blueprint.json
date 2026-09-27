@@ -657,8 +657,22 @@
           "title": "Retention of webhook payloads and transcripts",
           "description": "Scheduled purge of processed webhook payloads and expired transcripts per organization retention settings, keeping identities and audit.",
           "done_when": "Purge removes payload bodies after the configured window and never touches unprocessed events; tests.",
-          "status": "in_progress",
-          "index": 25
+          "status": "done",
+          "index": 25,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "1d6c8b7430e26a84950466b30a9cc24a7173b29ee394a57cd43215b196af2533",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T07:17:33.619Z"
+          }
         },
         {
           "id": "M2-T26",
