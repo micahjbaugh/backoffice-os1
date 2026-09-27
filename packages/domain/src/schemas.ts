@@ -3,6 +3,7 @@
 
 import { z } from "zod";
 import { ValidationError } from "./errors";
+import { normalizeToE164 } from "./phone";
 import { MEMBERSHIP_ROLES } from "./roles";
 import {
   COMMUNICATION_DIRECTIONS,
@@ -15,6 +16,7 @@ import {
   OPS_CASE_REASON_CODES,
   OPS_CASE_STATUSES,
   PRIORITIES,
+  PROVIDER_ROUTE_PROVIDERS,
   TASK_STATUSES,
   TRANSFER_REASONS,
 } from "./types";
@@ -190,6 +192,39 @@ export const updateOpsCaseInput = z
     (v) => v.status !== "resolved" || (v.resolution !== undefined && v.resolution.length > 0),
     "resolution is required when resolving a case",
   );
+
+/** twilio only ships an SmsProvider adapter and vapi only a VoiceProvider one (packages/integrations). */
+const PROVIDER_ROUTE_CHANNEL_BY_PROVIDER: Record<
+  (typeof PROVIDER_ROUTE_PROVIDERS)[number],
+  string
+> = {
+  twilio: "sms",
+  vapi: "voice",
+};
+
+export const registerProviderRouteInput = z
+  .object({
+    provider: z.enum(PROVIDER_ROUTE_PROVIDERS),
+    channel: z.enum(["sms", "voice"]),
+    address: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .transform((v, ctx) => {
+        const parsed = normalizeToE164(v);
+        if (!parsed) {
+          ctx.addIssue({ code: "custom", message: "address must be a valid phone number" });
+          return z.NEVER;
+        }
+        return parsed.e164;
+      }),
+  })
+  .refine((v) => PROVIDER_ROUTE_CHANNEL_BY_PROVIDER[v.provider] === v.channel, {
+    message: "channel does not match the provider's adapter",
+    path: ["channel"],
+  });
+export type RegisterProviderRouteInput = z.input<typeof registerProviderRouteInput>;
 
 const MAX_GRANT_HOURS = 24 * 7;
 export const grantOperatorAccessInput = z.object({

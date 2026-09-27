@@ -140,6 +140,7 @@ describe("actorHasPermission", () => {
     for (const role of MEMBERSHIP_ROLES) {
       expect(actorHasPermission(user, role, "rule.write")).toBe(role === "owner");
       expect(actorHasPermission(user, role, "operator_grant.manage")).toBe(role === "owner");
+      expect(actorHasPermission(user, role, "provider_route.manage")).toBe(role === "owner");
     }
   });
 

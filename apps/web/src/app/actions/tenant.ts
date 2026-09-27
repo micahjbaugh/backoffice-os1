@@ -20,8 +20,10 @@ import {
   createOpsCase,
   createTask,
   createVendor,
+  deactivateProviderRoute,
   decideApproval,
   grantOperatorAccess,
+  registerProviderRoute,
   retireRule,
   revokeOperatorAccess,
   updateJob,
@@ -275,5 +277,38 @@ export async function revokeOperatorAction(
   return runAction(async () => {
     await withTenant((ctx) => revokeOperatorAccess(ctx, field(form, "grantId") ?? ""));
     return "Access revoked.";
+  }, ["/settings"]);
+}
+
+// twilio only ships an SmsProvider adapter and vapi only a VoiceProvider one (packages/integrations),
+// so the channel is implied by the provider rather than a separate form field.
+const PROVIDER_ROUTE_CHANNEL: Record<string, "sms" | "voice"> = { twilio: "sms", vapi: "voice" };
+
+export async function registerProviderRouteAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    const provider = field(form, "provider") ?? "";
+    const { requeuedEvents } = await withTenant((ctx) =>
+      registerProviderRoute(ctx, {
+        provider: provider as "twilio",
+        channel: PROVIDER_ROUTE_CHANNEL[provider] ?? "sms",
+        address: field(form, "address") ?? "",
+      }),
+    );
+    return requeuedEvents > 0
+      ? `Number registered. ${requeuedEvents} held message(s) are now being processed.`
+      : "Number registered.";
+  }, ["/settings"]);
+}
+
+export async function deactivateProviderRouteAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    await withTenant((ctx) => deactivateProviderRoute(ctx, field(form, "routeId") ?? ""));
+    return "Number deactivated.";
   }, ["/settings"]);
 }

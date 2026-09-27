@@ -40,7 +40,7 @@
       "id": 1,
       "key": "M1",
       "name": "Business Brain + Owner Inbox Foundation",
-      "status": "done",
+      "status": "accepted",
       "acceptance": [
         "user belongs to org A and cannot access org B data",
         "owner creates customer/job/vendor",
@@ -485,7 +485,7 @@
           "title": "Provider route management",
           "description": "Owner-only service + Settings UI to register/deactivate the organization's phone numbers in provider_routes (audited); on registration re-queue unroutable webhook events for that number (requeueUnroutableWebhookEvents).",
           "done_when": "Owner can add/deactivate a route; other roles and other tenants cannot; unroutable events for the number are processed after registration (tests).",
-          "status": "pending",
+          "status": "in_progress",
           "index": 18
         },
         {

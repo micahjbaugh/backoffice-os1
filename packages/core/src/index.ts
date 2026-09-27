@@ -25,6 +25,7 @@ export * from "./services/notes";
 export * from "./services/outbound";
 export * from "./services/ops";
 export * from "./services/organizations";
+export * from "./services/provider-routes";
 export * from "./services/records";
 export * from "./services/tasks";
 export * from "./services/transfer";

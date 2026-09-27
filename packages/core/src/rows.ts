@@ -24,6 +24,7 @@ import type {
   OperatorGrant,
   OpsCase,
   Organization,
+  ProviderRoute,
   Task,
   TimeEntry,
   Vendor,
@@ -249,6 +250,16 @@ export const toOpsCase = (r: Row): OpsCase => ({
   ...(typeof r.organization_name === "string" ? { organizationName: r.organization_name } : {}),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
+});
+
+export const toProviderRoute = (r: Row): ProviderRoute => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  provider: str(r.provider) as ProviderRoute["provider"],
+  channel: str(r.channel) as ProviderRoute["channel"],
+  address: str(r.address),
+  active: r.active === true,
+  createdAt: iso(r.created_at),
 });
 
 export const toOperatorGrant = (r: Row): OperatorGrant => ({

@@ -4,6 +4,7 @@ import {
   listMembers,
   listOperatorGrants,
   listOrgOpsCases,
+  listProviderRoutes,
   listRules,
 } from "@backoffice/core";
 import { MEMBERSHIP_ROLES, roleHasPermission, type Permission } from "@backoffice/domain";
@@ -14,7 +15,9 @@ import {
   addMemberAction,
   createApprovalRuleAction,
   createEmployeeAction,
+  deactivateProviderRouteAction,
   grantOperatorAction,
+  registerProviderRouteAction,
   retireRuleAction,
   revokeOperatorAction,
 } from "../../actions/tenant";
@@ -32,6 +35,7 @@ export default async function SettingsPage() {
         readRules: can("rule.read"),
         writeRules: can("rule.write"),
         manageGrants: can("operator_grant.manage"),
+        manageProviderRoutes: can("provider_route.manage"),
         readAudit: can("audit.read"),
         readOps: can("ops_case.read"),
       },
@@ -39,6 +43,7 @@ export default async function SettingsPage() {
       employees: await listEmployees(ctx),
       rules: can("rule.read") ? await listRules(ctx) : [],
       grants: can("operator_grant.manage") ? await listOperatorGrants(ctx) : [],
+      providerRoutes: can("provider_route.manage") ? await listProviderRoutes(ctx) : [],
       audit: can("audit.read") ? await listAudit(ctx, 25) : [],
       opsCases: can("ops_case.read") ? await listOrgOpsCases(ctx) : [],
     };
@@ -146,6 +151,80 @@ export default async function SettingsPage() {
           </table>
         </div>
       </section>
+
+      {d.can.manageProviderRoutes ? (
+        <section className="section">
+          <h2>Phone numbers</h2>
+          <p className="meta">
+            Register the number customers call or text so the receptionist can answer for this
+            business. Messages that arrived before a number was registered are processed as soon as
+            it is added.
+          </p>
+          <div className="card">
+            <ActionForm action={registerProviderRouteAction} className="grid-form">
+              <label>
+                Channel
+                <select name="provider" defaultValue="twilio">
+                  <option value="twilio">Text (Twilio)</option>
+                  <option value="vapi">Voice (Vapi)</option>
+                </select>
+              </label>
+              <label>
+                Phone number
+                <input
+                  name="address"
+                  type="tel"
+                  required
+                  maxLength={32}
+                  placeholder="512-555-0100"
+                />
+              </label>
+              <SubmitButton>Register number</SubmitButton>
+            </ActionForm>
+          </div>
+          {d.providerRoutes.length === 0 ? (
+            <p className="empty">No numbers registered yet.</p>
+          ) : (
+            <div className="table-wrap">
+              <table>
+                <thead>
+                  <tr>
+                    <th>Number</th>
+                    <th>Channel</th>
+                    <th>Status</th>
+                    <th>Since</th>
+                    <th />
+                  </tr>
+                </thead>
+                <tbody>
+                  {d.providerRoutes.map((r) => (
+                    <tr key={r.id}>
+                      <td>{r.address}</td>
+                      <td>{humanize(r.channel)}</td>
+                      <td>
+                        {r.active ? (
+                          <span className="badge ok">active</span>
+                        ) : (
+                          <span className="badge">deactivated</span>
+                        )}
+                      </td>
+                      <td>{formatDateTime(r.createdAt, tz)}</td>
+                      <td>
+                        {r.active ? (
+                          <ActionForm action={deactivateProviderRouteAction}>
+                            <input type="hidden" name="routeId" value={r.id} />
+                            <SubmitButton variant="danger">Deactivate</SubmitButton>
+                          </ActionForm>
+                        ) : null}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </section>
+      ) : null}
 
       {d.can.readRules ? (
         <section className="section">

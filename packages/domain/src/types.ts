@@ -282,6 +282,19 @@ export interface InternalStaff {
 export const COMMUNICATION_CHANNELS = ["voice", "sms", "email"] as const;
 export type CommunicationChannel = (typeof COMMUNICATION_CHANNELS)[number];
 
+/** Provider identifiers for adapters that ship inside packages/integrations (M2-T18). */
+export const PROVIDER_ROUTE_PROVIDERS = ["twilio", "vapi"] as const;
+export type ProviderRouteProvider = (typeof PROVIDER_ROUTE_PROVIDERS)[number];
+
+/** A phone number (or provider resource) that resolves an inbound webhook to a tenant. */
+export interface ProviderRoute extends TenantEntity {
+  provider: ProviderRouteProvider;
+  channel: CommunicationChannel;
+  /** E.164 phone number this route answers for. */
+  address: string;
+  active: boolean;
+}
+
 export const COMMUNICATION_DIRECTIONS = ["inbound", "outbound"] as const;
 export type CommunicationDirection = (typeof COMMUNICATION_DIRECTIONS)[number];
 

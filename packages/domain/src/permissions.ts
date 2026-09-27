@@ -32,6 +32,7 @@ export const PERMISSIONS = [
   "ops_case.read",
   "ops_case.create",
   "operator_grant.manage",
+  "provider_route.manage",
   "document.read",
   "document.write",
   "communication.read",
