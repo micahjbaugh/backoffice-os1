@@ -1132,8 +1132,22 @@
           "title": "Least-privilege database role",
           "description": "Migration + docs for an app_server role that owns nothing and only has the privileges trusted paths need; the RLS-bypassing owner connection is not used by the app.",
           "done_when": "Tests prove the app role cannot bypass RLS on user paths and can perform the trusted writes it needs.",
-          "status": "in_progress",
-          "index": 0
+          "status": "done",
+          "index": 0,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "0f0342b792081039dcd85bf3f507eb4341db034f37517aaa985647472decace6",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T23:16:21.290Z"
+          }
         },
         {
           "id": "PH-T01",
