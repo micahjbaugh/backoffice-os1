@@ -890,7 +890,7 @@
           "title": "Job matching",
           "description": "Match extracted job references (e.g. 'Wilson') to active jobs by job/customer name within the org; ambiguous or none -> clarification task.",
           "done_when": "Match/ambiguous/none tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 12,

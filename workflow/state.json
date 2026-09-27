@@ -3,19 +3,61 @@
   "current_task_id": "M3-T11",
   "attempts": 0,
   "stalled_runs": 0,
-  "consecutive_failures": 1,
+  "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": null,
-  "last_error": "2026-09-27T12:56:01.091Z builder failed: builder run produced no changes",
-  "last_validation": null,
+  "review_base": "611a7a5078f5b6c866b8c034f88cead19204c181",
+  "last_error": "",
+  "last_validation": {
+    "passed": true,
+    "infra": false,
+    "fingerprint": "5ea88842571236bc5d9c4700d18fd5d777d2ab49336309a7fdc927e081d2ba74",
+    "at": "2026-09-27T13:34:51.843Z",
+    "results": [
+      {
+        "name": "format",
+        "cmd": "pnpm format:check",
+        "passed": true,
+        "classification": null,
+        "seconds": 4
+      },
+      {
+        "name": "lint",
+        "cmd": "pnpm lint",
+        "passed": true,
+        "classification": null,
+        "seconds": 9
+      },
+      {
+        "name": "typecheck",
+        "cmd": "pnpm typecheck",
+        "passed": true,
+        "classification": null,
+        "seconds": 13
+      },
+      {
+        "name": "tests (incl. production build + secret scan)",
+        "cmd": "pnpm test",
+        "passed": true,
+        "classification": null,
+        "seconds": 98
+      },
+      {
+        "name": "timezones",
+        "cmd": "pnpm --filter @backoffice/core test:tz",
+        "passed": true,
+        "classification": null,
+        "seconds": 15
+      }
+    ]
+  },
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 11,
-  "status": "READY_TO_START",
+  "status": "AWAITING_REVIEW",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M3-T10 is done. Next: M3-T11 \"Job matching\".",
-  "updated_at": "2026-09-27T12:56:01.092Z"
+  "handoff_instructions": "M3-T11 done: added resolveJobByReference in packages/core/src/services/job-matching.ts, exported from packages/core/src/index.ts. Matches a jobRef string (e.g. 'Wilson') against active jobs in the org by case-insensitive substring match on job name or customer name (JOB_SELECT join used by jobs.ts). Zero matches opens a missing_data ops case ('none'); more than one opens a low_confidence ops case listing every candidate ('ambiguous'), matching the resolveEmployeeByPhone pattern from M3-T01 -- no guessing, per CLAUDE.md rule 14. Tests in packages/core/test/job-matching.test.ts cover match-by-job-name, match-by-customer-name, cross-tenant isolation, non-active jobs being ignored, no-match, and ambiguous-match paths (all against a live-stack Postgres world fixture). format:check, lint, typecheck and the full test suite all pass. Next: M3-T12 \"Equipment matching\" (match 'Hoe', 'D6' via equipment names/aliases; same ambiguous/none -> ops case pattern).",
+  "updated_at": "2026-09-27T13:34:51.847Z"
 }

@@ -16,6 +16,7 @@ export * from "./services/draft-records";
 export * from "./services/employee-identity";
 export * from "./services/equipment-usage";
 export * from "./services/events";
+export * from "./services/job-matching";
 export * from "./services/job-notes";
 export * from "./services/jobs";
 export * from "./services/leads";
