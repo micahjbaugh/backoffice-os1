@@ -1071,7 +1071,7 @@
           "title": "M3 build report",
           "description": "docs/M3_BUILD_REPORT.md: what was built, tests, limitations, security notes.",
           "done_when": "Report exists and matches test results.",
-          "status": "pending"
+          "status": "in_progress"
         }
       ],
       "requires": [

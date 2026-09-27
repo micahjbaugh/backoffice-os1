@@ -5,17 +5,59 @@
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": null,
+  "review_base": "1770b678a9a5065e56fa4ff49860c6360fed84b2",
   "last_error": "",
-  "last_validation": null,
+  "last_validation": {
+    "passed": true,
+    "infra": false,
+    "fingerprint": "83de86fa27da7fe799e84e7c8a3619ad8481b28ca3e672691735660f03bcbfc4",
+    "at": "2026-09-27T20:36:49.776Z",
+    "results": [
+      {
+        "name": "format",
+        "cmd": "pnpm format:check",
+        "passed": true,
+        "classification": null,
+        "seconds": 3
+      },
+      {
+        "name": "lint",
+        "cmd": "pnpm lint",
+        "passed": true,
+        "classification": null,
+        "seconds": 8
+      },
+      {
+        "name": "typecheck",
+        "cmd": "pnpm typecheck",
+        "passed": true,
+        "classification": null,
+        "seconds": 10
+      },
+      {
+        "name": "tests (incl. production build + secret scan)",
+        "cmd": "pnpm test",
+        "passed": true,
+        "classification": null,
+        "seconds": 97
+      },
+      {
+        "name": "timezones",
+        "cmd": "pnpm --filter @backoffice/core test:tz",
+        "passed": true,
+        "classification": null,
+        "seconds": 12
+      }
+    ]
+  },
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 19,
-  "status": "READY_TO_START",
-  "last_engineer_used": "human",
-  "handoff_instructions": "Resumed by a person. Next: M3-T19 \"M3 build report\".",
-  "updated_at": "2026-09-27T20:18:35.571Z"
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "M3-T19 done: added docs/M3_BUILD_REPORT.md (200 lines, no exception needed) covering what M3 (Field Capture) built (equipment/time-entry/usage/job-note/billable-opportunity migrations 0006-0011+0016, domain extraction/fact-validation contracts, job/equipment matching, fact validator, field-capture-drafts, the runFieldCaptureWorkflow orchestrator, the fixture and Anthropic extractors, SMS-to-field-capture wiring in webhook-processor.ts, and the owner-inbox clarification/billable views), architecture decisions, current test results (645 passing / 7 skipped - the skipped tests are live-stack.test.ts, which needs a running Supabase and wasn't available in this session), the M3 acceptance suite's per-bullet assertions, known limitations, and security notes (centered on foundation-repair finding 7 / migration 0011's draft decision-authority fix). No source code changed. Ran pnpm format:check/lint/typecheck/test - all green. Next: reviewer approval of this task; after that M3 is fully done and VIS is next per blueprint.json.",
+  "updated_at": "2026-09-27T20:36:49.779Z"
 }
