@@ -890,7 +890,21 @@
           "title": "Job matching",
           "description": "Match extracted job references (e.g. 'Wilson') to active jobs by job/customer name within the org; ambiguous or none -> clarification task.",
           "done_when": "Match/ambiguous/none tests pass.",
-          "status": "in_progress"
+          "status": "done",
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "5ea88842571236bc5d9c4700d18fd5d777d2ab49336309a7fdc927e081d2ba74",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T13:35:21.434Z"
+          }
         },
         {
           "index": 12,
