@@ -1,5 +1,5 @@
 {
-  "enabled": false,
+  "enabled": true,
   "builder": {
     "engineer": "claude",
     "model": "claude-sonnet-5",
