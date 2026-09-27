@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "current_task_id": "M3-T13",
-  "attempts": 0,
+  "attempts": 1,
   "stalled_runs": 0,
   "consecutive_failures": 0,
-  "review_notes": "",
+  "review_notes": "Reviewer requested changes (1 of 1 part(s)): Duplicate detection depends on object property insertion order. isDuplicateFact builds a JSON signature from fact.fields without sorting keys, so two semantically identical facts with different field key orderings will not match and slip past the duplicate check. Please normalize by sorting field keys before stringifying, and add a test that demonstrates duplicates are detected regardless of field key order.",
   "review_base": "d1ad3b459838bb0bc1bf302d0c6aa07b0d7f9dfc",
   "last_error": "",
   "last_validation": {
@@ -56,8 +56,8 @@
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 13,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T13 'Fact validator' implemented in one step, all checks pass. Added packages/domain/src/fact-validation.ts: pure helpers (no DB) for the ARCHITECTURE.md §4 step-5 checklist — meetsConfidenceThreshold, parseClockTime/computeShiftHours (crew shorthand '7-5:30' -> 10.5h, assumes an unmarked earlier end time is PM the same day), isPlausibleHours (0 < h <= 16), and isDuplicateFact (same type+fields as another fact in the batch, ignoring factKey/confidence/evidence). Added packages/core/src/services/employee-matching.ts: resolveEmployeeByReference, matching an employeeRef like 'Jake Tyler' to one active employee by display name, mirroring resolveJobByReference/resolveEquipmentByReference (none -> missing_data ops case, >1 -> low_confidence ops case). Added packages/core/src/services/fact-validator.ts: validateFieldCaptureFact(ctx, fact, priorFacts) orchestrates all of the above per extracted fact -- duplicate check, confidence threshold, employee/job/equipment resolution, and time plausibility (parsing startTime/endTime or checking a given hours field) -- returning 'valid' (with resolved entities + computed hours), 'needs_clarification' (with the ops case and a reason), or 'duplicate'. It never writes a draft record; that is for M3-T14. Both new services/helpers are exported from their package barrels (packages/domain/src/index.ts, packages/core/src/index.ts). Tests added: packages/domain/test/fact-validation.test.ts (pure logic), packages/core/test/employee-matching.test.ts, packages/core/test/fact-validator.test.ts (DB-backed, covering valid time_entry/equipment_usage, low confidence, unmatched employee/job, implausible time, and within-batch duplicate). format/lint/typecheck/test all pass. Next: M3-T14 'Field capture workflow' -- wire extraction -> validateFieldCaptureFact -> draft-record services (createDraftTimeEntry etc.) / ops cases into one idempotent-per-communication workflow; note the milestone acceptance text 'three draft time entries' is not settled by this task (the current fixture extractor, M3-T09, emits a single time_entry fact for employeeRef 'Jake Tyler', which matches one employee of that name) -- T14 or the M3-T18 acceptance test will need to resolve how the message's sender and any multi-person reference map to draft records.",
-  "updated_at": "2026-09-27T15:15:44.768Z"
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "reviewer",
+  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
+  "updated_at": "2026-09-27T15:16:24.880Z"
 }
