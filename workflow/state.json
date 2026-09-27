@@ -5,17 +5,59 @@
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": null,
+  "review_base": "0017abb0a1215be7066f6c066743edfe1b639fb5",
   "last_error": "",
-  "last_validation": null,
+  "last_validation": {
+    "passed": true,
+    "infra": false,
+    "fingerprint": "63a5050d4dade3cd8ef3921248e8f96f4c9552e341024d5b02ebdca80d35d905",
+    "at": "2026-09-27T05:09:09.112Z",
+    "results": [
+      {
+        "name": "format",
+        "cmd": "pnpm format:check",
+        "passed": true,
+        "classification": null,
+        "seconds": 4
+      },
+      {
+        "name": "lint",
+        "cmd": "pnpm lint",
+        "passed": true,
+        "classification": null,
+        "seconds": 8
+      },
+      {
+        "name": "typecheck",
+        "cmd": "pnpm typecheck",
+        "passed": true,
+        "classification": null,
+        "seconds": 11
+      },
+      {
+        "name": "tests (incl. production build + secret scan)",
+        "cmd": "pnpm test",
+        "passed": true,
+        "classification": null,
+        "seconds": 81
+      },
+      {
+        "name": "timezones",
+        "cmd": "pnpm --filter @backoffice/core test:tz",
+        "passed": true,
+        "classification": null,
+        "seconds": 15
+      }
+    ]
+  },
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
   "current_task_index": 23,
-  "status": "READY_TO_START",
+  "status": "AWAITING_REVIEW",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T22 is done. Next: M2-T23 \"SMS acknowledgement path\".",
-  "updated_at": "2026-09-27T04:35:19.933Z"
+  "handoff_instructions": "M2-T23 done. Added packages/domain/src/sms-ack-template.ts (SMS_ACK_TEMPLATE_RULE_ACTION + smsAckTemplateDefinitionSchema, a business_rules kind following receptionist-config.ts's precedent: only rule.write, i.e. the owner, can ever create one, so an active rule is owner-approved by construction; there is still no write UI/service for it, same gap as receptionist.config since M2-T19 - a future task, not this one). packages/core/src/services/messaging.ts: loadActiveSmsAckTemplate + new exported acknowledgeInboundSms(ctx, {communicationId, callerNumber, businessNumber}) - sends the org's active template via requestOutboundSms with idempotencyKey `sms.ack:${communicationId}` (stable across redeliveries since communication_id is upserted per provider_conversation_id), or opens a missing_data ops case if no template is active (never guesses text). packages/workflows/src/webhook-processor.ts: handleInboundSms now resolves the caller match once (extracted participantsForMatch from the old callerParticipant, avoiding a second ambiguous-caller ops case) and calls acknowledgeInboundSms for every inbound SMS except a caller matched to a known employee (M3 will route those to field capture). New test packages/workflows/test/sms-acknowledgement.test.ts covers: unknown caller acknowledged + audited, known customer also acknowledged, redelivery sends exactly one ack, known employee gets none, missing template opens an ops case instead of sending. format/lint/typecheck/test all pass (full pnpm test green). Next: M2-T24 \"Operations view of stuck webhooks and outbound operations\".",
+  "updated_at": "2026-09-27T05:09:09.116Z"
 }

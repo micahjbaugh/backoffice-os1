@@ -607,7 +607,7 @@
           "title": "SMS acknowledgement path",
           "description": "Inbound SMS from an unknown caller gets the organization's approved acknowledgement template via requestOutboundSms (idempotent per inbound message); known employees are routed to field capture later (M3).",
           "done_when": "One acknowledgement per inbound message even on redelivery; template must be owner-approved; tests.",
-          "status": "pending",
+          "status": "in_progress",
           "depends_on": [
             "M2-T18"
           ],

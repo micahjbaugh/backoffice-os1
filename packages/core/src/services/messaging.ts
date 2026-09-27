@@ -1,11 +1,21 @@
 // SMS delivery status and outbound SMS requests (foundation repair, findings 5 and 6).
 
 import { z } from "zod";
-import { EVENT_TYPES, NotFoundError, parseInput, type UUID } from "@backoffice/domain";
+import {
+  EVENT_TYPES,
+  NotFoundError,
+  parseInput,
+  SMS_ACK_TEMPLATE_RULE_ACTION,
+  smsAckTemplateDefinitionSchema,
+  type OpsCase,
+  type UUID,
+} from "@backoffice/domain";
+import { toBusinessRule, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
 import { recordEvent } from "./events";
 import { enqueueOutboundOperation, type OutboundOperation } from "./outbound";
+import { createOpsCase } from "./ops";
 
 export const SMS_SEND_OPERATION = "sms.send";
 
@@ -90,4 +100,58 @@ export async function requestOutboundSms(
     });
   }
   return result;
+}
+
+/** The active, owner-approved `sms.acknowledgement_template` business rule's body, or null. */
+async function loadActiveSmsAckTemplate(ctx: ServiceContext): Promise<string | null> {
+  const { rows } = await ctx.scoped<Row>(
+    `select * from public.business_rules
+      where organization_id = $1 and action = $2 and enabled
+        and effective_from <= now() and (effective_to is null or effective_to > now())
+      order by version desc
+      limit 1`,
+    [ctx.organizationId, SMS_ACK_TEMPLATE_RULE_ACTION],
+  );
+  const rule = rows[0] ? toBusinessRule(rows[0]) : null;
+  const parsed = rule ? smsAckTemplateDefinitionSchema.safeParse(rule.definition) : null;
+  return parsed?.success ? parsed.data.body : null;
+}
+
+export type SmsAcknowledgementResult =
+  | { status: "sent" | "already_sent"; operation: OutboundOperation }
+  | { status: "no_template"; opsCase: OpsCase };
+
+/**
+ * Acknowledge an inbound SMS from a caller who isn't a known employee (M2-T23). Idempotent per
+ * inbound message (`communicationId`): a redelivered event resolves to the same idempotency key in
+ * `requestOutboundSms`, so it is never sent twice. Never invents a reply: no active owner-approved
+ * template means an ops case instead of guessing what to say (CLAUDE.md rule 14).
+ */
+export async function acknowledgeInboundSms(
+  ctx: ServiceContext,
+  input: { communicationId: UUID; callerNumber: string; businessNumber: string },
+): Promise<SmsAcknowledgementResult> {
+  await ctx.authorize("rule.read");
+  const body = await loadActiveSmsAckTemplate(ctx);
+  if (!body) {
+    const opsCase = await createOpsCase(ctx, {
+      title: "Inbound SMS needs an acknowledgement, but no owner-approved template is active",
+      reasonCode: "missing_data",
+      priority: "normal",
+      entityType: "communication",
+      entityId: input.communicationId,
+      evidence: { caller_number: input.callerNumber, business_number: input.businessNumber },
+    });
+    return { status: "no_template", opsCase };
+  }
+
+  const { operation, created } = await requestOutboundSms(ctx, {
+    fromNumber: input.businessNumber,
+    toNumber: input.callerNumber,
+    body,
+    idempotencyKey: `sms.ack:${input.communicationId}`,
+    entityType: "communication",
+    entityId: input.communicationId,
+  });
+  return { status: created ? "sent" : "already_sent", operation };
 }

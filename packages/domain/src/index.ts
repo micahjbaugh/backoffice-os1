@@ -4,6 +4,7 @@ export * from "./errors";
 export * from "./permissions";
 export * from "./approval-policy";
 export * from "./receptionist-config";
+export * from "./sms-ack-template";
 export * from "./schemas";
 export * from "./events";
 export * from "./phone";

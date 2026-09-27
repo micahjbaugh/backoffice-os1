@@ -7,6 +7,7 @@
 // Tenants come from the event's organization_id (resolved from provider_routes at acceptance).
 
 import {
+  acknowledgeInboundSms,
   applyMessageDeliveryStatus,
   claimWebhookEvents,
   completeWebhookEvent,
@@ -19,6 +20,7 @@ import {
   recordEvent,
   recordMessage,
   runAs,
+  type CallerMatchResult,
   type Database,
   type ServiceContext,
   type WebhookEvent,
@@ -41,9 +43,8 @@ const str = (v: unknown): string | undefined =>
 const num = (v: unknown): number | undefined =>
   typeof v === "number" && Number.isFinite(v) ? v : undefined;
 
-async function callerParticipant(ctx: ServiceContext, phone: string | undefined) {
+function participantsForMatch(match: CallerMatchResult, phone: string | undefined) {
   if (!phone) return [];
-  const match = await matchCallerByPhone(ctx, phone);
   if (match.status === "matched") {
     return [
       match.entityType === "customer"
@@ -55,21 +56,46 @@ async function callerParticipant(ctx: ServiceContext, phone: string | undefined)
   return [{ role: "unknown" as const, phone }];
 }
 
+async function callerParticipant(ctx: ServiceContext, phone: string | undefined) {
+  if (!phone) return [];
+  return participantsForMatch(await matchCallerByPhone(ctx, phone), phone);
+}
+
+/**
+ * A known employee texting in gets no automated reply here: M3 routes employee SMS to field
+ * capture. Everyone else (a matched customer, an ambiguous match, or a truly unknown number) gets
+ * the organization's owner-approved acknowledgement, once per inbound message (M2-T23).
+ */
 const handleInboundSms: WebhookHandler = async (ctx, event) => {
   const p = event.payload;
-  await recordMessage(ctx, {
+  const fromPhone = str(p.from);
+  const toPhone = str(p.to);
+  const match = fromPhone
+    ? await matchCallerByPhone(ctx, fromPhone)
+    : ({ status: "no_match" } as const);
+
+  const { communication } = await recordMessage(ctx, {
     direction: "inbound",
     provider: event.provider,
     providerConversationId: event.resourceId ?? String(p.messageSid),
     status: "completed",
     startedAt: event.occurredAt ?? event.receivedAt,
     providerMessageId: str(p.messageSid),
-    fromAddress: str(p.from),
-    toAddress: str(p.to),
+    fromAddress: fromPhone,
+    toAddress: toPhone,
     body: typeof p.body === "string" ? p.body : undefined,
     mediaUrls: Array.isArray(p.mediaUrls) ? (p.mediaUrls as string[]) : [],
-    participants: await callerParticipant(ctx, str(p.from)),
+    participants: participantsForMatch(match, fromPhone),
   });
+
+  const isKnownEmployee = match.status === "matched" && match.entityType === "employee";
+  if (!isKnownEmployee && fromPhone && toPhone) {
+    await acknowledgeInboundSms(ctx, {
+      communicationId: communication.id,
+      callerNumber: fromPhone,
+      businessNumber: toPhone,
+    });
+  }
   return { status: "processed" };
 };
 
