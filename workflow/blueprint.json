@@ -1000,7 +1000,21 @@
           "title": "Inbound SMS to field capture",
           "description": "Route inbound SMS from a known employee phone (M2 webhook pipeline) into the field capture workflow.",
           "done_when": "Integration test with the fake SMS provider passes.",
-          "status": "in_progress"
+          "status": "done",
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "a2f4b8073ba14bdf469f744604fac276ce1983e4b28fd0dc5653c2c859c6d88b",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T18:40:17.144Z"
+          }
         },
         {
           "index": 17,

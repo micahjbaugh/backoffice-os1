@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M3-T16",
+  "current_task_id": "M3-T17",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "b5a5c794b76406d1e838cdc5ad7f66d18c993083",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "a2f4b8073ba14bdf469f744604fac276ce1983e4b28fd0dc5653c2c859c6d88b",
-    "at": "2026-09-27T18:39:23.377Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 4
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 9
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 13
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 108
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 15
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
-  "current_task_index": 16,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 17,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Re-applied the saved workflow/wip/M3-T16.patch (it already fit within per-file limits, largest file 126 changed lines) and validated it as-is; no further edits needed. Change: inbound SMS webhook handling now takes a StructuredExtractor-aware handler map. webhook-processor.ts adds createInboundSmsHandler(extractor) and exports createWebhookHandlers(extractor) (DEFAULT_WEBHOOK_HANDLERS now built from the fixture extractor via that factory); a known-employee sender with a non-empty body is routed to runFieldCaptureWorkflow(sourceCommunicationId, text, extractor) instead of getting the M2-T23 acknowledgement. handleProviderWebhook (apps/web/src/server/webhook-route.ts) gained an optional selectHandlers, resolved together with the provider adapter so a misconfigured extractor also fails closed as 503; both the sms and voice route handlers pass selectHandlers: () => createWebhookHandlers(providerRuntime().extractor). ProviderRuntime (packages/integrations/src/runtime-config.ts) gained an extractor field (FixtureStructuredExtractor in fake mode, AnthropicStructuredExtractor with a new required ANTHROPIC_API_KEY / optional ANTHROPIC_MODEL env var in live mode) plus matching runtime-config tests. jobs.ts's runBackgroundJobs now builds handlers from runtime.extractor. Added packages/workflows/test/field-capture-sms.test.ts: an integration test using FakeSmsProvider end to end through the real webhook/database path with a counting extractor stub, asserting a known employee's message drafts a time entry (no ack sent) and that redelivering the same event does not call the extractor again or draft anything new (satisfies this task's done_when). Updated existing tests/callers (call-lifecycle.test.ts, outbound.test.ts, sms-acknowledgement.test.ts) to supply the new ProviderRuntime.extractor field / assert the new field-capture routing. format:check, lint, typecheck and the full test suite (pnpm test, all packages including packages/workflows: 52/52) all pass. Next: nothing further for M3-T16; ready for review.",
-  "updated_at": "2026-09-27T18:39:23.381Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M3-T16 is done. Next: M3-T17 \"Owner Inbox: clarifications and billables\".",
+  "updated_at": "2026-09-27T18:40:17.145Z"
 }
