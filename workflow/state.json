@@ -1,9 +1,9 @@
 {
   "schema_version": 2,
   "current_task_id": "M3-T19",
-  "attempts": 1,
+  "attempts": 0,
   "stalled_runs": 0,
-  "consecutive_failures": 2,
+  "consecutive_failures": 0,
   "review_notes": "Reviewer requested changes (1 of 1 part(s)): The report appears to misstate the M3 acceptance behavior around time entries. The milestone input “Me Jake Tyler …” implies three time entries, but the report claims a single “time-entry outcome” and zero time_entries rows due to low confidence, while also asserting the acceptance suite verifies every MILESTONES.md bullet. Please reconcile this: either update the report to reflect three time-entry drafts (and adjust the fixture/extractor and acceptance table accordingly) or explicitly call out the deviation from MILESTONES.md in Known limitations and change the “asserts every bullet” claim. Also ensure the stated test counts and per-package tallies reflect this exact run (or generalize to totals) to avoid drift.",
   "review_base": "1770b678a9a5065e56fa4ff49860c6360fed84b2",
   "last_error": "2026-09-27T21:31:45.480Z builder failed: builder run produced no changes",
@@ -52,12 +52,12 @@
   },
   "wip_patch": null,
   "pause_reason": null,
-  "paused_from": "CHANGES_REQUESTED",
+  "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 19,
-  "status": "PAUSED",
+  "status": "CHANGES_REQUESTED",
   "last_engineer_used": "human",
-  "handoff_instructions": "Paused by a person at M3-T19. Run \"resume\" to continue.",
-  "updated_at": "2026-09-27T21:42:20.339Z"
+  "handoff_instructions": "Resumed by a person. Paused by a person at M3-T19. Run \"resume\" to continue.",
+  "updated_at": "2026-09-27T21:48:13.362Z"
 }
