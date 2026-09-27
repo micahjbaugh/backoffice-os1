@@ -1,0 +1,625 @@
+diff --git a/apps/web/src/app/api/webhooks/sms/route.ts b/apps/web/src/app/api/webhooks/sms/route.ts
+index ecf5a6e..0dfc840 100644
+--- a/apps/web/src/app/api/webhooks/sms/route.ts
++++ b/apps/web/src/app/api/webhooks/sms/route.ts
+@@ -1,6 +1,9 @@
+ import { providerRuntime } from "@/server/providers";
+ import { handleProviderWebhook } from "@/server/webhook-route";
++import { createWebhookHandlers } from "@backoffice/workflows";
+ 
+ export async function POST(request: Request): Promise<Response> {
+-  return handleProviderWebhook(() => providerRuntime().sms, request);
++  return handleProviderWebhook(() => providerRuntime().sms, request, {
++    selectHandlers: () => createWebhookHandlers(providerRuntime().extractor),
++  });
+ }
+diff --git a/apps/web/src/app/api/webhooks/voice/route.ts b/apps/web/src/app/api/webhooks/voice/route.ts
+index 023c68a..227d653 100644
+--- a/apps/web/src/app/api/webhooks/voice/route.ts
++++ b/apps/web/src/app/api/webhooks/voice/route.ts
+@@ -2,6 +2,7 @@ import { db } from "@/server/db";
+ import { providerRuntime } from "@/server/providers";
+ import { handleProviderWebhook } from "@/server/webhook-route";
+ import {
++  createWebhookHandlers,
+   executeReceptionistToolCalls,
+   resolveAssistantTurn,
+   resolveTransferDestination,
+@@ -11,6 +12,7 @@ const str = (value: unknown): string | null => (typeof value === "string" ? valu
+ 
+ export async function POST(request: Request): Promise<Response> {
+   return handleProviderWebhook(() => providerRuntime().voice, request, {
++    selectHandlers: () => createWebhookHandlers(providerRuntime().extractor),
+     // M2-T19/T20/T21: assistant-request, tool-calls and transfer-destination-request are all
+     // answered here, synchronously, within Vapi's response window.
+     answerSynchronousEvent: async (event) => {
+diff --git a/apps/web/src/server/webhook-route.ts b/apps/web/src/server/webhook-route.ts
+index ed99033..1b23c3d 100644
+--- a/apps/web/src/server/webhook-route.ts
++++ b/apps/web/src/server/webhook-route.ts
+@@ -9,7 +9,7 @@ import {
+   type ParsedWebhookEvent,
+   type WebhookRequest,
+ } from "@backoffice/integrations";
+-import { processWebhookEvents } from "@backoffice/workflows";
++import { processWebhookEvents, type WebhookHandler } from "@backoffice/workflows";
+ import { db } from "./db";
+ 
+ /** Largest body we accept (Vapi end-of-call reports with transcripts can be large). */
+@@ -35,11 +35,17 @@ export async function handleProviderWebhook(
+     processInBackground?: boolean;
+     /** Returns the synchronous reply for a `requiresResponse` event, or null to use the default ack. */
+     answerSynchronousEvent?: (event: ParsedWebhookEvent) => Promise<Record<string, unknown> | null>;
++    /** Handlers for the background catch-up pass below; defaults to DEFAULT_WEBHOOK_HANDLERS.
++     *  Resolved together with the adapter so a misconfigured extractor also fails closed as 503,
++     *  not an unhandled 500. */
++    selectHandlers?: () => Readonly<Record<string, WebhookHandler>>;
+   } = {},
+ ): Promise<Response> {
+   let adapter: InboundWebhookAdapter;
++  let handlers: Readonly<Record<string, WebhookHandler>> | undefined;
+   try {
+     adapter = selectAdapter();
++    handlers = options.selectHandlers?.();
+   } catch (error) {
+     if (error instanceof ProviderConfigError) {
+       console.error(`webhook provider unavailable: ${error.message}`);
+@@ -94,7 +100,7 @@ export async function handleProviderWebhook(
+   if (options.processInBackground ?? true) {
+     after(async () => {
+       try {
+-        await processWebhookEvents(db(), { limit: 10 });
++        await processWebhookEvents(db(), { limit: 10, handlers });
+       } catch (error) {
+         console.error("background webhook processing failed (jobs endpoint will retry)", error);
+       }
+diff --git a/packages/integrations/src/runtime-config.ts b/packages/integrations/src/runtime-config.ts
+index 6bde2a5..27f545b 100644
+--- a/packages/integrations/src/runtime-config.ts
++++ b/packages/integrations/src/runtime-config.ts
+@@ -7,11 +7,14 @@
+ //     when BO_PROVIDER_MODE=live and fully configured.
+ // Error messages name missing settings, never their values.
+ 
++import type { FieldCaptureExtraction, StructuredExtractor } from "@backoffice/domain";
++import { AnthropicStructuredExtractor } from "./adapters/anthropic-structured-extractor";
+ import { TwilioSmsProvider } from "./adapters/twilio-sms-provider";
+ import { VapiVoiceProvider } from "./adapters/vapi-voice-provider";
+ import { FakeSmsProvider } from "./fakes/fake-sms-provider";
+ import { FakeVoiceProvider } from "./fakes/fake-voice-provider";
+ import { MIN_FAKE_SECRET_LENGTH } from "./fakes/fake-webhooks";
++import { FixtureStructuredExtractor } from "./fakes/fixture-structured-extractor";
+ import type { SmsProvider } from "./providers/sms-provider";
+ import type { VoiceProvider } from "./providers/voice-provider";
+ 
+@@ -23,6 +26,8 @@ export interface ProviderEnv {
+   TWILIO_WEBHOOK_URL?: string;
+   VAPI_API_KEY?: string;
+   VAPI_WEBHOOK_SECRET?: string;
++  ANTHROPIC_API_KEY?: string;
++  ANTHROPIC_MODEL?: string;
+   FAKE_PROVIDER_WEBHOOK_SECRET?: string;
+ }
+ 
+@@ -30,6 +35,8 @@ export interface ProviderRuntime {
+   mode: "live" | "fake";
+   sms: SmsProvider;
+   voice: VoiceProvider;
++  /** Field capture's structured extractor (M3-T16): the fixture in fake mode, Anthropic in live mode. */
++  extractor: StructuredExtractor<FieldCaptureExtraction>;
+ }
+ 
+ export class ProviderConfigError extends Error {
+@@ -72,7 +79,12 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
+         `fake providers need FAKE_PROVIDER_WEBHOOK_SECRET (at least ${MIN_FAKE_SECRET_LENGTH} characters)`,
+       );
+     }
+-    return { mode, sms: new FakeSmsProvider(secret), voice: new FakeVoiceProvider(secret) };
++    return {
++      mode,
++      sms: new FakeSmsProvider(secret),
++      voice: new FakeVoiceProvider(secret),
++      extractor: new FixtureStructuredExtractor(),
++    };
+   }
+ 
+   const required = [
+@@ -81,6 +93,7 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
+     "TWILIO_WEBHOOK_URL",
+     "VAPI_API_KEY",
+     "VAPI_WEBHOOK_SECRET",
++    "ANTHROPIC_API_KEY",
+   ] as const;
+   const missing = required.filter((name) => !env[name]);
+   if (missing.length) throw new ProviderConfigError(`live providers need: ${missing.join(", ")}`);
+@@ -88,7 +101,12 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
+   const problems: string[] = [];
+   if (!/^AC[0-9a-f]{32}$/i.test(env.TWILIO_ACCOUNT_SID ?? ""))
+     problems.push("TWILIO_ACCOUNT_SID is not an Account SID");
+-  for (const name of ["TWILIO_AUTH_TOKEN", "VAPI_API_KEY", "VAPI_WEBHOOK_SECRET"] as const) {
++  for (const name of [
++    "TWILIO_AUTH_TOKEN",
++    "VAPI_API_KEY",
++    "VAPI_WEBHOOK_SECRET",
++    "ANTHROPIC_API_KEY",
++  ] as const) {
+     const value = env[name] ?? "";
+     if (value.length < MIN_LIVE_SECRET_LENGTH) problems.push(`${name} is too short`);
+     else if (unsafeSecret(value))
+@@ -117,5 +135,9 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
+       apiKey: env.VAPI_API_KEY as string,
+       webhookSecret: env.VAPI_WEBHOOK_SECRET as string,
+     }),
++    extractor: new AnthropicStructuredExtractor({
++      apiKey: env.ANTHROPIC_API_KEY as string,
++      model: env.ANTHROPIC_MODEL,
++    }),
+   };
+ }
+diff --git a/packages/integrations/test/runtime-config.test.ts b/packages/integrations/test/runtime-config.test.ts
+index 36f3432..64bd96b 100644
+--- a/packages/integrations/test/runtime-config.test.ts
++++ b/packages/integrations/test/runtime-config.test.ts
+@@ -1,8 +1,10 @@
+ import { describe, expect, it } from "vitest";
+ import {
++  AnthropicStructuredExtractor,
+   createProviderRuntime,
+   FakeSmsProvider,
+   FakeVoiceProvider,
++  FixtureStructuredExtractor,
+   ProviderConfigError,
+   TwilioSmsProvider,
+   VapiVoiceProvider,
+@@ -15,6 +17,7 @@ const live: ProviderEnv = {
+   TWILIO_WEBHOOK_URL: "https://app.acme.test/api/webhooks/sms",
+   VAPI_API_KEY: "3c1f9a7e-5b2d-4e8f-a6c0-9d1b2e3f4a5b",
+   VAPI_WEBHOOK_SECRET: "q7Hs0Lr2Vx9Nc4Pz8Kw1Mj6Tb3Yd5Ge0",
++  ANTHROPIC_API_KEY: "sk-ant-api03-0123456789abcdef0123456789abcdef",
+ };
+ 
+ describe("provider runtime selection", () => {
+@@ -27,6 +30,7 @@ describe("provider runtime selection", () => {
+     expect(rt.mode).toBe("fake");
+     expect(rt.sms).toBeInstanceOf(FakeSmsProvider);
+     expect(rt.voice).toBeInstanceOf(FakeVoiceProvider);
++    expect(rt.extractor).toBeInstanceOf(FixtureStructuredExtractor);
+   });
+ 
+   it("fakes cannot be constructed without a secret (no hard-coded defaults)", () => {
+@@ -62,6 +66,7 @@ describe("provider runtime selection", () => {
+     ["a placeholder", { TWILIO_AUTH_TOKEN: "replace-me-with-real-token-000" }],
+     ["a too-short secret", { VAPI_WEBHOOK_SECRET: "abc" }],
+     ["a malformed account sid", { TWILIO_ACCOUNT_SID: "not-a-sid" }],
++    ["a placeholder Anthropic key", { ANTHROPIC_API_KEY: "changeme" }],
+     ["http webhook URL", { TWILIO_WEBHOOK_URL: "http://app.acme.test/api/webhooks/sms" }],
+     [
+       "query string on the webhook URL",
+@@ -91,5 +96,6 @@ describe("provider runtime selection", () => {
+     expect(rt.mode).toBe("live");
+     expect(rt.sms).toBeInstanceOf(TwilioSmsProvider);
+     expect(rt.voice).toBeInstanceOf(VapiVoiceProvider);
++    expect(rt.extractor).toBeInstanceOf(AnthropicStructuredExtractor);
+   });
+ });
+diff --git a/packages/workflows/src/jobs.ts b/packages/workflows/src/jobs.ts
+index 86538d0..ed9fc13 100644
+--- a/packages/workflows/src/jobs.ts
++++ b/packages/workflows/src/jobs.ts
+@@ -10,7 +10,11 @@ import {
+   type DispatchSummary,
+ } from "./outbound-dispatcher";
+ import { purgeExpiredRetention, type RetentionPurgeSummary } from "./retention-purge";
+-import { processWebhookEvents, type ProcessSummary } from "./webhook-processor";
++import {
++  createWebhookHandlers,
++  processWebhookEvents,
++  type ProcessSummary,
++} from "./webhook-processor";
+ 
+ export interface JobsSummary {
+   webhooks: ProcessSummary;
+@@ -23,7 +27,9 @@ export async function runBackgroundJobs(
+   db: Database,
+   runtime: ProviderRuntime,
+ ): Promise<JobsSummary> {
+-  const webhooks = await processWebhookEvents(db);
++  const webhooks = await processWebhookEvents(db, {
++    handlers: createWebhookHandlers(runtime.extractor),
++  });
+   const outbound = await dispatchOutboundOperations(db, runtime);
+   const reconciliation = await reconcileUnknownOperations(db, runtime);
+   const retention = await purgeExpiredRetention(db);
+diff --git a/packages/workflows/src/webhook-processor.ts b/packages/workflows/src/webhook-processor.ts
+index 723f1df..a888bf4 100644
+--- a/packages/workflows/src/webhook-processor.ts
++++ b/packages/workflows/src/webhook-processor.ts
+@@ -20,12 +20,19 @@ import {
+   recordEvent,
+   recordMessage,
+   runAs,
++  runFieldCaptureWorkflow,
+   type CallerMatchResult,
+   type Database,
+   type ServiceContext,
+   type WebhookEvent,
+ } from "@backoffice/core";
+-import { EVENT_TYPES, type Actor } from "@backoffice/domain";
++import {
++  EVENT_TYPES,
++  type Actor,
++  type FieldCaptureExtraction,
++  type StructuredExtractor,
++} from "@backoffice/domain";
++import { FixtureStructuredExtractor } from "@backoffice/integrations";
+ import { reconcileSmsFromStatusCallback } from "./outbound-dispatcher";
+ 
+ export const WEBHOOK_PROCESSOR: Actor = { type: "system", name: "webhook-processor" };
+@@ -62,42 +69,58 @@ async function callerParticipant(ctx: ServiceContext, phone: string | undefined)
+ }
+ 
+ /**
+- * A known employee texting in gets no automated reply here: M3 routes employee SMS to field
+- * capture. Everyone else (a matched customer, an ambiguous match, or a truly unknown number) gets
+- * the organization's owner-approved acknowledgement, once per inbound message (M2-T23).
++ * A known employee texting in is routed to the field capture workflow (M3-T16) instead of getting
++ * an automated reply. Everyone else (a matched customer, an ambiguous match, or a truly unknown
++ * number) gets the organization's owner-approved acknowledgement, once per inbound message
++ * (M2-T23). Both paths run inside the same transaction as recording the message, so a crash before
++ * commit leaves nothing half-done and a retry (at-least-once delivery) sees the same inbound
++ * communication and hits field capture's own idempotency marker instead of re-extracting.
+  */
+-const handleInboundSms: WebhookHandler = async (ctx, event) => {
+-  const p = event.payload;
+-  const fromPhone = str(p.from);
+-  const toPhone = str(p.to);
+-  const match = fromPhone
+-    ? await matchCallerByPhone(ctx, fromPhone)
+-    : ({ status: "no_match" } as const);
++function createInboundSmsHandler(
++  extractor: StructuredExtractor<FieldCaptureExtraction>,
++): WebhookHandler {
++  return async (ctx, event) => {
++    const p = event.payload;
++    const fromPhone = str(p.from);
++    const toPhone = str(p.to);
++    const match = fromPhone
++      ? await matchCallerByPhone(ctx, fromPhone)
++      : ({ status: "no_match" } as const);
+ 
+-  const { communication } = await recordMessage(ctx, {
+-    direction: "inbound",
+-    provider: event.provider,
+-    providerConversationId: event.resourceId ?? String(p.messageSid),
+-    status: "completed",
+-    startedAt: event.occurredAt ?? event.receivedAt,
+-    providerMessageId: str(p.messageSid),
+-    fromAddress: fromPhone,
+-    toAddress: toPhone,
+-    body: typeof p.body === "string" ? p.body : undefined,
+-    mediaUrls: Array.isArray(p.mediaUrls) ? (p.mediaUrls as string[]) : [],
+-    participants: participantsForMatch(match, fromPhone),
+-  });
+-
+-  const isKnownEmployee = match.status === "matched" && match.entityType === "employee";
+-  if (!isKnownEmployee && fromPhone && toPhone) {
+-    await acknowledgeInboundSms(ctx, {
+-      communicationId: communication.id,
+-      callerNumber: fromPhone,
+-      businessNumber: toPhone,
++    const body = typeof p.body === "string" ? p.body : undefined;
++    const { communication } = await recordMessage(ctx, {
++      direction: "inbound",
++      provider: event.provider,
++      providerConversationId: event.resourceId ?? String(p.messageSid),
++      status: "completed",
++      startedAt: event.occurredAt ?? event.receivedAt,
++      providerMessageId: str(p.messageSid),
++      fromAddress: fromPhone,
++      toAddress: toPhone,
++      body,
++      mediaUrls: Array.isArray(p.mediaUrls) ? (p.mediaUrls as string[]) : [],
++      participants: participantsForMatch(match, fromPhone),
+     });
+-  }
+-  return { status: "processed" };
+-};
++
++    const isKnownEmployee = match.status === "matched" && match.entityType === "employee";
++    if (isKnownEmployee) {
++      if (body && body.trim().length > 0) {
++        await runFieldCaptureWorkflow(ctx, {
++          sourceCommunicationId: communication.id,
++          text: body,
++          extractor,
++        });
++      }
++    } else if (fromPhone && toPhone) {
++      await acknowledgeInboundSms(ctx, {
++        communicationId: communication.id,
++        callerNumber: fromPhone,
++        businessNumber: toPhone,
++      });
++    }
++    return { status: "processed" };
++  };
++}
+ 
+ const handleSmsStatus: WebhookHandler = async (ctx, event) => {
+   const p = event.payload;
+@@ -184,15 +207,27 @@ const handleCallEnded: WebhookHandler = async (ctx, event) => {
+  */
+ const answeredSynchronously: WebhookHandler = async () => ({ status: "processed" });
+ 
+-export const DEFAULT_WEBHOOK_HANDLERS: Readonly<Record<string, WebhookHandler>> = {
+-  "sms.inbound": handleInboundSms,
+-  "sms.status": handleSmsStatus,
+-  "call.status": handleCallStatus,
+-  "call.ended": handleCallEnded,
+-  "call.assistant_request": answeredSynchronously,
+-  "call.tool_calls": answeredSynchronously,
+-  "call.transfer_destination_request": answeredSynchronously,
+-};
++/**
++ * Builds the handler map for one `extractor` (M3-T16): the real deployment passes the
++ * environment's structured extractor (`ProviderRuntime.extractor`); tests and local development
++ * can pass the deterministic fixture extractor instead.
++ */
++export function createWebhookHandlers(
++  extractor: StructuredExtractor<FieldCaptureExtraction>,
++): Readonly<Record<string, WebhookHandler>> {
++  return {
++    "sms.inbound": createInboundSmsHandler(extractor),
++    "sms.status": handleSmsStatus,
++    "call.status": handleCallStatus,
++    "call.ended": handleCallEnded,
++    "call.assistant_request": answeredSynchronously,
++    "call.tool_calls": answeredSynchronously,
++    "call.transfer_destination_request": answeredSynchronously,
++  };
++}
++
++export const DEFAULT_WEBHOOK_HANDLERS: Readonly<Record<string, WebhookHandler>> =
++  createWebhookHandlers(new FixtureStructuredExtractor());
+ 
+ export interface ProcessSummary {
+   claimed: number;
+diff --git a/packages/workflows/test/acceptance/call-lifecycle.test.ts b/packages/workflows/test/acceptance/call-lifecycle.test.ts
+index 275b880..1b6d3fe 100644
+--- a/packages/workflows/test/acceptance/call-lifecycle.test.ts
++++ b/packages/workflows/test/acceptance/call-lifecycle.test.ts
+@@ -9,7 +9,12 @@
+ import { afterAll, beforeAll, describe, expect, it } from "vitest";
+ import { RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
+ import { inTenant, runAs, transferCall } from "@backoffice/core";
+-import { FakeSmsProvider, FakeVoiceProvider, type ProviderRuntime } from "@backoffice/integrations";
++import {
++  FakeSmsProvider,
++  FakeVoiceProvider,
++  FixtureStructuredExtractor,
++  type ProviderRuntime,
++} from "@backoffice/integrations";
+ import { dispatchOutboundOperations, processWebhookEvents } from "../../src";
+ import {
+   count,
+@@ -32,7 +37,12 @@ let employeeId: string;
+ const owner = (): Actor => ({ type: "user", userId: w.orgA.owner });
+ 
+ function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoiceProvider } {
+-  return { mode: "fake", sms: new FakeSmsProvider(SECRET), voice: new FakeVoiceProvider(SECRET) };
++  return {
++    mode: "fake",
++    sms: new FakeSmsProvider(SECRET),
++    voice: new FakeVoiceProvider(SECRET),
++    extractor: new FixtureStructuredExtractor(),
++  };
+ }
+ 
+ const communicationByCallId = async () =>
+diff --git a/packages/workflows/test/field-capture-sms.test.ts b/packages/workflows/test/field-capture-sms.test.ts
+new file mode 100644
+index 0000000..6c803bd
+--- /dev/null
++++ b/packages/workflows/test/field-capture-sms.test.ts
+@@ -0,0 +1,126 @@
++// M3-T16: an inbound SMS from a known employee phone (M2 webhook pipeline) is routed to the field
++// capture workflow instead of getting the M2-T23 acknowledgement. Uses the fake SMS provider (not
++// Twilio wire format) to exercise the generic webhook -> handler -> field-capture path end to end
++// against a real database, and proves a redelivered event (provider retry or crash-recovery
++// reprocessing) drafts nothing twice, because field capture's own idempotency marker
++// (`field_capture.processed:<communicationId>`) short-circuits the replay before the extractor
++// even runs again.
++
++import { afterAll, beforeAll, describe, expect, it } from "vitest";
++import type {
++  FieldCaptureExtraction,
++  FieldCaptureFact,
++  StructuredExtractor,
++} from "@backoffice/domain";
++import { FakeSmsProvider, type FakeWebhookEnvelope } from "@backoffice/integrations";
++import { createWebhookHandlers, processWebhookEvents } from "../src";
++import { count, createWorld, deliver, type World } from "./helpers";
++
++const SECRET = "field-capture-sms-test-secret-01";
++const BUSINESS_NUMBER = "+15125550200";
++const EMPLOYEE_NUMBER = "+15125550166";
++
++const fakeSms = new FakeSmsProvider(SECRET);
++
++function fakeSmsRequest(envelope: FakeWebhookEnvelope) {
++  const signed = fakeSms.signWebhook(envelope);
++  return {
++    rawBody: signed.rawBody,
++    headers: new Headers(signed.headers),
++    url: "http://internal:3000/api/webhooks/sms",
++  };
++}
++
++const TIME_ENTRY_FACT: FieldCaptureFact = {
++  factKey: "time-1",
++  type: "time_entry",
++  fields: { employeeRef: "Jake Tyler", jobRef: "Wilson", startTime: "7:00", endTime: "5:30" },
++  confidence: { employeeRef: 0.95, jobRef: 0.9, startTime: 0.9, endTime: 0.9 },
++  evidence: [{ field: "employeeRef", quote: "Me Jake Tyler 7-5:30 Wilson" }],
++};
++
++/** Ignores the message text entirely (routing correctness is this test's concern, not extraction
++ *  quality, which M3-T09/T10 already cover): always returns the same fact and counts its calls, so
++ *  a replay that skips extraction is directly observable. */
++class CountingExtractor implements StructuredExtractor<FieldCaptureExtraction> {
++  calls = 0;
++  async extract() {
++    this.calls += 1;
++    return {
++      data: { facts: [TIME_ENTRY_FACT], unresolvedQuestions: [] },
++      modelVersion: "test-1",
++    };
++  }
++}
++
++let w: World;
++let jobId: string;
++
++beforeAll(async () => {
++  w = await createWorld();
++  await w.pg.query(
++    `insert into public.provider_routes (organization_id, provider, channel, address) values ($1, 'fake-sms', 'sms', $2)`,
++    [w.orgA.id, BUSINESS_NUMBER],
++  );
++  await w.pg.query(
++    `insert into public.employees (organization_id, display_name, phone) values ($1, 'Jake Tyler', $2)`,
++    [w.orgA.id, EMPLOYEE_NUMBER],
++  );
++  const { rows } = await w.pg.query<{ id: string }>(
++    `insert into public.jobs (organization_id, name, status) values ($1, 'Wilson Job', 'active') returning id`,
++    [w.orgA.id],
++  );
++  jobId = (rows[0] as { id: string }).id;
++});
++afterAll(async () => {
++  await w.close();
++});
++
++describe("inbound SMS from a known employee", () => {
++  it("drafts a time entry through field capture instead of sending an acknowledgement, and a redelivered event drafts nothing new", async () => {
++    const extractor = new CountingExtractor();
++    const handlers = createWebhookHandlers(extractor);
++    const envelope: FakeWebhookEnvelope = {
++      eventType: "sms.inbound",
++      eventKey: "fc-msg-1",
++      resourceId: "fc-msg-1",
++      routingAddress: BUSINESS_NUMBER,
++      payload: {
++        from: EMPLOYEE_NUMBER,
++        to: BUSINESS_NUMBER,
++        body: "Me Jake Tyler 7-5:30 Wilson",
++        messageSid: "fc-msg-1",
++      },
++    };
++
++    await deliver(w, fakeSms, fakeSmsRequest(envelope));
++    await processWebhookEvents(w.db, { handlers });
++
++    expect(extractor.calls).toBe(1);
++    const timeEntries = await w.pg.query<{ status: string; hours: string }>(
++      `select status, hours from public.time_entries where job_id = $1`,
++      [jobId],
++    );
++    expect(timeEntries.rows).toHaveLength(1);
++    expect(timeEntries.rows[0]).toMatchObject({ status: "draft" });
++    expect(
++      await count(
++        w.pg,
++        `select 1 from public.outbound_operations where organization_id = $1 and operation_type = 'sms.send'`,
++        [w.orgA.id],
++      ),
++    ).toBe(0);
++
++    // Provider retry / crash-recovery reprocessing of the same event.
++    await w.pg.query(
++      `update public.webhook_receipts set status = 'received' where provider = 'fake-sms' and provider_event_id = $1`,
++      ["fc-msg-1"],
++    );
++    await processWebhookEvents(w.db, { handlers });
++
++    expect(extractor.calls).toBe(1);
++    expect(await count(w.pg, `select 1 from public.time_entries where job_id = $1`, [jobId])).toBe(
++      1,
++    );
++  });
++});
+diff --git a/packages/workflows/test/outbound.test.ts b/packages/workflows/test/outbound.test.ts
+index 454bf98..744372c 100644
+--- a/packages/workflows/test/outbound.test.ts
++++ b/packages/workflows/test/outbound.test.ts
+@@ -15,7 +15,12 @@ import {
+   runAs,
+   transferCall,
+ } from "@backoffice/core";
+-import { FakeSmsProvider, FakeVoiceProvider, type ProviderRuntime } from "@backoffice/integrations";
++import {
++  FakeSmsProvider,
++  FakeVoiceProvider,
++  FixtureStructuredExtractor,
++  type ProviderRuntime,
++} from "@backoffice/integrations";
+ import {
+   dispatchOutboundOperations,
+   reconcileUnknownOperations,
+@@ -55,7 +60,12 @@ afterAll(async () => {
+ 
+ /** A fresh runtime = a fresh process: nothing carried over in memory. */
+ function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoiceProvider } {
+-  return { mode: "fake", sms: new FakeSmsProvider(SECRET), voice: new FakeVoiceProvider(SECRET) };
++  return {
++    mode: "fake",
++    sms: new FakeSmsProvider(SECRET),
++    voice: new FakeVoiceProvider(SECRET),
++    extractor: new FixtureStructuredExtractor(),
++  };
+ }
+ 
+ async function liveCall(): Promise<{ communicationId: string; providerCallId: string }> {
+diff --git a/packages/workflows/test/sms-acknowledgement.test.ts b/packages/workflows/test/sms-acknowledgement.test.ts
+index ca06671..d292106 100644
+--- a/packages/workflows/test/sms-acknowledgement.test.ts
++++ b/packages/workflows/test/sms-acknowledgement.test.ts
+@@ -5,6 +5,7 @@
+ 
+ import { afterAll, beforeAll, describe, expect, it } from "vitest";
+ import { SMS_ACK_TEMPLATE_RULE_ACTION } from "@backoffice/domain";
++import { FIELD_CAPTURE_ACCEPTANCE_MESSAGE } from "@backoffice/integrations";
+ import { processWebhookEvents } from "../src";
+ import {
+   BUSINESS_NUMBER,
+@@ -97,16 +98,28 @@ describe("SMS acknowledgement path", () => {
+     expect((await acksTo(w.orgA.id, caller)).rows).toHaveLength(1);
+   });
+ 
+-  it("does not acknowledge a known employee (M3 routes them to field capture instead)", async () => {
++  it("does not acknowledge a known employee, routing the message to field capture instead (M3-T16)", async () => {
+     const employeeNumber = "+15125550166";
+     await w.pg.query(
+       `insert into public.employees (organization_id, display_name, phone) values ($1, 'Jake Tyler', $2)`,
+       [w.orgA.id, employeeNumber],
+     );
+     const sid = "SM" + "4".repeat(32);
+-    await inbound(sid, { From: employeeNumber });
++    await inbound(sid, { From: employeeNumber, Body: FIELD_CAPTURE_ACCEPTANCE_MESSAGE });
+     await processWebhookEvents(w.db);
+     expect((await acksTo(w.orgA.id, employeeNumber)).rows).toHaveLength(0);
++
++    const { rows } = await w.pg.query<{ id: string }>(
++      `select id from public.communications where provider = 'twilio' and provider_conversation_id = $1`,
++      [sid],
++    );
++    expect(
++      await count(
++        w.pg,
++        `select 1 from public.business_events where type = 'field_capture.processed' and entity_id = $1`,
++        [rows[0]?.id],
++      ),
++    ).toBe(1);
+   });
+ 
+   it("opens an ops case instead of guessing a reply when no owner-approved template is active", async () => {

@@ -2,13 +2,13 @@
   "schema_version": 2,
   "current_task_id": "M3-T16",
   "attempts": 0,
-  "stalled_runs": 0,
-  "consecutive_failures": 1,
+  "stalled_runs": 1,
+  "consecutive_failures": 0,
   "review_notes": "",
   "review_base": null,
   "last_error": "2026-09-27T17:25:34.177Z builder failed: builder run produced no changes",
   "last_validation": null,
-  "wip_patch": null,
+  "wip_patch": "workflow/wip/M3-T16.patch",
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
@@ -16,6 +16,6 @@
   "current_task_index": 16,
   "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M3-T15 is done. Next: M3-T16 \"Inbound SMS to field capture\".",
-  "updated_at": "2026-09-27T17:25:34.177Z"
+  "handoff_instructions": "The previous run ended before finishing; its work is saved in workflow/wip/M3-T16.patch. Continue M3-T16 in smaller steps.",
+  "updated_at": "2026-09-27T18:04:34.243Z"
 }
