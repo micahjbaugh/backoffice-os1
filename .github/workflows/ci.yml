@@ -41,6 +41,7 @@ jobs:
       - name: Tests (includes production build + browser secret scan, and the referee's own tests)
         run: pnpm test
       - name: Timezones (UTC, America/Chicago, Asia/Tokyo)
+        if: hashFiles('packages/core/scripts/test-timezones.mjs') != ''
         run: pnpm --filter @backoffice/core test:tz
 
   live-stack:

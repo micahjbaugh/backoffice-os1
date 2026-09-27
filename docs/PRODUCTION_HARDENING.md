@@ -1,0 +1,33 @@
+# Production hardening register
+
+Status as of the 2026-09-26 foundation repair. "Done" means implemented **and** covered by automated
+tests in this repository. Nothing here is production-ready until the open items are closed; the
+autopilot tracks them as milestone **PH** (it must pass before any M4+ work starts).
+
+| Area | State | Where / what remains |
+|---|---|---|
+| Tenant isolation (RLS + code) | Done | Every tenant table has RLS; direct-API bypass tests per table (`packages/core/test`). |
+| Decision authority on drafts/billables | Done | Migration 0011 + `draft-decisions.ts`; clients can't set status. |
+| Webhook authenticity | Done | Signature/secret verified on the original request; production refuses fake providers and placeholder/known secrets (`runtime-config.ts`). |
+| Webhook durability & replay | Done | Durable acceptance before 2xx, event identity, retries/backoff, dead-letter to ops case (`webhooks.ts`, `webhook-processor.ts`). |
+| Outbound side effects | Done (no exactly-once claim) | Outbox, ambiguous outcomes never re-sent, reconciliation/escalation. Neither Twilio's Messages API nor Vapi call control accepts an idempotency key. |
+| Secrets never in the browser bundle | Done | Production build scanned for sentinel secrets on every test run. |
+| Background job trigger | Code done; **scheduling is a human decision** | `POST /api/internal/jobs` with `INTERNAL_JOBS_SECRET`. Needs a scheduler (e.g. Vercel Cron, GitHub Actions, Supabase cron) calling it every ~1 min. |
+| Least-privilege DB role | Planned (PH-T00) | App connects as the table owner today (bypasses RLS on trusted paths). |
+| Rate limiting | Planned (PH-T01) | No limits yet on webhooks, sign-in, server actions. |
+| Pagination | Planned (PH-T02) | List pages are unbounded. |
+| Private document storage | Planned (PH-T03) | Metadata only; no storage buckets/signed URLs yet. |
+| Monitoring & alerting | Planned (PH-T04) | Logs only; no health endpoint or alerting on dead letters/unknown operations. |
+| Retention (payloads, transcripts) | Planned (M2-T25) | Webhook payloads and transcripts are kept indefinitely today. |
+| MFA & re-authentication | **Human decision** (PH-T05, deferred) | Enable MFA in the hosted Supabase project; choose enforcement. |
+| Backups & restore drill | **Human action** (PH-T06, deferred) | Hosted project, PITR plan decision, and a person-run restore drill. |
+
+## Credentials and decisions only a person can provide
+
+- Twilio: Account SID, auth token, a phone number, and the public HTTPS webhook URL
+  (`/api/webhooks/sms`) configured in Twilio.
+- Vapi: API key, server-URL secret, phone number/assistant configuration pointing at
+  `/api/webhooks/voice`.
+- `INTERNAL_JOBS_SECRET` (32+ random characters) and the scheduler that calls the jobs endpoint.
+- Hosting/deployment target, hosted Supabase project, MFA and backup policy.
+- The M2 live phone check (M2-T17) on a provisioned number after the automated suite passes.
