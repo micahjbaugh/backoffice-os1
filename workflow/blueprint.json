@@ -912,7 +912,21 @@
           "title": "Equipment matching",
           "description": "Match equipment references ('Hoe', 'D6') via names and aliases; ambiguous or none -> clarification task.",
           "done_when": "Match/ambiguous/none tests pass.",
-          "status": "in_progress"
+          "status": "done",
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "a6e072792cd298b25f496c21862550a06b0f6db786768c01b863827a12bcb488",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T14:34:52.808Z"
+          }
         },
         {
           "index": 13,
