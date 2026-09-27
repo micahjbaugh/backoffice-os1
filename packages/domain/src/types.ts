@@ -158,6 +158,16 @@ export interface Job extends TenantEntity {
   updatedAt: string;
 }
 
+export interface Equipment extends TenantEntity {
+  name: string;
+  type: string;
+  aliases: string[];
+  internalCostRateCents: number | null;
+  billableRateCents: number | null;
+  active: boolean;
+  updatedAt: string;
+}
+
 export interface Task extends TenantEntity {
   title: string;
   description: string | null;

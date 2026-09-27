@@ -912,7 +912,7 @@
           "title": "Equipment matching",
           "description": "Match equipment references ('Hoe', 'D6') via names and aliases; ambiguous or none -> clarification task.",
           "done_when": "Match/ambiguous/none tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 13,

@@ -13,6 +13,7 @@ import type {
   Customer,
   DocumentMetadata,
   Employee,
+  Equipment,
   EquipmentUsage,
   Job,
   JobNote,
@@ -149,6 +150,19 @@ export const toJob = (r: Row): Job => ({
   status: str(r.status) as Job["status"],
   scheduledStart: isoOrNull(r.scheduled_start),
   scheduledEnd: isoOrNull(r.scheduled_end),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toEquipment = (r: Row): Equipment => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  name: str(r.name),
+  type: str(r.type),
+  aliases: strArray(r.aliases),
+  internalCostRateCents: numOrNull(r.internal_cost_rate_cents),
+  billableRateCents: numOrNull(r.billable_rate_cents),
+  active: Boolean(r.active),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
