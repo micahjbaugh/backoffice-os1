@@ -504,15 +504,12 @@ export const BILLABLE_OPPORTUNITY_STATUSES = ["open", "approved", "dismissed"] a
 export type BillableOpportunityStatus = (typeof BILLABLE_OPPORTUNITY_STATUSES)[number];
 
 /** Possible extra billable work (e.g. customer-requested scope). Approving it is a financial decision. */
-export interface BillableOpportunity extends TenantEntity, DraftDecision {
+export interface BillableOpportunity extends TenantEntity, DraftFact, DraftDecision {
   jobId: UUID;
   description: string;
   quantity: number | null;
   unit: string | null;
   status: BillableOpportunityStatus;
-  sourceCommunicationId: UUID | null;
-  confidence: Record<string, unknown>;
-  evidence: Record<string, unknown>;
   /** Which policy authorized the decision (e.g. "default:owner", "business_rule:<id>@v2"). */
   decisionPolicySource: string | null;
   updatedAt: string;

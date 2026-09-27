@@ -978,7 +978,7 @@
           "title": "Scope-change detection",
           "description": "Detect customer-requested additional work ('grade another 200 ft') and create a billable opportunity plus an owner inbox item.",
           "done_when": "Acceptance input yields exactly one billable opportunity.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 16,

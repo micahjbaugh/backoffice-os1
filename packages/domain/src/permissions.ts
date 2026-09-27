@@ -46,6 +46,7 @@ export const PERMISSIONS = [
   "equipment_usage.write",
   "material_usage.write",
   "job_note.write",
+  "billable_opportunity.write",
   /** Approve/reject draft time, equipment and material records. */
   "draft_record.decide",
   /** Eligibility to decide billable opportunities; final authority is the approval policy. */
@@ -69,6 +70,7 @@ const STAFF_WRITE: readonly Permission[] = [
   "equipment_usage.write",
   "material_usage.write",
   "job_note.write",
+  "billable_opportunity.write",
 ];
 
 const STAFF_READ: readonly Permission[] = [
@@ -131,6 +133,7 @@ const AUTOMATED_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   "equipment_usage.write",
   "material_usage.write",
   "job_note.write",
+  "billable_opportunity.write",
 ]);
 
 /** Trusted server components (e.g. seeding, background workflows) get the green set plus reads. */

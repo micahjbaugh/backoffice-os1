@@ -401,6 +401,17 @@ export const createDraftJobNoteInput = z
   })
   .superRefine(refineFactRef);
 
+/** Agent-callable: a possible scope change detected in a crew report (MASTER_SPEC §D, GREEN action). */
+export const createBillableOpportunityInput = z
+  .object({
+    jobId: uuid,
+    description: z.string().trim().min(1).max(500),
+    quantity: z.number().nonnegative().max(1_000_000).optional(),
+    unit: optionalText(32),
+    ...draftFactFields,
+  })
+  .superRefine(refineFactRef);
+
 export const updateCommunicationSummaryInput = z.object({
   communicationId: uuid,
   status: z.enum(COMMUNICATION_STATUSES).optional(),
@@ -470,5 +481,6 @@ export type CreateDraftTimeEntryInput = z.input<typeof createDraftTimeEntryInput
 export type CreateDraftEquipmentUsageInput = z.input<typeof createDraftEquipmentUsageInput>;
 export type CreateDraftMaterialUsageInput = z.input<typeof createDraftMaterialUsageInput>;
 export type CreateDraftJobNoteInput = z.input<typeof createDraftJobNoteInput>;
+export type CreateBillableOpportunityInput = z.input<typeof createBillableOpportunityInput>;
 export type TransferCallInput = z.input<typeof transferCallInput>;
 export type RecordCallDispositionInput = z.input<typeof recordCallDispositionInput>;

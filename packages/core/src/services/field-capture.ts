@@ -66,8 +66,9 @@ async function openUnresolvedQuestionCase(
 /**
  * Run the field capture workflow for one inbound crew message, already recorded as
  * `sourceCommunicationId` (M2 communications pipeline). Extracts structured facts with
- * `extractor`, validates each one, and either drafts it, opens a clarification, or (duplicates,
- * deferred billable opportunities) does nothing further — all inside the caller's transaction.
+ * `extractor`, validates each one, and either drafts it (including a billable opportunity for a
+ * detected scope change, M3-T15), opens a clarification, or (duplicates) does nothing further —
+ * all inside the caller's transaction.
  */
 export async function runFieldCaptureWorkflow(
   ctx: ServiceContext,

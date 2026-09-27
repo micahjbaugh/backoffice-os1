@@ -462,6 +462,7 @@ export const toBillableOpportunity = (r: Row): BillableOpportunity => ({
   unit: strOrNull(r.unit),
   status: str(r.status) as BillableOpportunity["status"],
   sourceCommunicationId: strOrNull(r.source_communication_id),
+  factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
   decidedByUserId: strOrNull(r.decided_by_user_id),

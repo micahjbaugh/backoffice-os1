@@ -7,6 +7,7 @@ export { runAs, inTenant, ServiceContext } from "./runtime";
 
 export * from "./services/approvals";
 export * from "./services/audit";
+export * from "./services/billable-opportunities";
 export * from "./services/business-rules";
 export * from "./services/call-disposition";
 export * from "./services/caller-matching";

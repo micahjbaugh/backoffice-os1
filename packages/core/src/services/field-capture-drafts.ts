@@ -6,6 +6,7 @@
 
 import { type FieldCaptureFact, type FieldCaptureFactType, type UUID } from "@backoffice/domain";
 import type { ServiceContext } from "../runtime";
+import { createBillableOpportunity } from "./billable-opportunities";
 import { createDraftEquipmentUsage } from "./equipment-usage";
 import { createDraftTimeEntry } from "./draft-records";
 import type { FactClarificationReason, ResolvedFactEntities } from "./fact-validator";
@@ -28,9 +29,7 @@ export type FieldCaptureFactOutcome =
       reason: FactClarificationReason;
       opsCaseId: UUID;
     }
-  | { factKey: string; type: FieldCaptureFactType; status: "duplicate" }
-  /** billable_opportunity: validated, not yet actioned (M3-T15 creates the record). */
-  | { factKey: string; type: FieldCaptureFactType; status: "deferred" };
+  | { factKey: string; type: FieldCaptureFactType; status: "duplicate" };
 
 const CALENDAR_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -173,6 +172,21 @@ export async function draftForFact(
     };
   }
 
-  // billable_opportunity: scope-change detection creates the record (M3-T15).
-  return { factKey: fact.factKey, type: fact.type, status: "deferred" };
+  // billable_opportunity: a possible scope change (M3-T15) — open for the owner to review, never
+  // auto-approved (CLAUDE.md rule 5-6).
+  if (!entities.job) return missingJobOutcome(ctx, fact);
+  const { billableOpportunity, created } = await createBillableOpportunity(ctx, {
+    ...common,
+    jobId: entities.job.id,
+    description: fact.fields.description,
+    quantity: fact.fields.quantity,
+    unit: fact.fields.unit,
+  });
+  return {
+    factKey: fact.factKey,
+    type: fact.type,
+    status: "drafted",
+    recordId: billableOpportunity.id,
+    created,
+  };
 }

@@ -1,8 +1,9 @@
-// M3-T14: field capture workflow (ARCHITECTURE.md §4). A fixture extractor drives the whole
-// pipeline for one inbound message: valid facts draft, unmatched/low-confidence facts open a
-// clarification instead of guessing (CLAUDE.md rule 14), duplicates and deferred billable
-// opportunities are skipped, and unresolved questions get their own ops case. Replaying the same
-// source communication is a full no-op: the extractor never runs again and nothing new is written.
+// M3-T14/T15: field capture workflow (ARCHITECTURE.md §4). A fixture extractor drives the whole
+// pipeline for one inbound message: valid facts draft (including a billable opportunity for a
+// detected scope change), unmatched/low-confidence facts open a clarification instead of guessing
+// (CLAUDE.md rule 14), duplicates are skipped, and unresolved questions get their own ops case.
+// Replaying the same source communication is a full no-op: the extractor never runs again and
+// nothing new is written.
 
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
@@ -102,15 +103,15 @@ describe("runFieldCaptureWorkflow", () => {
     expect(extractor.calls).toBe(1);
   });
 
-  it("skips a duplicate fact and defers a billable opportunity", async () => {
+  it("skips a duplicate fact and drafts a billable opportunity for a scope change", async () => {
     const communicationId = await seedCommunicationId(w, w.orgA.id);
     const first = timeEntryFact({ factKey: "dup-1" });
     const duplicate = timeEntryFact({ factKey: "dup-2" });
     const opportunity: FieldCaptureFact = {
       factKey: "opp-1",
       type: "billable_opportunity",
-      fields: { jobRef: "Wilson", description: "grade another 200 ft" },
-      confidence: { description: 0.9 },
+      fields: { jobRef: "Wilson", description: "grade another 200 ft", quantity: 200, unit: "ft" },
+      confidence: { description: 0.9, jobRef: 0.9 },
       evidence: [{ field: "description", quote: "grade another 200 ft" }],
     };
     const extractor = new FixtureExtractor([first, duplicate, opportunity]);
@@ -123,7 +124,17 @@ describe("runFieldCaptureWorkflow", () => {
       }),
     );
 
-    expect(result.outcomes.map((o) => o.status)).toEqual(["drafted", "duplicate", "deferred"]);
+    expect(result.outcomes.map((o) => o.status)).toEqual(["drafted", "duplicate", "drafted"]);
+    const [, , billable] = result.outcomes;
+    if (billable?.status !== "drafted") throw new Error("expected billable opportunity to draft");
+
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.billable_opportunities where id = $1 and status = 'open' and job_id = $2`,
+        [billable.recordId, jobId],
+      ),
+    ).toBe(1);
   });
 
   it("replaying the same source communication creates nothing new", async () => {

@@ -30,6 +30,9 @@ export const EVENT_TYPES = {
   equipmentUsageDrafted: "equipment_usage.drafted",
   materialUsageDrafted: "material_usage.drafted",
   jobNoteDrafted: "job_note.drafted",
+  /** A scope-change fact became a billable opportunity for the owner to review (ARCHITECTURE.md
+   *  §4 step 7, MASTER_SPEC §D "detect customer-requested additions"). */
+  billableOpportunityCreated: "billable_opportunity.created",
   draftRecordDecided: "draft_record.decided",
   billableOpportunityDecided: "billable_opportunity.decided",
   /** Marks one source communication as run through the field capture workflow (M3-T14):
