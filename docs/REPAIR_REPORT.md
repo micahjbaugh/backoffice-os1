@@ -5,6 +5,9 @@ Plan: `docs/REPAIR_PLAN.md`. Branch: `repair/foundation`. Recovery tags:
 `main`) before any change and stayed paused throughout; scheduled runs were confirmed to stop at the
 decision step.
 
+**Resumed 2026-09-27** (`enabled: true` on `main`) only after CI passed on all three branches:
+`repair/foundation` 36284111416, `autopilot` 36284608570, `main` 36284959474 (checks + live stack).
+
 ## Findings: verdicts
 
 | # | Finding | Verdict | Fix |
