@@ -679,7 +679,7 @@
           "title": "M2 automated acceptance suite",
           "description": "End-to-end suite with realistic Twilio/Vapi fixtures through the real webhook route handler, event store, processor, receptionist runtime and outbox worker: call -> identify company -> qualify fake lead -> create lead + call summary -> warm transfer -> disposition; duplicate/out-of-order/concurrent webhooks; complete audit trail. Runs in the gate (packages/workflows test/acceptance) and against the local Supabase stack.",
           "done_when": "Every M2 acceptance criterion that does not need a real phone is asserted by the suite; the suite passes in the acceptance gate.",
-          "status": "pending",
+          "status": "in_progress",
           "kind": "acceptance",
           "depends_on": [
             "M2-T19",

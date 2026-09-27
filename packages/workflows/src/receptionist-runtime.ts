@@ -227,6 +227,7 @@ export async function executeReceptionistToolCalls(
       direction: "inbound",
       provider: params.provider,
       providerConversationId: params.callId,
+      providerCallId: params.callId,
       status: "in_progress",
       fromNumber: params.customerNumber ?? undefined,
       toNumber: params.businessNumber ?? undefined,

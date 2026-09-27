@@ -44,3 +44,5 @@
 {"at":"2026-09-27T09:52:31.768Z","kind":"run_failed","engineer":"builder","persistent":false,"summary":"You've hit your weekly limit · resets 11am (UTC)"}
 {"at":"2026-09-27T10:26:17.254Z","kind":"run_failed","engineer":"builder","persistent":false,"summary":"You've hit your weekly limit · resets 11am (UTC)"}
 {"at":"2026-09-27T10:52:15.202Z","kind":"run_failed","engineer":"builder","persistent":false,"summary":"You've hit your weekly limit · resets 11am (UTC)"}
+{"at":"2026-09-27T11:54:12.842Z","kind":"step_accepted","task":"M2-T26","summary":"5 files; builder status AWAITING_REVIEW"}
+{"at":"2026-09-27T11:54:12.847Z","kind":"validation","task":"M2-T26","passed":true,"infra":false,"summary":"PASS format; PASS lint; PASS typecheck; PASS tests (incl. production build + secret scan); PASS timezones; PASS acceptance: pnpm --filter @backoffice/workflows exec vitest run test/acceptance; PASS local Supabase: start; PASS local Supabase: reset + seed; PASS live-stack tests"}
