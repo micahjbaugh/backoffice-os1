@@ -3,10 +3,10 @@
   "current_task_id": "M2-T26",
   "attempts": 1,
   "stalled_runs": 1,
-  "consecutive_failures": 5,
+  "consecutive_failures": 6,
   "review_notes": "Step discarded: it changed files the builder may not change: packages/workflows/tsconfig.json (existing check configuration), packages/workflows/vitest.config.ts (existing check configuration).",
   "review_base": null,
-  "last_error": "2026-09-27T10:26:17.254Z builder failed: You've hit your weekly limit · resets 11am (UTC)",
+  "last_error": "2026-09-27T10:52:15.201Z builder failed: You've hit your weekly limit · resets 11am (UTC)",
   "last_validation": null,
   "wip_patch": "workflow/wip/M2-T26.patch",
   "pause_reason": null,
@@ -17,5 +17,5 @@
   "status": "CHANGES_REQUESTED",
   "last_engineer_used": "referee",
   "handoff_instructions": "The previous run ended before finishing; its work is saved in workflow/wip/M2-T26.patch. Continue M2-T26 in smaller steps.",
-  "updated_at": "2026-09-27T10:26:17.254Z"
+  "updated_at": "2026-09-27T10:52:15.202Z"
 }
