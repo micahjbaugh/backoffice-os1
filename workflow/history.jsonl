@@ -39,3 +39,4 @@
 {"at":"2026-09-27T07:46:53.522Z","kind":"sent_back","task":"M2-T26","engineer":"referee","attempts":1,"summary":"Step discarded: it changed files the builder may not change: packages/workflows/tsconfig.json (existing check configuration), packages/workflows/vitest.config.ts (existing check configuration)."}
 {"at":"2026-09-27T08:01:03.162Z","kind":"unfinished_run","task":"M2-T26","summary":"run ended without a valid handoff; work saved to workflow/wip/M2-T26.patch"}
 {"at":"2026-09-27T08:27:38.280Z","kind":"run_failed","engineer":"builder","persistent":false,"summary":"You've hit your weekly limit · resets 11am (UTC)"}
+{"at":"2026-09-27T08:53:11.978Z","kind":"run_failed","engineer":"builder","persistent":false,"summary":"You've hit your weekly limit · resets 11am (UTC)"}
