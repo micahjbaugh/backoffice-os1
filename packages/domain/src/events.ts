@@ -35,6 +35,8 @@ export const EVENT_TYPES = {
   outboundSucceeded: "outbound.succeeded",
   smsSendRequested: "sms.send_requested",
   webhookDeadLettered: "webhook.dead_lettered",
+  webhookPayloadsPurged: "webhook.payloads_purged",
+  communicationsPurged: "communication.retention_purged",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];

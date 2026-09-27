@@ -5,17 +5,59 @@
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": null,
+  "review_base": "303ba2dca909a5a919e7b124367ed31f68504968",
   "last_error": "",
-  "last_validation": null,
+  "last_validation": {
+    "passed": true,
+    "infra": false,
+    "fingerprint": "1d6c8b7430e26a84950466b30a9cc24a7173b29ee394a57cd43215b196af2533",
+    "at": "2026-09-27T07:17:02.234Z",
+    "results": [
+      {
+        "name": "format",
+        "cmd": "pnpm format:check",
+        "passed": true,
+        "classification": null,
+        "seconds": 4
+      },
+      {
+        "name": "lint",
+        "cmd": "pnpm lint",
+        "passed": true,
+        "classification": null,
+        "seconds": 8
+      },
+      {
+        "name": "typecheck",
+        "cmd": "pnpm typecheck",
+        "passed": true,
+        "classification": null,
+        "seconds": 11
+      },
+      {
+        "name": "tests (incl. production build + secret scan)",
+        "cmd": "pnpm test",
+        "passed": true,
+        "classification": null,
+        "seconds": 90
+      },
+      {
+        "name": "timezones",
+        "cmd": "pnpm --filter @backoffice/core test:tz",
+        "passed": true,
+        "classification": null,
+        "seconds": 15
+      }
+    ]
+  },
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
   "current_task_index": 25,
-  "status": "READY_TO_START",
+  "status": "AWAITING_REVIEW",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T24 is done. Next: M2-T25 \"Retention of webhook payloads and transcripts\".",
-  "updated_at": "2026-09-27T06:41:49.466Z"
+  "handoff_instructions": "M2-T25 done. Migration 0015_retention.sql adds per-org organizations.webhook_payload_retention_days (default 30) and communication_retention_days (default 365), plus webhook_receipts.payload_purged_at as an idempotency marker. New packages/core/src/services/retention.ts has the two purge queries (purgeExpiredWebhookPayloads, purgeExpiredCommunications): each joins organizations for its own window, only selects terminal-successful rows (webhook status processed/ignored; communication status completed/failed/abandoned), and clears payload / transcript+summary+structured_extraction while leaving identity, disposition, participants and all events/audit untouched. New packages/workflows/src/retention-purge.ts (purgeExpiredRetention, RETENTION_WORKER actor) runs both and writes one business_events + audit_log entry per organization actually touched (new EVENT_TYPES.webhookPayloadsPurged/communicationsPurged); wired into runBackgroundJobs (packages/workflows/src/jobs.ts) so it runs on the existing job schedule. Organization gained webhookPayloadRetentionDays/communicationRetentionDays on the domain type and toOrganization mapping. Tests: packages/core/test/retention.test.ts (purge behavior: window, terminal-status-only, per-org windows, idempotency, identity kept) and packages/workflows/test/retention.test.ts (event/audit trail written only for organizations with something purged, none on a no-op rerun). docs/PRODUCTION_HARDENING.md retention row updated to Done. format/lint/typecheck/test all pass. Next: M2-T26 (M2 automated acceptance suite) once this is reviewed.",
+  "updated_at": "2026-09-27T07:17:02.237Z"
 }

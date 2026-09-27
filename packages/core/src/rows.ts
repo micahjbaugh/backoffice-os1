@@ -92,6 +92,8 @@ export const toOrganization = (r: Row): Organization => ({
   name: str(r.name),
   slug: strOrNull(r.slug),
   timezone: str(r.timezone),
+  webhookPayloadRetentionDays: Number(r.webhook_payload_retention_days),
+  communicationRetentionDays: Number(r.communication_retention_days),
   createdAt: iso(r.created_at),
 });
 

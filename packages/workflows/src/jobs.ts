@@ -9,12 +9,14 @@ import {
   reconcileUnknownOperations,
   type DispatchSummary,
 } from "./outbound-dispatcher";
+import { purgeExpiredRetention, type RetentionPurgeSummary } from "./retention-purge";
 import { processWebhookEvents, type ProcessSummary } from "./webhook-processor";
 
 export interface JobsSummary {
   webhooks: ProcessSummary;
   outbound: DispatchSummary;
   reconciliation: { reconciled: number; escalated: number };
+  retention: RetentionPurgeSummary;
 }
 
 export async function runBackgroundJobs(
@@ -24,5 +26,6 @@ export async function runBackgroundJobs(
   const webhooks = await processWebhookEvents(db);
   const outbound = await dispatchOutboundOperations(db, runtime);
   const reconciliation = await reconcileUnknownOperations(db, runtime);
-  return { webhooks, outbound, reconciliation };
+  const retention = await purgeExpiredRetention(db);
+  return { webhooks, outbound, reconciliation, retention };
 }

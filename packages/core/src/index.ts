@@ -30,6 +30,7 @@ export * from "./services/organizations";
 export * from "./services/provider-routes";
 export * from "./services/receptionist";
 export * from "./services/records";
+export * from "./services/retention";
 export * from "./services/tasks";
 export * from "./services/transfer";
 export * from "./services/webhooks";

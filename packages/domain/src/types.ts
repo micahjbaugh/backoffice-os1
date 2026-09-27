@@ -107,6 +107,10 @@ export interface Organization {
   name: string;
   slug: string | null;
   timezone: string;
+  /** MASTER_SPEC §11: days a successfully processed webhook payload body is kept (M2-T25). */
+  webhookPayloadRetentionDays: number;
+  /** MASTER_SPEC §11: days an ended communication's transcript/summary is kept (M2-T25). */
+  communicationRetentionDays: number;
   createdAt: string;
 }
 

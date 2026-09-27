@@ -18,7 +18,7 @@ autopilot tracks them as milestone **PH** (it must pass before any M4+ work star
 | Pagination | Planned (PH-T02) | List pages are unbounded. |
 | Private document storage | Planned (PH-T03) | Metadata only; no storage buckets/signed URLs yet. |
 | Monitoring & alerting | Planned (PH-T04) | Logs only; no health endpoint or alerting on dead letters/unknown operations. |
-| Retention (payloads, transcripts) | Planned (M2-T25) | Webhook payloads and transcripts are kept indefinitely today. |
+| Retention (payloads, transcripts) | Done | Per-organization windows on `organizations`; scheduled purge clears processed webhook payload bodies and ended communications' transcript/summary, never unprocessed/in-progress ones (`retention.ts`, `retention-purge.ts`). |
 | MFA & re-authentication | **Human decision** (PH-T05, deferred) | Enable MFA in the hosted Supabase project; choose enforcement. |
 | Backups & restore drill | **Human action** (PH-T06, deferred) | Hosted project, PITR plan decision, and a person-run restore drill. |
 
