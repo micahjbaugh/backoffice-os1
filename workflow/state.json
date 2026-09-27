@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "current_task_id": "M3-T19",
-  "attempts": 0,
+  "attempts": 1,
   "stalled_runs": 0,
   "consecutive_failures": 0,
-  "review_notes": "",
+  "review_notes": "Reviewer requested changes (1 of 1 part(s)): The report appears to misstate the M3 acceptance behavior around time entries. The milestone input “Me Jake Tyler …” implies three time entries, but the report claims a single “time-entry outcome” and zero time_entries rows due to low confidence, while also asserting the acceptance suite verifies every MILESTONES.md bullet. Please reconcile this: either update the report to reflect three time-entry drafts (and adjust the fixture/extractor and acceptance table accordingly) or explicitly call out the deviation from MILESTONES.md in Known limitations and change the “asserts every bullet” claim. Also ensure the stated test counts and per-package tallies reflect this exact run (or generalize to totals) to avoid drift.",
   "review_base": "1770b678a9a5065e56fa4ff49860c6360fed84b2",
   "last_error": "",
   "last_validation": {
@@ -56,8 +56,8 @@
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 19,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T19 done: added docs/M3_BUILD_REPORT.md (200 lines, no exception needed) covering what M3 (Field Capture) built (equipment/time-entry/usage/job-note/billable-opportunity migrations 0006-0011+0016, domain extraction/fact-validation contracts, job/equipment matching, fact validator, field-capture-drafts, the runFieldCaptureWorkflow orchestrator, the fixture and Anthropic extractors, SMS-to-field-capture wiring in webhook-processor.ts, and the owner-inbox clarification/billable views), architecture decisions, current test results (645 passing / 7 skipped - the skipped tests are live-stack.test.ts, which needs a running Supabase and wasn't available in this session), the M3 acceptance suite's per-bullet assertions, known limitations, and security notes (centered on foundation-repair finding 7 / migration 0011's draft decision-authority fix). No source code changed. Ran pnpm format:check/lint/typecheck/test - all green. Next: reviewer approval of this task; after that M3 is fully done and VIS is next per blueprint.json.",
-  "updated_at": "2026-09-27T20:36:49.779Z"
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "reviewer",
+  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
+  "updated_at": "2026-09-27T20:37:28.519Z"
 }
