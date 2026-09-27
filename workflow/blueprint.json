@@ -607,11 +607,25 @@
           "title": "SMS acknowledgement path",
           "description": "Inbound SMS from an unknown caller gets the organization's approved acknowledgement template via requestOutboundSms (idempotent per inbound message); known employees are routed to field capture later (M3).",
           "done_when": "One acknowledgement per inbound message even on redelivery; template must be owner-approved; tests.",
-          "status": "in_progress",
+          "status": "done",
           "depends_on": [
             "M2-T18"
           ],
-          "index": 23
+          "index": 23,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "63a5050d4dade3cd8ef3921248e8f96f4c9552e341024d5b02ebdca80d35d905",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T05:09:44.879Z"
+          }
         },
         {
           "id": "M2-T24",
