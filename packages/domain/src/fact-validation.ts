@@ -65,13 +65,14 @@ function normalizeFieldValue(value: unknown): unknown {
 }
 
 /** A signature of a fact's type and field values, ignoring factKey/confidence/evidence, so two
- *  facts the extractor emitted under different keys but describing the same thing compare equal. */
+ *  facts the extractor emitted under different keys but describing the same thing compare equal.
+ *  Field entries are sorted by key so two facts with identical fields in different insertion
+ *  orders (JSON.stringify would otherwise preserve insertion order) produce the same signature. */
 function factSignature(fact: FieldCaptureFact): string {
-  const normalized = Object.fromEntries(
-    Object.entries(fact.fields)
-      .filter(([, value]) => value !== undefined)
-      .map(([key, value]) => [key, normalizeFieldValue(value)]),
-  );
+  const normalized = Object.entries(fact.fields)
+    .filter(([, value]) => value !== undefined)
+    .map(([key, value]) => [key, normalizeFieldValue(value)] as const)
+    .sort(([a], [b]) => a.localeCompare(b));
   return JSON.stringify([fact.type, normalized]);
 }
 

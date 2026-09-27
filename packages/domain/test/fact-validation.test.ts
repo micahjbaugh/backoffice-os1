@@ -116,4 +116,18 @@ describe("isDuplicateFact", () => {
     const a = equipmentFact("equip-1", "Hoe", 8);
     expect(isDuplicateFact(a, [a])).toBe(false);
   });
+
+  it("flags duplicates regardless of the order fields were inserted in", () => {
+    const a = equipmentFact("equip-1", "Hoe", 8);
+    const b: FieldCaptureFact = {
+      factKey: "equip-1b",
+      type: "equipment_usage",
+      // Same fields as `a` but built with reversed key insertion order, so a signature that
+      // relies on JSON.stringify's key order (rather than sorting first) would miss this match.
+      fields: { hours: 8, jobRef: "Wilson", equipmentRef: "Hoe" },
+      confidence: { hours: 0.9, equipmentRef: 0.9 },
+      evidence: [{ field: "equipmentRef", quote: "Hoe" }],
+    };
+    expect(isDuplicateFact(a, [b])).toBe(true);
+  });
 });

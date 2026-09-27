@@ -10,8 +10,8 @@
   "last_validation": {
     "passed": true,
     "infra": false,
-    "fingerprint": "89628f73dc6bb78ee96f90940d395fc0dcbd1fe8fe8229c66512f68e6a8236ea",
-    "at": "2026-09-27T15:15:44.764Z",
+    "fingerprint": "ad263f291fbe588c2a2f1d93f271ef6acf93b57ff689061ab5643140c086d911",
+    "at": "2026-09-27T15:34:16.819Z",
     "results": [
       {
         "name": "format",
@@ -39,7 +39,7 @@
         "cmd": "pnpm test",
         "passed": true,
         "classification": null,
-        "seconds": 104
+        "seconds": 102
       },
       {
         "name": "timezones",
@@ -56,8 +56,8 @@
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 13,
-  "status": "CHANGES_REQUESTED",
-  "last_engineer_used": "reviewer",
-  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
-  "updated_at": "2026-09-27T15:16:24.880Z"
+  "status": "AWAITING_REVIEW",
+  "last_engineer_used": "claude",
+  "handoff_instructions": "Addressed review_notes: factSignature in packages/domain/src/fact-validation.ts now sorts fact.fields entries by key (instead of relying on Object.fromEntries + JSON.stringify's insertion-order-dependent key order) before stringifying, so isDuplicateFact matches semantically identical facts regardless of field insertion order. Added a test in packages/domain/test/fact-validation.test.ts ('flags duplicates regardless of the order fields were inserted in') that builds a fact with fields in reversed key order and asserts it is still detected as a duplicate. format:check, lint, typecheck and test all pass. No further changes planned; ready for re-review.",
+  "updated_at": "2026-09-27T15:34:16.823Z"
 }
