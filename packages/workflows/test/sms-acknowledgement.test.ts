@@ -5,6 +5,7 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SMS_ACK_TEMPLATE_RULE_ACTION } from "@backoffice/domain";
+import { FIELD_CAPTURE_ACCEPTANCE_MESSAGE } from "@backoffice/integrations";
 import { processWebhookEvents } from "../src";
 import {
   BUSINESS_NUMBER,
@@ -97,16 +98,28 @@ describe("SMS acknowledgement path", () => {
     expect((await acksTo(w.orgA.id, caller)).rows).toHaveLength(1);
   });
 
-  it("does not acknowledge a known employee (M3 routes them to field capture instead)", async () => {
+  it("does not acknowledge a known employee, routing the message to field capture instead (M3-T16)", async () => {
     const employeeNumber = "+15125550166";
     await w.pg.query(
       `insert into public.employees (organization_id, display_name, phone) values ($1, 'Jake Tyler', $2)`,
       [w.orgA.id, employeeNumber],
     );
     const sid = "SM" + "4".repeat(32);
-    await inbound(sid, { From: employeeNumber });
+    await inbound(sid, { From: employeeNumber, Body: FIELD_CAPTURE_ACCEPTANCE_MESSAGE });
     await processWebhookEvents(w.db);
     expect((await acksTo(w.orgA.id, employeeNumber)).rows).toHaveLength(0);
+
+    const { rows } = await w.pg.query<{ id: string }>(
+      `select id from public.communications where provider = 'twilio' and provider_conversation_id = $1`,
+      [sid],
+    );
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.business_events where type = 'field_capture.processed' and entity_id = $1`,
+        [rows[0]?.id],
+      ),
+    ).toBe(1);
   });
 
   it("opens an ops case instead of guessing a reply when no owner-approved template is active", async () => {

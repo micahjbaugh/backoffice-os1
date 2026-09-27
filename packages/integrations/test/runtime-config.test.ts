@@ -1,8 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  AnthropicStructuredExtractor,
   createProviderRuntime,
   FakeSmsProvider,
   FakeVoiceProvider,
+  FixtureStructuredExtractor,
   ProviderConfigError,
   TwilioSmsProvider,
   VapiVoiceProvider,
@@ -15,6 +17,7 @@ const live: ProviderEnv = {
   TWILIO_WEBHOOK_URL: "https://app.acme.test/api/webhooks/sms",
   VAPI_API_KEY: "3c1f9a7e-5b2d-4e8f-a6c0-9d1b2e3f4a5b",
   VAPI_WEBHOOK_SECRET: "q7Hs0Lr2Vx9Nc4Pz8Kw1Mj6Tb3Yd5Ge0",
+  ANTHROPIC_API_KEY: "sk-ant-api03-0123456789abcdef0123456789abcdef",
 };
 
 describe("provider runtime selection", () => {
@@ -27,6 +30,7 @@ describe("provider runtime selection", () => {
     expect(rt.mode).toBe("fake");
     expect(rt.sms).toBeInstanceOf(FakeSmsProvider);
     expect(rt.voice).toBeInstanceOf(FakeVoiceProvider);
+    expect(rt.extractor).toBeInstanceOf(FixtureStructuredExtractor);
   });
 
   it("fakes cannot be constructed without a secret (no hard-coded defaults)", () => {
@@ -62,6 +66,7 @@ describe("provider runtime selection", () => {
     ["a placeholder", { TWILIO_AUTH_TOKEN: "replace-me-with-real-token-000" }],
     ["a too-short secret", { VAPI_WEBHOOK_SECRET: "abc" }],
     ["a malformed account sid", { TWILIO_ACCOUNT_SID: "not-a-sid" }],
+    ["a placeholder Anthropic key", { ANTHROPIC_API_KEY: "changeme" }],
     ["http webhook URL", { TWILIO_WEBHOOK_URL: "http://app.acme.test/api/webhooks/sms" }],
     [
       "query string on the webhook URL",
@@ -91,5 +96,6 @@ describe("provider runtime selection", () => {
     expect(rt.mode).toBe("live");
     expect(rt.sms).toBeInstanceOf(TwilioSmsProvider);
     expect(rt.voice).toBeInstanceOf(VapiVoiceProvider);
+    expect(rt.extractor).toBeInstanceOf(AnthropicStructuredExtractor);
   });
 });

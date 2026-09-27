@@ -7,11 +7,14 @@
 //     when BO_PROVIDER_MODE=live and fully configured.
 // Error messages name missing settings, never their values.
 
+import type { FieldCaptureExtraction, StructuredExtractor } from "@backoffice/domain";
+import { AnthropicStructuredExtractor } from "./adapters/anthropic-structured-extractor";
 import { TwilioSmsProvider } from "./adapters/twilio-sms-provider";
 import { VapiVoiceProvider } from "./adapters/vapi-voice-provider";
 import { FakeSmsProvider } from "./fakes/fake-sms-provider";
 import { FakeVoiceProvider } from "./fakes/fake-voice-provider";
 import { MIN_FAKE_SECRET_LENGTH } from "./fakes/fake-webhooks";
+import { FixtureStructuredExtractor } from "./fakes/fixture-structured-extractor";
 import type { SmsProvider } from "./providers/sms-provider";
 import type { VoiceProvider } from "./providers/voice-provider";
 
@@ -23,6 +26,8 @@ export interface ProviderEnv {
   TWILIO_WEBHOOK_URL?: string;
   VAPI_API_KEY?: string;
   VAPI_WEBHOOK_SECRET?: string;
+  ANTHROPIC_API_KEY?: string;
+  ANTHROPIC_MODEL?: string;
   FAKE_PROVIDER_WEBHOOK_SECRET?: string;
 }
 
@@ -30,6 +35,8 @@ export interface ProviderRuntime {
   mode: "live" | "fake";
   sms: SmsProvider;
   voice: VoiceProvider;
+  /** Field capture's structured extractor (M3-T16): the fixture in fake mode, Anthropic in live mode. */
+  extractor: StructuredExtractor<FieldCaptureExtraction>;
 }
 
 export class ProviderConfigError extends Error {
@@ -72,7 +79,12 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
         `fake providers need FAKE_PROVIDER_WEBHOOK_SECRET (at least ${MIN_FAKE_SECRET_LENGTH} characters)`,
       );
     }
-    return { mode, sms: new FakeSmsProvider(secret), voice: new FakeVoiceProvider(secret) };
+    return {
+      mode,
+      sms: new FakeSmsProvider(secret),
+      voice: new FakeVoiceProvider(secret),
+      extractor: new FixtureStructuredExtractor(),
+    };
   }
 
   const required = [
@@ -81,6 +93,7 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
     "TWILIO_WEBHOOK_URL",
     "VAPI_API_KEY",
     "VAPI_WEBHOOK_SECRET",
+    "ANTHROPIC_API_KEY",
   ] as const;
   const missing = required.filter((name) => !env[name]);
   if (missing.length) throw new ProviderConfigError(`live providers need: ${missing.join(", ")}`);
@@ -88,7 +101,12 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
   const problems: string[] = [];
   if (!/^AC[0-9a-f]{32}$/i.test(env.TWILIO_ACCOUNT_SID ?? ""))
     problems.push("TWILIO_ACCOUNT_SID is not an Account SID");
-  for (const name of ["TWILIO_AUTH_TOKEN", "VAPI_API_KEY", "VAPI_WEBHOOK_SECRET"] as const) {
+  for (const name of [
+    "TWILIO_AUTH_TOKEN",
+    "VAPI_API_KEY",
+    "VAPI_WEBHOOK_SECRET",
+    "ANTHROPIC_API_KEY",
+  ] as const) {
     const value = env[name] ?? "";
     if (value.length < MIN_LIVE_SECRET_LENGTH) problems.push(`${name} is too short`);
     else if (unsafeSecret(value))
@@ -116,6 +134,10 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
     voice: new VapiVoiceProvider({
       apiKey: env.VAPI_API_KEY as string,
       webhookSecret: env.VAPI_WEBHOOK_SECRET as string,
+    }),
+    extractor: new AnthropicStructuredExtractor({
+      apiKey: env.ANTHROPIC_API_KEY as string,
+      model: env.ANTHROPIC_MODEL,
     }),
   };
 }

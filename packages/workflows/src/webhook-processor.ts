@@ -20,12 +20,19 @@ import {
   recordEvent,
   recordMessage,
   runAs,
+  runFieldCaptureWorkflow,
   type CallerMatchResult,
   type Database,
   type ServiceContext,
   type WebhookEvent,
 } from "@backoffice/core";
-import { EVENT_TYPES, type Actor } from "@backoffice/domain";
+import {
+  EVENT_TYPES,
+  type Actor,
+  type FieldCaptureExtraction,
+  type StructuredExtractor,
+} from "@backoffice/domain";
+import { FixtureStructuredExtractor } from "@backoffice/integrations";
 import { reconcileSmsFromStatusCallback } from "./outbound-dispatcher";
 
 export const WEBHOOK_PROCESSOR: Actor = { type: "system", name: "webhook-processor" };
@@ -62,42 +69,58 @@ async function callerParticipant(ctx: ServiceContext, phone: string | undefined)
 }
 
 /**
- * A known employee texting in gets no automated reply here: M3 routes employee SMS to field
- * capture. Everyone else (a matched customer, an ambiguous match, or a truly unknown number) gets
- * the organization's owner-approved acknowledgement, once per inbound message (M2-T23).
+ * A known employee texting in is routed to the field capture workflow (M3-T16) instead of getting
+ * an automated reply. Everyone else (a matched customer, an ambiguous match, or a truly unknown
+ * number) gets the organization's owner-approved acknowledgement, once per inbound message
+ * (M2-T23). Both paths run inside the same transaction as recording the message, so a crash before
+ * commit leaves nothing half-done and a retry (at-least-once delivery) sees the same inbound
+ * communication and hits field capture's own idempotency marker instead of re-extracting.
  */
-const handleInboundSms: WebhookHandler = async (ctx, event) => {
-  const p = event.payload;
-  const fromPhone = str(p.from);
-  const toPhone = str(p.to);
-  const match = fromPhone
-    ? await matchCallerByPhone(ctx, fromPhone)
-    : ({ status: "no_match" } as const);
+function createInboundSmsHandler(
+  extractor: StructuredExtractor<FieldCaptureExtraction>,
+): WebhookHandler {
+  return async (ctx, event) => {
+    const p = event.payload;
+    const fromPhone = str(p.from);
+    const toPhone = str(p.to);
+    const match = fromPhone
+      ? await matchCallerByPhone(ctx, fromPhone)
+      : ({ status: "no_match" } as const);
 
-  const { communication } = await recordMessage(ctx, {
-    direction: "inbound",
-    provider: event.provider,
-    providerConversationId: event.resourceId ?? String(p.messageSid),
-    status: "completed",
-    startedAt: event.occurredAt ?? event.receivedAt,
-    providerMessageId: str(p.messageSid),
-    fromAddress: fromPhone,
-    toAddress: toPhone,
-    body: typeof p.body === "string" ? p.body : undefined,
-    mediaUrls: Array.isArray(p.mediaUrls) ? (p.mediaUrls as string[]) : [],
-    participants: participantsForMatch(match, fromPhone),
-  });
-
-  const isKnownEmployee = match.status === "matched" && match.entityType === "employee";
-  if (!isKnownEmployee && fromPhone && toPhone) {
-    await acknowledgeInboundSms(ctx, {
-      communicationId: communication.id,
-      callerNumber: fromPhone,
-      businessNumber: toPhone,
+    const body = typeof p.body === "string" ? p.body : undefined;
+    const { communication } = await recordMessage(ctx, {
+      direction: "inbound",
+      provider: event.provider,
+      providerConversationId: event.resourceId ?? String(p.messageSid),
+      status: "completed",
+      startedAt: event.occurredAt ?? event.receivedAt,
+      providerMessageId: str(p.messageSid),
+      fromAddress: fromPhone,
+      toAddress: toPhone,
+      body,
+      mediaUrls: Array.isArray(p.mediaUrls) ? (p.mediaUrls as string[]) : [],
+      participants: participantsForMatch(match, fromPhone),
     });
-  }
-  return { status: "processed" };
-};
+
+    const isKnownEmployee = match.status === "matched" && match.entityType === "employee";
+    if (isKnownEmployee) {
+      if (body && body.trim().length > 0) {
+        await runFieldCaptureWorkflow(ctx, {
+          sourceCommunicationId: communication.id,
+          text: body,
+          extractor,
+        });
+      }
+    } else if (fromPhone && toPhone) {
+      await acknowledgeInboundSms(ctx, {
+        communicationId: communication.id,
+        callerNumber: fromPhone,
+        businessNumber: toPhone,
+      });
+    }
+    return { status: "processed" };
+  };
+}
 
 const handleSmsStatus: WebhookHandler = async (ctx, event) => {
   const p = event.payload;
@@ -184,15 +207,27 @@ const handleCallEnded: WebhookHandler = async (ctx, event) => {
  */
 const answeredSynchronously: WebhookHandler = async () => ({ status: "processed" });
 
-export const DEFAULT_WEBHOOK_HANDLERS: Readonly<Record<string, WebhookHandler>> = {
-  "sms.inbound": handleInboundSms,
-  "sms.status": handleSmsStatus,
-  "call.status": handleCallStatus,
-  "call.ended": handleCallEnded,
-  "call.assistant_request": answeredSynchronously,
-  "call.tool_calls": answeredSynchronously,
-  "call.transfer_destination_request": answeredSynchronously,
-};
+/**
+ * Builds the handler map for one `extractor` (M3-T16): the real deployment passes the
+ * environment's structured extractor (`ProviderRuntime.extractor`); tests and local development
+ * can pass the deterministic fixture extractor instead.
+ */
+export function createWebhookHandlers(
+  extractor: StructuredExtractor<FieldCaptureExtraction>,
+): Readonly<Record<string, WebhookHandler>> {
+  return {
+    "sms.inbound": createInboundSmsHandler(extractor),
+    "sms.status": handleSmsStatus,
+    "call.status": handleCallStatus,
+    "call.ended": handleCallEnded,
+    "call.assistant_request": answeredSynchronously,
+    "call.tool_calls": answeredSynchronously,
+    "call.transfer_destination_request": answeredSynchronously,
+  };
+}
+
+export const DEFAULT_WEBHOOK_HANDLERS: Readonly<Record<string, WebhookHandler>> =
+  createWebhookHandlers(new FixtureStructuredExtractor());
 
 export interface ProcessSummary {
   claimed: number;

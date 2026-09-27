@@ -15,7 +15,12 @@ import {
   runAs,
   transferCall,
 } from "@backoffice/core";
-import { FakeSmsProvider, FakeVoiceProvider, type ProviderRuntime } from "@backoffice/integrations";
+import {
+  FakeSmsProvider,
+  FakeVoiceProvider,
+  FixtureStructuredExtractor,
+  type ProviderRuntime,
+} from "@backoffice/integrations";
 import {
   dispatchOutboundOperations,
   reconcileUnknownOperations,
@@ -55,7 +60,12 @@ afterAll(async () => {
 
 /** A fresh runtime = a fresh process: nothing carried over in memory. */
 function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoiceProvider } {
-  return { mode: "fake", sms: new FakeSmsProvider(SECRET), voice: new FakeVoiceProvider(SECRET) };
+  return {
+    mode: "fake",
+    sms: new FakeSmsProvider(SECRET),
+    voice: new FakeVoiceProvider(SECRET),
+    extractor: new FixtureStructuredExtractor(),
+  };
 }
 
 async function liveCall(): Promise<{ communicationId: string; providerCallId: string }> {

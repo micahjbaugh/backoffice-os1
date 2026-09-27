@@ -9,7 +9,7 @@ import {
   type ParsedWebhookEvent,
   type WebhookRequest,
 } from "@backoffice/integrations";
-import { processWebhookEvents } from "@backoffice/workflows";
+import { processWebhookEvents, type WebhookHandler } from "@backoffice/workflows";
 import { db } from "./db";
 
 /** Largest body we accept (Vapi end-of-call reports with transcripts can be large). */
@@ -35,11 +35,17 @@ export async function handleProviderWebhook(
     processInBackground?: boolean;
     /** Returns the synchronous reply for a `requiresResponse` event, or null to use the default ack. */
     answerSynchronousEvent?: (event: ParsedWebhookEvent) => Promise<Record<string, unknown> | null>;
+    /** Handlers for the background catch-up pass below; defaults to DEFAULT_WEBHOOK_HANDLERS.
+     *  Resolved together with the adapter so a misconfigured extractor also fails closed as 503,
+     *  not an unhandled 500. */
+    selectHandlers?: () => Readonly<Record<string, WebhookHandler>>;
   } = {},
 ): Promise<Response> {
   let adapter: InboundWebhookAdapter;
+  let handlers: Readonly<Record<string, WebhookHandler>> | undefined;
   try {
     adapter = selectAdapter();
+    handlers = options.selectHandlers?.();
   } catch (error) {
     if (error instanceof ProviderConfigError) {
       console.error(`webhook provider unavailable: ${error.message}`);
@@ -94,7 +100,7 @@ export async function handleProviderWebhook(
   if (options.processInBackground ?? true) {
     after(async () => {
       try {
-        await processWebhookEvents(db(), { limit: 10 });
+        await processWebhookEvents(db(), { limit: 10, handlers });
       } catch (error) {
         console.error("background webhook processing failed (jobs endpoint will retry)", error);
       }

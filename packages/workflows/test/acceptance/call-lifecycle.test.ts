@@ -9,7 +9,12 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
 import { inTenant, runAs, transferCall } from "@backoffice/core";
-import { FakeSmsProvider, FakeVoiceProvider, type ProviderRuntime } from "@backoffice/integrations";
+import {
+  FakeSmsProvider,
+  FakeVoiceProvider,
+  FixtureStructuredExtractor,
+  type ProviderRuntime,
+} from "@backoffice/integrations";
 import { dispatchOutboundOperations, processWebhookEvents } from "../../src";
 import {
   count,
@@ -32,7 +37,12 @@ let employeeId: string;
 const owner = (): Actor => ({ type: "user", userId: w.orgA.owner });
 
 function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoiceProvider } {
-  return { mode: "fake", sms: new FakeSmsProvider(SECRET), voice: new FakeVoiceProvider(SECRET) };
+  return {
+    mode: "fake",
+    sms: new FakeSmsProvider(SECRET),
+    voice: new FakeVoiceProvider(SECRET),
+    extractor: new FixtureStructuredExtractor(),
+  };
 }
 
 const communicationByCallId = async () =>

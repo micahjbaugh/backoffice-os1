@@ -2,6 +2,7 @@ import { db } from "@/server/db";
 import { providerRuntime } from "@/server/providers";
 import { handleProviderWebhook } from "@/server/webhook-route";
 import {
+  createWebhookHandlers,
   executeReceptionistToolCalls,
   resolveAssistantTurn,
   resolveTransferDestination,
@@ -11,6 +12,7 @@ const str = (value: unknown): string | null => (typeof value === "string" ? valu
 
 export async function POST(request: Request): Promise<Response> {
   return handleProviderWebhook(() => providerRuntime().voice, request, {
+    selectHandlers: () => createWebhookHandlers(providerRuntime().extractor),
     // M2-T19/T20/T21: assistant-request, tool-calls and transfer-destination-request are all
     // answered here, synchronously, within Vapi's response window.
     answerSynchronousEvent: async (event) => {

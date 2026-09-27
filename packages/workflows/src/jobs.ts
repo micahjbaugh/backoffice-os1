@@ -10,7 +10,11 @@ import {
   type DispatchSummary,
 } from "./outbound-dispatcher";
 import { purgeExpiredRetention, type RetentionPurgeSummary } from "./retention-purge";
-import { processWebhookEvents, type ProcessSummary } from "./webhook-processor";
+import {
+  createWebhookHandlers,
+  processWebhookEvents,
+  type ProcessSummary,
+} from "./webhook-processor";
 
 export interface JobsSummary {
   webhooks: ProcessSummary;
@@ -23,7 +27,9 @@ export async function runBackgroundJobs(
   db: Database,
   runtime: ProviderRuntime,
 ): Promise<JobsSummary> {
-  const webhooks = await processWebhookEvents(db);
+  const webhooks = await processWebhookEvents(db, {
+    handlers: createWebhookHandlers(runtime.extractor),
+  });
   const outbound = await dispatchOutboundOperations(db, runtime);
   const reconciliation = await reconcileUnknownOperations(db, runtime);
   const retention = await purgeExpiredRetention(db);
