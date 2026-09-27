@@ -557,11 +557,25 @@
           "title": "Warm transfer via transfer-destination-request",
           "description": "Answer Vapi transfer-destination-request with the on-call employee's number chosen by deterministic policy; record the transfer request/outcome through the outbox semantics (no provider call inside DB transactions).",
           "done_when": "Fixture transfer request returns the right destination; transfer recorded once; out-of-policy requests escalate; tests.",
-          "status": "in_progress",
+          "status": "done",
           "depends_on": [
             "M2-T20"
           ],
-          "index": 21
+          "index": 21,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "0b6410517d08d0d02b97463513e3d1d248fd24a630af65a39072acedb4fc5c69",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T03:46:11.339Z"
+          }
         },
         {
           "id": "M2-T22",

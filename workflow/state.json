@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M2-T21",
+  "current_task_id": "M2-T22",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "71177d7ca5ebb2b49a20463a7350054fcb68a58e",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "0b6410517d08d0d02b97463513e3d1d248fd24a630af65a39072acedb4fc5c69",
-    "at": "2026-09-27T03:45:32.856Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 4
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 8
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 11
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 80
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 15
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
-  "current_task_index": 21,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 22,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T21 done: Vapi's transfer-destination-request is now answered synchronously with the on-call employee's number, chosen by a new deterministic policy field on the receptionist.config business rule (transfer_employee_id, packages/domain/src/receptionist-config.ts). New core service packages/core/src/services/receptionist.ts:resolveTransferDestination(tx, params) resolves the tenant (provider_routes), loads the active config, and looks up that employee (must be active with a phone on file); in the SAME transaction it upserts the call communication and records communication.transfer_requested (event+audit) idempotently keyed on the communication id, so redelivery records the request exactly once -- no provider call happens inside the transaction (Vapi performs the transfer itself using the number we return). Anything out of policy (unrouted number, no employee configured, or one that is inactive/phoneless) creates an ops case (missing_data or policy_conflict) and resolves to 'unavailable' instead of guessing a destination. packages/workflows/src/receptionist-runtime.ts adds a thin resolveTransferDestination(db, params) wrapper (same runAs(RECEPTIONIST_RUNTIME) shape as resolveAssistantTurn), returning a TransferDestination or null. packages/integrations: VoiceProvider gained buildTransferDestinationResponse(destination | null); implemented in VapiVoiceProvider (Vapi's {destination:{type:'number',number}} wire shape, or {error} to decline) and FakeVoiceProvider. apps/web/src/app/api/webhooks/voice/route.ts now answers call.transfer_destination_request synchronously (like assistant-request/tool-calls); webhook-processor.ts's DEFAULT_WEBHOOK_HANDLERS now maps it to answeredSynchronously (removed the old notYetSupportedSync stub) since the route already answers it before the background processor claims it. Deliberate scope decision: this task does NOT record the transfer *outcome* from Vapi's later transfer-update webhook -- that payload's exact shape isn't pinned by any doc/fixture in this repo, and done_when only requires the request/destination/escalation behavior, so recording a guessed outcome shape was left out rather than risk fabricating provider behavior (CLAUDE.md rule 14); a future task can add it once the real payload is confirmed. Tests added/updated: packages/core/test/receptionist.test.ts (resolveTransferDestination: unrouted number, missing policy, inactive/phoneless employee, resolved + idempotent-on-redelivery), packages/workflows/test/receptionist-runtime.test.ts (same behavior through the db-level wrapper), packages/integrations/test/vapi.test.ts (buildTransferDestinationResponse shapes + parseWebhookRequest normalization), packages/integrations/test/fixtures/providers.ts (new vapiTransferDestinationRequest fixture), packages/workflows/test/ingestion.test.ts (folded the old 'not handled yet' pinning test into the existing assistant-request/tool-calls it.each, now asserting the durable receipt settles 'processed'). All of pnpm format:check/lint/typecheck/test pass locally (core 320+, workflows 35, integrations 58, apps/web 24, all green). Next: M2-T22 \"Link call outcome to lead and summary\" (depends_on M2-T20, independent of T21) -- or M2-T23/T24 which also only depend on M2-T18.",
-  "updated_at": "2026-09-27T03:45:32.860Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T21 is done. Next: M2-T22 \"Link call outcome to lead and summary\".",
+  "updated_at": "2026-09-27T03:46:11.339Z"
 }
