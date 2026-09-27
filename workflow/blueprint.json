@@ -1044,8 +1044,26 @@
           "title": "M3 acceptance test",
           "description": "Automated end-to-end test of the MILESTONES.md acceptance input through the workflow with the fixture extractor.",
           "done_when": "Test asserts every acceptance output.",
-          "status": "in_progress",
-          "kind": "acceptance"
+          "status": "done",
+          "kind": "acceptance",
+          "verification": {
+            "level": "acceptance_suite",
+            "fingerprint": "d7fe7b6046b464b46810dec444c2840a0ebba7934584169cd816e1f8b2b78d03",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones",
+              "acceptance: pnpm --filter @backoffice/workflows exec vitest run test/acceptance-m3",
+              "local Supabase: start",
+              "local Supabase: reset + seed",
+              "live-stack tests"
+            ],
+            "accepted_at": "2026-09-27T20:07:38.764Z"
+          }
         },
         {
           "index": 19,
@@ -1065,7 +1083,11 @@
       "acceptance_commands": [
         "pnpm --filter @backoffice/workflows exec vitest run test/acceptance-m3"
       ],
-      "acceptance_live_stack": true
+      "acceptance_live_stack": true,
+      "automated_acceptance": {
+        "passed_at": "2026-09-27T20:07:38.764Z",
+        "fingerprint": "d7fe7b6046b464b46810dec444c2840a0ebba7934584169cd816e1f8b2b78d03"
+      }
     },
     {
       "id": 11,
