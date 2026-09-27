@@ -1,5 +1,5 @@
 {
-  "enabled": true,
+  "enabled": false,
   "builder": {
     "engineer": "claude",
     "model": "claude-sonnet-5",
@@ -12,9 +12,45 @@
     "max_diff_chars": 60000
   },
   "max_attempts_per_task": 3,
+  "max_stalled_runs": 3,
   "target_changed_lines_per_file": 150,
   "max_changed_lines_per_file": 200,
-  "line_limit_exempt_paths": ["workflow/state.json", "workflow/blueprint.json", "pnpm-lock.yaml"],
-  "protected_paths": [".github/", "workflow/scripts/", "workflow/config.json"],
+  "atomic_hard_limit": 400,
+  "line_limit_exempt_paths": ["pnpm-lock.yaml"],
+  "generated_paths": ["**/*.snap", "**/*.gen.ts", "**/__generated__/**"],
+  "protected_paths": [
+    ".github/",
+    "CLAUDE.md",
+    ".gitattributes",
+    ".prettierrc.json",
+    ".prettierignore",
+    "tsconfig.base.json",
+    "eslint.config.base.mjs",
+    "pnpm-workspace.yaml",
+    "supabase/config.toml"
+  ],
+  "standard_package_scripts": {
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json",
+    "test": "vitest run"
+  },
+  "gates": [
+    { "name": "format", "cmd": "pnpm format:check" },
+    { "name": "lint", "cmd": "pnpm lint" },
+    { "name": "typecheck", "cmd": "pnpm typecheck" },
+    { "name": "tests (incl. production build + secret scan)", "cmd": "pnpm test" },
+    { "name": "timezones", "cmd": "pnpm --filter @backoffice/core test:tz" }
+  ],
+  "live_stack_gates": [
+    { "name": "local Supabase: start", "cmd": "pnpm exec supabase start" },
+    { "name": "local Supabase: reset + seed", "cmd": "pnpm exec supabase db reset" },
+    {
+      "name": "live-stack tests",
+      "cmd": "BO_LIVE_TEST=1 pnpm --filter @backoffice/core exec vitest run test/live-stack.test.ts"
+    }
+  ],
+  "pause_after_failures": 8,
+  "pause_after_persistent_failures": 2,
+  "notify_after_failures": 3,
   "pause_at_milestone_boundary": false
 }

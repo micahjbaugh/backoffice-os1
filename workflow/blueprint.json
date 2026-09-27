@@ -1,5 +1,5 @@
 {
-  "schema_version": "1.0",
+  "schema_version": 2,
   "project": "Back Office OS",
   "source": "docs/MILESTONES.md, docs/MASTER_SPEC.md, docs/M1_BUILD_REPORT.md",
   "schema": {
@@ -10,7 +10,10 @@
       "status": "one of task_statuses",
       "acceptance": "array of strings: gate that must pass before the next milestone starts",
       "tasks": "array of task objects, ordered; position = current_task_index",
-      "acceptance_verified": "optional string: set when a human has verified acceptance; suppresses the review issue"
+      "acceptance_verified": "optional string: set when a human has verified acceptance; suppresses the review issue",
+      "requires": "optional [{ milestone, level: \"automated\" | \"accepted\" }] prerequisites",
+      "acceptance_commands": "commands the acceptance task's gate runs",
+      "automated_acceptance": "set by the referee when the acceptance task passed"
     },
     "task": {
       "index": "integer, 0-based position inside the milestone's tasks array",
@@ -20,7 +23,10 @@
       "done_when": "string: objective completion check",
       "status": "one of task_statuses",
       "requires_human": "optional string: why a person must do or approve this task; autopilot stops here",
-      "deferred": "optional boolean: human task parked for later; the autopilot skips it and it stays open until mark-task-done"
+      "deferred": "optional boolean: human task parked for later; the autopilot skips it and it stays open until mark-task-done",
+      "kind": "optional \"build\" (default) | \"acceptance\": runs the milestone acceptance suite in the gate",
+      "depends_on": "optional array of task ids that must be done first",
+      "verification": "set by the referee when accepted: level reviewed_and_validated | acceptance_suite | human | validated_only | review_only_pre_repair"
     },
     "task_statuses": [
       "pending",
@@ -51,7 +57,11 @@
           "title": "Workspace scaffolding",
           "description": "pnpm workspace, strict tsconfig, ESLint 9, Prettier, Vitest, root scripts.",
           "done_when": "pnpm lint / typecheck / test run from root.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 1,
@@ -59,7 +69,11 @@
           "title": "Domain package",
           "description": "packages/domain: types, roles, permission matrix, approval policy, zod schemas, errors.",
           "done_when": "packages/domain tests pass (26).",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 2,
@@ -67,7 +81,11 @@
           "title": "Migration 0002_m1_foundation.sql",
           "description": "Internal staff, grant expiry/revocation, notes, RLS fixes, privilege revokes, append-only audit/events, approval immutability, audit triggers.",
           "done_when": "Migrations apply cleanly on PGlite with the Supabase shim.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 3,
@@ -75,7 +93,11 @@
           "title": "Core DB layer",
           "description": "packages/core Tx (asUser/asService), runAs with denial auditing, ServiceContext, pg adapter.",
           "done_when": "pg-adapter.test.ts passes.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 4,
@@ -83,7 +105,11 @@
           "title": "Business Brain services",
           "description": "Organization, Membership, Customer, Employee, Vendor, Job, Task, Approval, BusinessRule, BusinessEvent, AuditLog, OpsCase, grants, notes, documents.",
           "done_when": "All services exported from packages/core/src/index.ts.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 5,
@@ -91,7 +117,11 @@
           "title": "RLS and authorization test suite",
           "description": "Required tests 1-6 and 8 plus supporting tenant-isolation, audit and privilege tests.",
           "done_when": "packages/core tests pass (96).",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 6,
@@ -99,7 +129,11 @@
           "title": "Web auth and session",
           "description": "Supabase AuthProvider adapter, proxy.ts session refresh, tenant/operator session helpers, login and onboarding pages.",
           "done_when": "Unauthenticated routes redirect to /login.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 7,
@@ -107,7 +141,11 @@
           "title": "Owner Inbox and record pages",
           "description": "/inbox (approve, reject, add note, tasks, escalate), /customers, /jobs, /vendors, /settings, server actions.",
           "done_when": "next build succeeds with all routes.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 8,
@@ -115,7 +153,11 @@
           "title": "Ops Console",
           "description": "/ops/cases and /ops/cases/[id], internal staff only, grant-scoped, audited views.",
           "done_when": "Route builds; ops-access tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 9,
@@ -123,7 +165,11 @@
           "title": "Browser bundle secret test",
           "description": "Required test 7: production build with sentinel secrets, scan client output; static boundary guards.",
           "done_when": "apps/web tests pass (11).",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 10,
@@ -131,7 +177,11 @@
           "title": "Plan and build report",
           "description": "docs/M1_IMPLEMENTATION_PLAN.md and docs/M1_BUILD_REPORT.md.",
           "done_when": "Both files exist and reflect final test results.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 11,
@@ -139,7 +189,11 @@
           "title": "Live Supabase: apply migrations",
           "description": "Start Docker, install Supabase CLI, run `supabase start` so 0001 and 0002 apply on real Supabase.",
           "done_when": "`supabase start` completes with no migration errors.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 12,
@@ -147,7 +201,11 @@
           "title": "Live Supabase: verify role assumptions",
           "description": "Confirm the postgres role owns public tables (bypasses RLS) and can `SET ROLE authenticated`.",
           "done_when": "Both checks confirmed in psql; results noted in M1_BUILD_REPORT.md.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 13,
@@ -155,7 +213,11 @@
           "title": "Live Supabase: verify seed and sign-in",
           "description": "Confirm seed.sql loads and owner@acme.test can sign in at http://localhost:3000.",
           "done_when": "Owner sees the seeded inbox.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         },
         {
           "index": 14,
@@ -164,10 +226,18 @@
           "description": "Run the build report §6 walkthrough: double approve, admin delegation rule, operator grant.",
           "done_when": "All three walkthrough steps behave as documented.",
           "status": "done",
-          "requires_human": "Needs a person clicking through the UI in a browser."
+          "requires_human": "Needs a person clicking through the UI in a browser.",
+          "verification": {
+            "level": "human",
+            "note": "M1 live-verified by a person (docs/M1_LIVE_VERIFICATION.md)"
+          }
         }
       ],
-      "acceptance_verified": "Live-verified before the autopilot started (docs/M1_LIVE_VERIFICATION.md)."
+      "acceptance_verified": "Live-verified before the autopilot started (docs/M1_LIVE_VERIFICATION.md).",
+      "automated_acceptance": {
+        "passed_at": "2026-09-25T00:00:00.000Z",
+        "note": "live-stack verification by a person (docs/M1_LIVE_VERIFICATION.md)"
+      }
     },
     {
       "id": 2,
@@ -191,7 +261,11 @@
           "title": "Integrations package skeleton",
           "description": "Create packages/integrations with package.json, tsconfig, eslint and vitest config.",
           "done_when": "pnpm -r lint/typecheck include the new package.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 1,
@@ -199,7 +273,12 @@
           "title": "Provider interfaces",
           "description": "Define VoiceProvider (createInboundRoute, initiateOutboundCall, transferCall, ingestWebhook) and SmsProvider (sendSMS, ingestWebhook) interfaces.",
           "done_when": "Interfaces typecheck; no vendor SDK imported.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "provider interfaces redesigned (verify/parse contract, outcome classification)"
+          }
         },
         {
           "index": 2,
@@ -207,7 +286,12 @@
           "title": "Fake provider adapter",
           "description": "In-memory fake VoiceProvider/SmsProvider for tests and local demos.",
           "done_when": "Unit test drives the fake adapter.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "fakes require explicit secrets; scripted failures"
+          }
         },
         {
           "index": 3,
@@ -215,7 +299,11 @@
           "title": "Migration 0003: communications tables",
           "description": "communications, calls, messages, communication_participants with organization_id and RLS.",
           "done_when": "Migration applies on the test harness.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 4,
@@ -223,7 +311,11 @@
           "title": "Migration 0004: leads tables",
           "description": "leads and lead_activities with organization_id, RLS and audit triggers.",
           "done_when": "Migration applies on the test harness.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 5,
@@ -231,7 +323,11 @@
           "title": "Tenant isolation tests for new tables",
           "description": "Org A cannot read/write org B communications, calls, messages, leads.",
           "done_when": "New isolation tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 6,
@@ -239,7 +335,12 @@
           "title": "Webhook receipt service",
           "description": "Idempotent insert on webhook_receipts (provider, provider_event_id) with status tracking.",
           "done_when": "Duplicate receipt returns existing row; test passes.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "webhook receipt store redesigned: event identity, processing state, retries"
+          }
         },
         {
           "index": 7,
@@ -247,7 +348,12 @@
           "title": "Webhook route handler",
           "description": "apps/web API route that verifies signatures via adapter and records the receipt before processing.",
           "done_when": "Invalid signature rejected; valid one recorded once.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "webhook route rewritten: form-encoded Twilio, durable accept, fail-closed providers"
+          }
         },
         {
           "index": 8,
@@ -255,7 +361,11 @@
           "title": "Caller matching service",
           "description": "Match normalized phone number to customer/employee within one organization; ambiguous matches create an ops case.",
           "done_when": "Match, no-match and ambiguous tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 9,
@@ -263,7 +373,12 @@
           "title": "Communication record service",
           "description": "Persist call/message with participants, provider IDs via integration links, transcript and summary fields.",
           "done_when": "Service tests pass with event + audit.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "communication upsert made atomic and monotonic"
+          }
         },
         {
           "index": 10,
@@ -271,7 +386,11 @@
           "title": "Create lead tool",
           "description": "Agent-callable, validated, idempotent createLead domain tool (GREEN).",
           "done_when": "Duplicate call with same key creates one lead.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 11,
@@ -279,7 +398,11 @@
           "title": "Callback task tool",
           "description": "Agent-callable createCallbackTask wrapping createTask with call linkage.",
           "done_when": "Task created and audited with agent actor.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 12,
@@ -287,7 +410,11 @@
           "title": "Agents package and receptionist definition",
           "description": "packages/agents with receptionist agent definition, versioned prompt (no authorization logic), tool contracts.",
           "done_when": "Tool contract schemas typecheck and are tested.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 13,
@@ -295,7 +422,12 @@
           "title": "Transfer tool",
           "description": "Warm transfer tool routed through VoiceProvider.transferCall with policy check and audit.",
           "done_when": "Fake-adapter transfer test passes.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "transfer now queues an outbox operation; executed by the worker"
+          }
         },
         {
           "index": 14,
@@ -303,7 +435,11 @@
           "title": "Call disposition",
           "description": "Record call outcome/disposition on call end event, idempotent on provider event.",
           "done_when": "Replayed call-ended webhook does not duplicate disposition.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 15,
@@ -311,7 +447,12 @@
           "title": "SMS adapter (Twilio)",
           "description": "Twilio SmsProvider adapter inside packages/integrations only.",
           "done_when": "Adapter tests pass against mocked HTTP.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "Twilio adapter rewritten (parsing, identity, no in-memory idempotency)"
+          }
         },
         {
           "index": 16,
@@ -319,19 +460,131 @@
           "title": "Voice adapter (Vapi)",
           "description": "Vapi VoiceProvider adapter inside packages/integrations only.",
           "done_when": "Adapter tests pass against mocked HTTP.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks",
+            "superseded_by_repair": "Vapi adapter rewritten (derived event identity, getCall for reconciliation)"
+          }
         },
         {
           "index": 17,
           "id": "M2-T17",
           "title": "M2 acceptance run",
-          "description": "Live demo: call number, fake lead qualified, lead + summary created, transfer works, duplicate webhook ignored.",
+          "description": "Live demo: call number, fake lead qualified, lead + summary created, transfer works, duplicate webhook ignored. Human live-phone check on a provisioned number AFTER the automated suite (M2-T26) passes. Deferred: independent work continues, but M2 cannot be accepted and nothing may be called production-ready until this passes.",
           "done_when": "All M2 acceptance items verified and reported in docs/M2_BUILD_REPORT.md.",
           "status": "pending",
           "requires_human": "Needs a real phone call to a provisioned business number.",
-          "deferred": true
+          "deferred": true,
+          "depends_on": [
+            "M2-T26"
+          ]
+        },
+        {
+          "id": "M2-T18",
+          "title": "Provider route management",
+          "description": "Owner-only service + Settings UI to register/deactivate the organization's phone numbers in provider_routes (audited); on registration re-queue unroutable webhook events for that number (requeueUnroutableWebhookEvents).",
+          "done_when": "Owner can add/deactivate a route; other roles and other tenants cannot; unroutable events for the number are processed after registration (tests).",
+          "status": "pending",
+          "index": 18
+        },
+        {
+          "id": "M2-T19",
+          "title": "Receptionist runtime: assistant-request",
+          "description": "Answer Vapi's synchronous assistant-request within its time limit with the tenant's receptionist configuration (packages/agents prompt + tool definitions) resolved from provider_routes. Unknown number or missing config -> safe fallback response + ops case. No authorization in prompts.",
+          "done_when": "Fixture assistant-request gets a valid assistant response in-process within the time budget; unknown number gets the fallback; tests.",
+          "status": "pending",
+          "depends_on": [
+            "M2-T18"
+          ],
+          "index": 19
+        },
+        {
+          "id": "M2-T20",
+          "title": "Receptionist runtime: tool-calls",
+          "description": "Answer Vapi tool-calls synchronously by executing receptionist tools through domain services as the receptionist agent actor: look up permitted business info, create lead (idempotent per toolCall.id), create callback task. Every tool call validated, authorized in code, audited.",
+          "done_when": "Fixture tool-calls create exactly one lead/callback per toolCall.id even when redelivered; forbidden data is never returned; tests.",
+          "status": "pending",
+          "depends_on": [
+            "M2-T19"
+          ],
+          "index": 20
+        },
+        {
+          "id": "M2-T21",
+          "title": "Warm transfer via transfer-destination-request",
+          "description": "Answer Vapi transfer-destination-request with the on-call employee's number chosen by deterministic policy; record the transfer request/outcome through the outbox semantics (no provider call inside DB transactions).",
+          "done_when": "Fixture transfer request returns the right destination; transfer recorded once; out-of-policy requests escalate; tests.",
+          "status": "pending",
+          "depends_on": [
+            "M2-T20"
+          ],
+          "index": 21
+        },
+        {
+          "id": "M2-T22",
+          "title": "Link call outcome to lead and summary",
+          "description": "On end-of-call, attach the summary/disposition to the lead created during the call (originating_communication_id) and mark the lead's next step; respect communications retention settings.",
+          "done_when": "End-of-call after a tool-created lead links them; replay changes nothing; tests.",
+          "status": "pending",
+          "depends_on": [
+            "M2-T20"
+          ],
+          "index": 22
+        },
+        {
+          "id": "M2-T23",
+          "title": "SMS acknowledgement path",
+          "description": "Inbound SMS from an unknown caller gets the organization's approved acknowledgement template via requestOutboundSms (idempotent per inbound message); known employees are routed to field capture later (M3).",
+          "done_when": "One acknowledgement per inbound message even on redelivery; template must be owner-approved; tests.",
+          "status": "pending",
+          "depends_on": [
+            "M2-T18"
+          ],
+          "index": 23
+        },
+        {
+          "id": "M2-T24",
+          "title": "Operations view of stuck webhooks and outbound operations",
+          "description": "Ops console page (internal staff with a live grant) listing dead/unroutable webhook events and failed/unknown outbound operations with evidence, plus audited actions: retry (only when the outcome is known not to have happened), cancel, mark reconciled.",
+          "done_when": "Unknown operations cannot be retried from the UI; every action audited; tenant-scoped; tests.",
+          "status": "pending",
+          "depends_on": [
+            "M2-T18"
+          ],
+          "index": 24
+        },
+        {
+          "id": "M2-T25",
+          "title": "Retention of webhook payloads and transcripts",
+          "description": "Scheduled purge of processed webhook payloads and expired transcripts per organization retention settings, keeping identities and audit.",
+          "done_when": "Purge removes payload bodies after the configured window and never touches unprocessed events; tests.",
+          "status": "pending",
+          "index": 25
+        },
+        {
+          "id": "M2-T26",
+          "title": "M2 automated acceptance suite",
+          "description": "End-to-end suite with realistic Twilio/Vapi fixtures through the real webhook route handler, event store, processor, receptionist runtime and outbox worker: call -> identify company -> qualify fake lead -> create lead + call summary -> warm transfer -> disposition; duplicate/out-of-order/concurrent webhooks; complete audit trail. Runs in the gate (packages/workflows test/acceptance) and against the local Supabase stack.",
+          "done_when": "Every M2 acceptance criterion that does not need a real phone is asserted by the suite; the suite passes in the acceptance gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "depends_on": [
+            "M2-T19",
+            "M2-T20",
+            "M2-T21",
+            "M2-T22",
+            "M2-T23",
+            "M2-T24",
+            "M2-T25"
+          ],
+          "index": 26
         }
-      ]
+      ],
+      "acceptance_commands": [
+        "pnpm --filter @backoffice/workflows exec vitest run test/acceptance"
+      ],
+      "acceptance_live_stack": true
     },
     {
       "id": 3,
@@ -351,7 +604,11 @@
           "title": "Phone number normalization",
           "description": "E.164 normalization helper in packages/domain with tests (US formats, extensions, junk input).",
           "done_when": "Unit tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 1,
@@ -359,7 +616,11 @@
           "title": "Employee phone identity lookup",
           "description": "Service resolving an inbound phone number to exactly one active employee in one organization; ambiguous or unknown numbers create an ops case.",
           "done_when": "Match, no-match and ambiguous tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 2,
@@ -367,7 +628,11 @@
           "title": "Migration: equipment registry",
           "description": "equipment table (name, type, aliases[], internal_cost_rate_cents, billable_rate_cents, active). Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 3,
@@ -375,7 +640,11 @@
           "title": "Migration: time entries",
           "description": "time_entries (employee_id, job_id, work_date, start_at, end_at, hours, status draft|approved|rejected, source_communication_id, confidence jsonb, evidence jsonb) with same-org FKs. Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 4,
@@ -383,7 +652,11 @@
           "title": "Migration: equipment and material usage",
           "description": "equipment_usages (equipment_id, job_id, hours) and material_usages (job_id, description, quantity, unit) as drafts with source + confidence. Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 5,
@@ -391,7 +664,11 @@
           "title": "Migration: job notes and billable opportunities",
           "description": "job_notes and billable_opportunities (job_id, description, quantity, unit, status open|approved|dismissed, evidence). Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
           "done_when": "Migration applies; isolation tests pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 6,
@@ -399,7 +676,11 @@
           "title": "Draft record services",
           "description": "Validated services to create draft time entries, equipment usage, material usage and job notes; idempotent on (source_communication_id, fact key); event + audit.",
           "done_when": "Service tests incl. idempotent replay pass.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 7,
@@ -407,7 +688,11 @@
           "title": "Workflows package skeleton",
           "description": "Create packages/workflows (package.json, tsconfig, eslint, vitest) wired into the workspace.",
           "done_when": "pnpm -r lint/typecheck/test include it.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 8,
@@ -415,7 +700,11 @@
           "title": "Extraction contract",
           "description": "StructuredExtractor interface + zod schema for field-capture extraction: facts with per-field confidence and evidence spans, plus unresolved questions.",
           "done_when": "Schema tests pass; no vendor imports.",
-          "status": "done"
+          "status": "done",
+          "verification": {
+            "level": "review_only_pre_repair",
+            "note": "approved by review + tests before foundation repair 2026-09-26 (docs/REPAIR_PLAN.md); re-verified only through later acceptance tasks"
+          }
         },
         {
           "index": 9,
@@ -485,7 +774,7 @@
           "index": 17,
           "id": "M3-T17",
           "title": "Owner Inbox: clarifications and billables",
-          "description": "Show open clarification tasks and billable opportunities in /inbox with resolve/approve/dismiss actions (audited).",
+          "description": "Show open clarification tasks and billable opportunities in /inbox with resolve/approve/dismiss actions (audited). Decisions must go through decideDraftRecord / decideBillableOpportunity (0011); never update status directly.",
           "done_when": "next build succeeds; action tests pass.",
           "status": "pending"
         },
@@ -495,7 +784,8 @@
           "title": "M3 acceptance test",
           "description": "Automated end-to-end test of the MILESTONES.md acceptance input through the workflow with the fixture extractor.",
           "done_when": "Test asserts every acceptance output.",
-          "status": "pending"
+          "status": "pending",
+          "kind": "acceptance"
         },
         {
           "index": 19,
@@ -505,6 +795,121 @@
           "done_when": "Report exists and matches test results.",
           "status": "pending"
         }
+      ],
+      "requires": [
+        {
+          "milestone": "M2",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter @backoffice/workflows exec vitest run test/acceptance-m3"
+      ],
+      "acceptance_live_stack": true
+    },
+    {
+      "id": 11,
+      "key": "PH",
+      "name": "Production hardening",
+      "status": "pending",
+      "requires": [
+        {
+          "milestone": "M2",
+          "level": "automated"
+        },
+        {
+          "milestone": "M3",
+          "level": "automated"
+        }
+      ],
+      "acceptance": [
+        "server database access uses a least-privilege role; RLS-bypassing access limited to trusted paths",
+        "webhooks, sign-in and server actions are rate limited",
+        "MFA and re-authentication protect owner/admin sensitive operations",
+        "lists are paginated",
+        "documents are stored privately with signed, audited access",
+        "retention, monitoring/alerting and backup/restore are configured and verified"
+      ],
+      "tasks": [
+        {
+          "id": "PH-T00",
+          "title": "Least-privilege database role",
+          "description": "Migration + docs for an app_server role that owns nothing and only has the privileges trusted paths need; the RLS-bypassing owner connection is not used by the app.",
+          "done_when": "Tests prove the app role cannot bypass RLS on user paths and can perform the trusted writes it needs.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "PH-T01",
+          "title": "Rate limiting",
+          "description": "Per-IP and per-tenant rate limits for webhooks, sign-in and server actions with a storage-backed limiter behind an interface.",
+          "done_when": "Limits enforced with tests; provider retries are not broken.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "PH-T02",
+          "title": "Pagination",
+          "description": "Cursor pagination for customers, jobs, vendors, audit log, ops cases and the inbox.",
+          "done_when": "No unbounded list queries remain (test/lint check).",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "PH-T03",
+          "title": "Private document storage",
+          "description": "Supabase Storage buckets with RLS, signed URLs with short expiry, audited downloads for sensitive classes.",
+          "done_when": "Cross-tenant access impossible; downloads audited (tests).",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "PH-T04",
+          "title": "Monitoring and alerting hooks",
+          "description": "Structured logs, health endpoint, and an error-reporting adapter interface; alert on dead-lettered webhooks and unknown outbound operations.",
+          "done_when": "Health endpoint and alerts covered by tests; provider choice left to a person.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "PH-T05",
+          "title": "MFA and re-authentication",
+          "description": "Require MFA for owners/admins and recent re-authentication for role changes, grants, rule changes and provider settings.",
+          "done_when": "Enforced server-side with tests; enabling MFA in the hosted Supabase project is a human step.",
+          "status": "pending",
+          "requires_human": "Enable MFA factors in the hosted Supabase project and choose the enforcement policy.",
+          "deferred": true,
+          "index": 5
+        },
+        {
+          "id": "PH-T06",
+          "title": "Backup and restore verification",
+          "description": "Enable point-in-time recovery in the hosted project and perform a documented restore drill.",
+          "done_when": "A person restored a backup into a scratch project and recorded the result.",
+          "status": "pending",
+          "requires_human": "Requires the hosted Supabase project, a paid plan decision, and a person to run the drill.",
+          "deferred": true,
+          "index": 6
+        },
+        {
+          "id": "PH-T07",
+          "title": "Production hardening acceptance",
+          "description": "Automated checks for everything above that can be verified in CI.",
+          "done_when": "Hardening suite passes in the acceptance gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "depends_on": [
+            "PH-T00",
+            "PH-T01",
+            "PH-T02",
+            "PH-T03",
+            "PH-T04"
+          ],
+          "index": 7
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter @backoffice/core exec vitest run test/hardening"
       ]
     },
     {
@@ -643,6 +1048,20 @@
           "done_when": "Report exists and matches test results.",
           "status": "pending"
         }
+      ],
+      "requires": [
+        {
+          "milestone": "M2",
+          "level": "automated"
+        },
+        {
+          "milestone": "M3",
+          "level": "automated"
+        },
+        {
+          "milestone": "PH",
+          "level": "automated"
+        }
       ]
     },
     {
@@ -780,6 +1199,12 @@
           "done_when": "Report exists and matches test results.",
           "status": "pending"
         }
+      ],
+      "requires": [
+        {
+          "milestone": "M4",
+          "level": "automated"
+        }
       ]
     },
     {
@@ -891,6 +1316,12 @@
           "done_when": "Report exists and matches test results.",
           "status": "pending"
         }
+      ],
+      "requires": [
+        {
+          "milestone": "M5",
+          "level": "automated"
+        }
       ]
     },
     {
@@ -959,6 +1390,12 @@
           "description": "docs/M7_BUILD_REPORT.md.",
           "done_when": "Report exists and matches test results.",
           "status": "pending"
+        }
+      ],
+      "requires": [
+        {
+          "milestone": "M6",
+          "level": "automated"
         }
       ]
     },
@@ -1046,6 +1483,12 @@
           "done_when": "Report exists and matches test results.",
           "status": "pending"
         }
+      ],
+      "requires": [
+        {
+          "milestone": "M7",
+          "level": "automated"
+        }
       ]
     },
     {
@@ -1114,6 +1557,12 @@
           "description": "docs/M9_BUILD_REPORT.md.",
           "done_when": "Report exists and matches test results.",
           "status": "pending"
+        }
+      ],
+      "requires": [
+        {
+          "milestone": "M8",
+          "level": "automated"
         }
       ]
     },
@@ -1199,6 +1648,12 @@
           "description": "docs/M10_BUILD_REPORT.md.",
           "done_when": "Report exists and matches test results.",
           "status": "pending"
+        }
+      ],
+      "requires": [
+        {
+          "milestone": "M9",
+          "level": "automated"
         }
       ]
     }
