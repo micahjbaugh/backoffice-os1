@@ -13,7 +13,7 @@ autopilot tracks them as milestone **PH** (it must pass before any M4+ work star
 | Outbound side effects | Done (no exactly-once claim) | Outbox, ambiguous outcomes never re-sent, reconciliation/escalation. Neither Twilio's Messages API nor Vapi call control accepts an idempotency key. |
 | Secrets never in the browser bundle | Done | Production build scanned for sentinel secrets on every test run. |
 | Background job trigger | Code done; **scheduling is a human decision** | `POST /api/internal/jobs` with `INTERNAL_JOBS_SECRET`. Needs a scheduler (e.g. Vercel Cron, GitHub Actions, Supabase cron) calling it every ~1 min. |
-| Least-privilege DB role | Planned (PH-T00) | App connects as the table owner today (bypasses RLS on trusted paths). |
+| Least-privilege DB role | Done | `app_server` role (migration `0017_app_server_role.sql`): owns nothing, not superuser, `NOBYPASSRLS`. User paths still go through `SET LOCAL ROLE authenticated` (full RLS); trusted service writes (audit, events, decisions, webhook/outbox processing, non-human-actor domain writes) are scoped to an explicit per-table grant + policy list, not a blanket bypass. `DATABASE_URL` must point at `app_server`, never at the migration-owner role, in every deployed environment (`packages/core/test/hardening/least-privilege-role.test.ts`). |
 | Rate limiting | Planned (PH-T01) | No limits yet on webhooks, sign-in, server actions. |
 | Pagination | Planned (PH-T02) | List pages are unbounded. |
 | Private document storage | Planned (PH-T03) | Metadata only; no storage buckets/signed URLs yet. |
@@ -29,5 +29,9 @@ autopilot tracks them as milestone **PH** (it must pass before any M4+ work star
 - Vapi: API key, server-URL secret, phone number/assistant configuration pointing at
   `/api/webhooks/voice`.
 - `INTERNAL_JOBS_SECRET` (32+ random characters) and the scheduler that calls the jobs endpoint.
+- `app_server`'s database password: after applying migration `0017_app_server_role.sql`, run
+  `alter role app_server with password '<generated>';` once against the target project (never
+  committed) and point `DATABASE_URL` at it, e.g.
+  `postgresql://app_server:<password>@<host>:<port>/postgres`.
 - Hosting/deployment target, hosted Supabase project, MFA and backup policy.
 - The M2 live phone check (M2-T17) on a provisioned number after the automated suite passes.

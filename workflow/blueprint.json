@@ -1107,7 +1107,7 @@
       "id": 11,
       "key": "PH",
       "name": "Production hardening",
-      "status": "pending",
+      "status": "in_progress",
       "requires": [
         {
           "milestone": "M2",
@@ -1132,7 +1132,7 @@
           "title": "Least-privilege database role",
           "description": "Migration + docs for an app_server role that owns nothing and only has the privileges trusted paths need; the RLS-bypassing owner connection is not used by the app.",
           "done_when": "Tests prove the app role cannot bypass RLS on user paths and can perform the trusted writes it needs.",
-          "status": "pending",
+          "status": "in_progress",
           "index": 0
         },
         {
