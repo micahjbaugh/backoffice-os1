@@ -18,6 +18,7 @@ export default async function OpsLayout({ children }: { children: ReactNode }) {
         </div>
         <nav className="nav">
           <Link href="/ops/cases">Case queue</Link>
+          <Link href="/ops/operations">Stuck operations</Link>
           {organizations.length > 0 ? <Link href="/inbox">My organization</Link> : null}
         </nav>
         <div className="sidebar-footer">

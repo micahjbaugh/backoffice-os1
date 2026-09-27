@@ -10,8 +10,8 @@
   "last_validation": {
     "passed": true,
     "infra": false,
-    "fingerprint": "55a9dc366ea65ec98696dc549e55fb2419a998b09620226e401474466b3f95dd",
-    "at": "2026-09-27T06:11:44.702Z",
+    "fingerprint": "a985289d2de719c79d8ac5bc970a598b28a81e8f574b036f88e0d69838a61a79",
+    "at": "2026-09-27T06:41:11.223Z",
     "results": [
       {
         "name": "format",
@@ -39,14 +39,14 @@
         "cmd": "pnpm test",
         "passed": true,
         "classification": null,
-        "seconds": 83
+        "seconds": 84
       },
       {
         "name": "timezones",
         "cmd": "pnpm --filter @backoffice/core test:tz",
         "passed": true,
         "classification": null,
-        "seconds": 15
+        "seconds": 14
       }
     ]
   },
@@ -56,8 +56,8 @@
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
   "current_task_index": 24,
-  "status": "IN_PROGRESS",
+  "status": "AWAITING_REVIEW",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Re-applied the wip patch split into line-limit-safe pieces (no file over 163 changed lines). Added this step: packages/core/src/services/ops-operations.ts (dead/unrouted webhook events: list + retry + cancel, grant-scoped, audited) and ops-outbound.ts (failed/unknown outbound operations: list + retry-only-when-failed + cancel + reconcile-unknown, grant-scoped, audited); exported both from packages/core/src/index.ts; migration supabase/migrations/0014_ops_operations_console.sql grants authenticated SELECT on webhook_receipts (still no write access) and adds operator-grant-scoped SELECT policies on webhook_receipts and outbound_operations. Split the oversized 208-line test file from the previous attempt into packages/core/test/ops-operations.test.ts (webhook events) and ops-outbound.test.ts (outbound ops, including the 'unknown can never be retried' rule), and updated the two existing tests that assumed webhook_receipts had zero client access (audit-integrity.test.ts, webhook-store.test.ts) to match the new grant-scoped SELECT. format:check, lint, typecheck and test (packages/core, workflows, web, and workflow referee) all pass. Not done yet: the UI itself. Next run: add apps/web/src/app/actions/ops-operations.ts (server actions calling these 5 functions - content already drafted in the prior wip patch, ~78 lines, under limit), add the nav link in apps/web/src/app/ops/layout.tsx (1 line), and add apps/web/src/app/ops/operations/page.tsx - the prior attempt's version was 201 lines (1 over the hard limit); either trim it under 200 or split the two table sections into small components so each file stays under the limit. No further core/test changes should be needed for that step.",
-  "updated_at": "2026-09-27T06:11:44.702Z"
+  "handoff_instructions": "Added the UI for the ops operations console (the core services, migration and tests from the previous step were already committed). New: apps/web/src/app/actions/ops-operations.ts (webhookEventAction and outboundOperationAction, each an intent-dispatching 'use server' action authenticated via withOperator, calling the grant-scoped core functions retryDeadWebhookEvent/cancelDeadWebhookEvent/retryFailedOutboundOperation/cancelOutboundOperation/reconcileUnknownOutboundOperation; unknown outbound operations only ever get reconcile/cancel buttons in the UI, never retry, matching the core rule); apps/web/src/app/ops/operations/page.tsx (fetches listStuckWebhookEvents + listStuckOutboundOperations via withOperator and renders two section components); WebhookEventsSection.tsx and OutboundOperationsSection.tsx (dead/unrouted webhook events and failed/unknown outbound operations tables with per-row retry/cancel/reconcile forms using the existing ActionForm/SubmitButton pattern); one-line nav link added in apps/web/src/app/ops/layout.tsx. All new/changed files are small (27-98 changed lines), well under the limit. No core or test changes were needed this step: the existing packages/core/test/ops-operations.test.ts and ops-outbound.test.ts already cover the tenant scoping, audit, and 'unknown can never be retried' behavior these actions call into, and apps/web/test/boundaries.test.ts (which asserts every server action authenticates and never takes organizationId from the form) passes against the new action file. format:check, lint, typecheck and the full test suite (core, workflows, web, workflow referee) all pass. Task complete: ops console page listing dead/unrouted webhook events and failed/unknown outbound operations with evidence (provider, event/operation type, organization, attempts, last error), audited retry/cancel/reconcile actions, unknown operations cannot be retried from the UI, tenant/grant-scoped throughout.",
+  "updated_at": "2026-09-27T06:41:11.228Z"
 }

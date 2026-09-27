@@ -28,3 +28,5 @@
 {"at":"2026-09-27T05:44:36.791Z","kind":"sent_back","task":"M2-T24","engineer":"referee","attempts":1,"summary":"Step not accepted: over the 200-line hard limit without a valid exception: apps/web/src/app/ops/operations/page.tsx (201), packages/core/test/ops-operations.test.ts (208). The work is saved in workflow/wip/M2-T24.patch; re-apply it in smaller steps or declare a valid exception."}
 {"at":"2026-09-27T06:11:44.698Z","kind":"step_accepted","task":"M2-T24","summary":"8 files; builder status IN_PROGRESS"}
 {"at":"2026-09-27T06:11:44.702Z","kind":"validation","task":"M2-T24","passed":true,"infra":false,"summary":"PASS format; PASS lint; PASS typecheck; PASS tests (incl. production build + secret scan); PASS timezones"}
+{"at":"2026-09-27T06:41:11.218Z","kind":"step_accepted","task":"M2-T24","summary":"5 files; builder status AWAITING_REVIEW"}
+{"at":"2026-09-27T06:41:11.223Z","kind":"validation","task":"M2-T24","passed":true,"infra":false,"summary":"PASS format; PASS lint; PASS typecheck; PASS tests (incl. production build + secret scan); PASS timezones"}
