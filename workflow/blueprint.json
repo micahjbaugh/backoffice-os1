@@ -632,11 +632,25 @@
           "title": "Operations view of stuck webhooks and outbound operations",
           "description": "Ops console page (internal staff with a live grant) listing dead/unroutable webhook events and failed/unknown outbound operations with evidence, plus audited actions: retry (only when the outcome is known not to have happened), cancel, mark reconciled.",
           "done_when": "Unknown operations cannot be retried from the UI; every action audited; tenant-scoped; tests.",
-          "status": "in_progress",
+          "status": "done",
           "depends_on": [
             "M2-T18"
           ],
-          "index": 24
+          "index": 24,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "a985289d2de719c79d8ac5bc970a598b28a81e8f574b036f88e0d69838a61a79",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T06:41:49.465Z"
+          }
         },
         {
           "id": "M2-T25",

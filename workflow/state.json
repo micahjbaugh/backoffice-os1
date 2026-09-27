@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M2-T24",
-  "attempts": 1,
+  "current_task_id": "M2-T25",
+  "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
-  "review_notes": "Step not accepted: over the 200-line hard limit without a valid exception: apps/web/src/app/ops/operations/page.tsx (201), packages/core/test/ops-operations.test.ts (208). The work is saved in workflow/wip/M2-T24.patch; re-apply it in smaller steps or declare a valid exception.",
-  "review_base": "20024031de7fedf3af20afcdbf3a7d70d74a123d",
+  "review_notes": "",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "a985289d2de719c79d8ac5bc970a598b28a81e8f574b036f88e0d69838a61a79",
-    "at": "2026-09-27T06:41:11.223Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 4
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 8
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 11
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 84
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 14
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
-  "current_task_index": 24,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 25,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Added the UI for the ops operations console (the core services, migration and tests from the previous step were already committed). New: apps/web/src/app/actions/ops-operations.ts (webhookEventAction and outboundOperationAction, each an intent-dispatching 'use server' action authenticated via withOperator, calling the grant-scoped core functions retryDeadWebhookEvent/cancelDeadWebhookEvent/retryFailedOutboundOperation/cancelOutboundOperation/reconcileUnknownOutboundOperation; unknown outbound operations only ever get reconcile/cancel buttons in the UI, never retry, matching the core rule); apps/web/src/app/ops/operations/page.tsx (fetches listStuckWebhookEvents + listStuckOutboundOperations via withOperator and renders two section components); WebhookEventsSection.tsx and OutboundOperationsSection.tsx (dead/unrouted webhook events and failed/unknown outbound operations tables with per-row retry/cancel/reconcile forms using the existing ActionForm/SubmitButton pattern); one-line nav link added in apps/web/src/app/ops/layout.tsx. All new/changed files are small (27-98 changed lines), well under the limit. No core or test changes were needed this step: the existing packages/core/test/ops-operations.test.ts and ops-outbound.test.ts already cover the tenant scoping, audit, and 'unknown can never be retried' behavior these actions call into, and apps/web/test/boundaries.test.ts (which asserts every server action authenticates and never takes organizationId from the form) passes against the new action file. format:check, lint, typecheck and the full test suite (core, workflows, web, workflow referee) all pass. Task complete: ops console page listing dead/unrouted webhook events and failed/unknown outbound operations with evidence (provider, event/operation type, organization, attempts, last error), audited retry/cancel/reconcile actions, unknown operations cannot be retried from the UI, tenant/grant-scoped throughout.",
-  "updated_at": "2026-09-27T06:41:11.228Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T24 is done. Next: M2-T25 \"Retention of webhook payloads and transcripts\".",
+  "updated_at": "2026-09-27T06:41:49.466Z"
 }
