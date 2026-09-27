@@ -5,17 +5,59 @@
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": null,
+  "review_base": "d1ad3b459838bb0bc1bf302d0c6aa07b0d7f9dfc",
   "last_error": "",
-  "last_validation": null,
+  "last_validation": {
+    "passed": true,
+    "infra": false,
+    "fingerprint": "89628f73dc6bb78ee96f90940d395fc0dcbd1fe8fe8229c66512f68e6a8236ea",
+    "at": "2026-09-27T15:15:44.764Z",
+    "results": [
+      {
+        "name": "format",
+        "cmd": "pnpm format:check",
+        "passed": true,
+        "classification": null,
+        "seconds": 4
+      },
+      {
+        "name": "lint",
+        "cmd": "pnpm lint",
+        "passed": true,
+        "classification": null,
+        "seconds": 9
+      },
+      {
+        "name": "typecheck",
+        "cmd": "pnpm typecheck",
+        "passed": true,
+        "classification": null,
+        "seconds": 13
+      },
+      {
+        "name": "tests (incl. production build + secret scan)",
+        "cmd": "pnpm test",
+        "passed": true,
+        "classification": null,
+        "seconds": 104
+      },
+      {
+        "name": "timezones",
+        "cmd": "pnpm --filter @backoffice/core test:tz",
+        "passed": true,
+        "classification": null,
+        "seconds": 15
+      }
+    ]
+  },
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 13,
-  "status": "READY_TO_START",
+  "status": "AWAITING_REVIEW",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M3-T12 is done. Next: M3-T13 \"Fact validator\".",
-  "updated_at": "2026-09-27T14:34:52.808Z"
+  "handoff_instructions": "M3-T13 'Fact validator' implemented in one step, all checks pass. Added packages/domain/src/fact-validation.ts: pure helpers (no DB) for the ARCHITECTURE.md §4 step-5 checklist — meetsConfidenceThreshold, parseClockTime/computeShiftHours (crew shorthand '7-5:30' -> 10.5h, assumes an unmarked earlier end time is PM the same day), isPlausibleHours (0 < h <= 16), and isDuplicateFact (same type+fields as another fact in the batch, ignoring factKey/confidence/evidence). Added packages/core/src/services/employee-matching.ts: resolveEmployeeByReference, matching an employeeRef like 'Jake Tyler' to one active employee by display name, mirroring resolveJobByReference/resolveEquipmentByReference (none -> missing_data ops case, >1 -> low_confidence ops case). Added packages/core/src/services/fact-validator.ts: validateFieldCaptureFact(ctx, fact, priorFacts) orchestrates all of the above per extracted fact -- duplicate check, confidence threshold, employee/job/equipment resolution, and time plausibility (parsing startTime/endTime or checking a given hours field) -- returning 'valid' (with resolved entities + computed hours), 'needs_clarification' (with the ops case and a reason), or 'duplicate'. It never writes a draft record; that is for M3-T14. Both new services/helpers are exported from their package barrels (packages/domain/src/index.ts, packages/core/src/index.ts). Tests added: packages/domain/test/fact-validation.test.ts (pure logic), packages/core/test/employee-matching.test.ts, packages/core/test/fact-validator.test.ts (DB-backed, covering valid time_entry/equipment_usage, low confidence, unmatched employee/job, implausible time, and within-batch duplicate). format/lint/typecheck/test all pass. Next: M3-T14 'Field capture workflow' -- wire extraction -> validateFieldCaptureFact -> draft-record services (createDraftTimeEntry etc.) / ops cases into one idempotent-per-communication workflow; note the milestone acceptance text 'three draft time entries' is not settled by this task (the current fixture extractor, M3-T09, emits a single time_entry fact for employeeRef 'Jake Tyler', which matches one employee of that name) -- T14 or the M3-T18 acceptance test will need to resolve how the message's sender and any multi-person reference map to draft records.",
+  "updated_at": "2026-09-27T15:15:44.768Z"
 }

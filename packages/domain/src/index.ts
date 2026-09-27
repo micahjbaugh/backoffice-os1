@@ -9,3 +9,4 @@ export * from "./schemas";
 export * from "./events";
 export * from "./phone";
 export * from "./extraction";
+export * from "./fact-validation";

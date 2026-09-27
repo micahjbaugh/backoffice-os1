@@ -934,7 +934,7 @@
           "title": "Fact validator",
           "description": "Validate extracted facts: known employee/job/equipment, plausible times ('7-5:30' = 10.5h), duplicates; below-threshold confidence stays draft.",
           "done_when": "Validator tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 14,
