@@ -1044,7 +1044,7 @@
           "title": "M3 acceptance test",
           "description": "Automated end-to-end test of the MILESTONES.md acceptance input through the workflow with the fixture extractor.",
           "done_when": "Test asserts every acceptance output.",
-          "status": "pending",
+          "status": "in_progress",
           "kind": "acceptance"
         },
         {
