@@ -868,7 +868,7 @@
           "title": "LLM extractor adapter",
           "description": "Extractor implementation behind the interface in packages/integrations using the model provider's HTTP API; prompt versioned in source with no secrets or authorization logic; tested with mocked HTTP.",
           "done_when": "Mocked-HTTP tests pass; key read from env only.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 11,

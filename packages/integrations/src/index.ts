@@ -12,4 +12,5 @@ export * from "./fakes/fake-voice-provider";
 export * from "./fakes/fixture-structured-extractor";
 export * from "./adapters/twilio-sms-provider";
 export * from "./adapters/vapi-voice-provider";
+export * from "./adapters/anthropic-structured-extractor";
 export * from "./runtime-config";
