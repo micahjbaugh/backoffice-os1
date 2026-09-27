@@ -25,6 +25,7 @@ export const EVENT_TYPES = {
   communicationTransferred: "communication.transferred",
   callDispositionRecorded: "communication.disposition_recorded",
   leadCreated: "lead.created",
+  leadCallOutcomeLinked: "lead.call_outcome_linked",
   timeEntryDrafted: "time_entry.drafted",
   equipmentUsageDrafted: "equipment_usage.drafted",
   materialUsageDrafted: "material_usage.drafted",

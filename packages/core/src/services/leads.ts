@@ -2,15 +2,19 @@
 // (organization_id, idempotency_key) so a retried/duplicate tool call never creates a second lead.
 
 import {
+  actorUserId,
   createLeadInput,
   EVENT_TYPES,
   NotFoundError,
   parseInput,
+  type Communication,
   type CreateLeadInput,
   type Lead,
+  type LeadActivity,
+  type LeadStatus,
   type UUID,
 } from "@backoffice/domain";
-import { toLead, type Row } from "../rows";
+import { toLead, toLeadActivity, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { assertEntityInOrg } from "./entities";
 import { recordEvent } from "./events";
@@ -100,4 +104,79 @@ export async function getLead(ctx: ServiceContext, id: UUID): Promise<Lead | nul
     [id, ctx.organizationId],
   );
   return rows[0] ? toLead(rows[0]) : null;
+}
+
+export interface LinkedCallOutcome {
+  lead: Lead;
+  activity: LeadActivity;
+}
+
+/**
+ * M2-T22: attach an ended call's outcome to any lead(s) it originated (`originating_communication_id`).
+ * The caller (recordCallDisposition) only invokes this the first time a call-ended event is
+ * processed, so a replayed webhook links nothing twice — no separate idempotency key is needed here.
+ *
+ * A fresh lead's "next step" is to be marked contacted, since a lead can only exist here because a
+ * live conversation created it (the create_lead tool runs mid-call); a lead already past `new` (e.g.
+ * qualified/converted by other means) keeps its status. The call's summary is only copied onto the
+ * lead's timeline while the communication's retention status is still `active` — once retention
+ * purges (M2-T25) a communication's content, this must stop copying it out to new places.
+ */
+export async function linkCallOutcomeToLeads(
+  ctx: ServiceContext,
+  params: { communication: Communication; disposition: string; durationSeconds: number | null },
+): Promise<LinkedCallOutcome[]> {
+  await ctx.authorize("lead.write");
+  const { communication } = params;
+  const { rows } = await ctx.tx.asService<Row>(
+    `select * from public.leads where organization_id = $1 and originating_communication_id = $2`,
+    [ctx.organizationId, communication.id],
+  );
+
+  const results: LinkedCallOutcome[] = [];
+  for (const leadRow of rows) {
+    const lead = toLead(leadRow);
+    const nextStatus: LeadStatus = lead.status === "new" ? "contacted" : lead.status;
+    const includeContent = communication.retentionStatus === "active";
+
+    const { rows: updatedRows } = await ctx.tx.asService<Row>(
+      `update public.leads set status = $2 where id = $1 and organization_id = $3 returning *`,
+      [lead.id, nextStatus, ctx.organizationId],
+    );
+    const updatedLead = toLead(updatedRows[0] as Row);
+
+    const { rows: activityRows } = await ctx.tx.asService<Row>(
+      `insert into public.lead_activities
+         (organization_id, lead_id, activity_type, actor_type, actor_user_id, communication_id, body, metadata)
+       values ($1, $2, 'communication', $3, $4, $5, $6, $7)
+       returning *`,
+      [
+        ctx.organizationId,
+        lead.id,
+        ctx.actor.type,
+        actorUserId(ctx.actor),
+        communication.id,
+        includeContent ? communication.summary : null,
+        {
+          disposition: params.disposition,
+          duration_seconds: params.durationSeconds,
+          previous_status: lead.status,
+          status: nextStatus,
+          retention_status: communication.retentionStatus,
+        },
+      ],
+    );
+    const activity = toLeadActivity(activityRows[0] as Row);
+
+    await recordEvent(ctx, {
+      type: EVENT_TYPES.leadCallOutcomeLinked,
+      entityType: "lead",
+      entityId: lead.id,
+      idempotencyKey: `lead.call_outcome_linked:${lead.id}:${communication.id}`,
+      payload: { disposition: params.disposition, status: nextStatus },
+    });
+
+    results.push({ lead: updatedLead, activity });
+  }
+  return results;
 }

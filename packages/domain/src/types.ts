@@ -301,6 +301,11 @@ export type CommunicationDirection = (typeof COMMUNICATION_DIRECTIONS)[number];
 export const COMMUNICATION_STATUSES = ["in_progress", "completed", "failed", "abandoned"] as const;
 export type CommunicationStatus = (typeof COMMUNICATION_STATUSES)[number];
 
+/** MASTER_SPEC §11: "retention policy status". Governs whether raw content (e.g. summary,
+ * transcript) may still be copied elsewhere; M2-T25 owns transitioning it out of 'active'. */
+export const COMMUNICATION_RETENTION_STATUSES = ["active", "pending_deletion", "deleted"] as const;
+export type CommunicationRetentionStatus = (typeof COMMUNICATION_RETENTION_STATUSES)[number];
+
 export const TRANSFER_REASONS = [
   "caller_requested_human",
   "uncertain_intake",
@@ -329,6 +334,7 @@ export interface Communication extends TenantEntity {
   summary: string | null;
   transcript: string | null;
   structuredExtraction: Record<string, unknown>;
+  retentionStatus: CommunicationRetentionStatus;
   updatedAt: string;
 }
 
@@ -408,6 +414,29 @@ export interface Lead extends TenantEntity {
   lostReason: string | null;
   idempotencyKey: string | null;
   updatedAt: string;
+}
+
+/** 0004_leads.sql lead_activities.activity_type check constraint. */
+export const LEAD_ACTIVITY_TYPES = [
+  "status_change",
+  "note",
+  "communication",
+  "assignment",
+  "follow_up",
+  "other",
+] as const;
+export type LeadActivityType = (typeof LEAD_ACTIVITY_TYPES)[number];
+
+/** A system-authored entry in a lead's timeline (0004_leads.sql); never client-writable. */
+export interface LeadActivity extends TenantEntity {
+  leadId: UUID;
+  activityType: LeadActivityType;
+  actorType: ActorType;
+  actorUserId: UUID | null;
+  communicationId: UUID | null;
+  body: string | null;
+  metadata: Record<string, unknown>;
+  occurredAt: string;
 }
 
 export const DRAFT_RECORD_STATUSES = ["draft", "approved", "rejected"] as const;

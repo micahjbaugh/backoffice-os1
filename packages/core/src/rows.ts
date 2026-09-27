@@ -17,6 +17,7 @@ import type {
   Job,
   JobNote,
   Lead,
+  LeadActivity,
   MaterialUsage,
   Membership,
   Message,
@@ -299,6 +300,7 @@ export const toCommunication = (r: Row): Communication => ({
   summary: strOrNull(r.summary),
   transcript: strOrNull(r.transcript),
   structuredExtraction: obj(r.structured_extraction),
+  retentionStatus: str(r.retention_status) as Communication["retentionStatus"],
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -361,6 +363,20 @@ export const toLead = (r: Row): Lead => ({
   idempotencyKey: strOrNull(r.idempotency_key),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
+});
+
+export const toLeadActivity = (r: Row): LeadActivity => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  leadId: str(r.lead_id),
+  activityType: str(r.activity_type) as LeadActivity["activityType"],
+  actorType: str(r.actor_type) as LeadActivity["actorType"],
+  actorUserId: strOrNull(r.actor_user_id),
+  communicationId: strOrNull(r.communication_id),
+  body: strOrNull(r.body),
+  metadata: obj(r.metadata),
+  occurredAt: iso(r.occurred_at),
+  createdAt: iso(r.created_at),
 });
 
 export const toTimeEntry = (r: Row): TimeEntry => ({

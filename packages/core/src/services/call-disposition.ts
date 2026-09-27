@@ -16,12 +16,15 @@ import { toCall, toCommunication, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
 import { recordEvent } from "./events";
+import { linkCallOutcomeToLeads, type LinkedCallOutcome } from "./leads";
 
 export interface RecordCallDispositionResult {
   communication: Communication;
   call: Call;
   /** False when `providerEventId` was already processed; nothing was changed this call. */
   created: boolean;
+  /** Lead(s) originating from this communication (M2-T22); empty on replay. */
+  linkedLeads: LinkedCallOutcome[];
 }
 
 /**
@@ -62,6 +65,7 @@ export async function recordCallDisposition(
       communication: toCommunication(communicationRow),
       call: toCall(callRows[0] as Row),
       created: false,
+      linkedLeads: [],
     };
   }
 
@@ -90,10 +94,17 @@ export async function recordCallDisposition(
     sourceEventId: event.id,
     details: { disposition: data.disposition, duration_seconds: data.durationSeconds ?? null },
   });
+  const communication = toCommunication(updatedCommRows[0] as Row);
+  const linkedLeads = await linkCallOutcomeToLeads(ctx, {
+    communication,
+    disposition: data.disposition,
+    durationSeconds: data.durationSeconds ?? null,
+  });
 
   return {
-    communication: toCommunication(updatedCommRows[0] as Row),
+    communication,
     call: toCall(callRows[0] as Row),
     created: true,
+    linkedLeads,
   };
 }

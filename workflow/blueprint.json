@@ -582,7 +582,7 @@
           "title": "Link call outcome to lead and summary",
           "description": "On end-of-call, attach the summary/disposition to the lead created during the call (originating_communication_id) and mark the lead's next step; respect communications retention settings.",
           "done_when": "End-of-call after a tool-created lead links them; replay changes nothing; tests.",
-          "status": "pending",
+          "status": "in_progress",
           "depends_on": [
             "M2-T20"
           ],
