@@ -557,7 +557,7 @@
           "title": "Warm transfer via transfer-destination-request",
           "description": "Answer Vapi transfer-destination-request with the on-call employee's number chosen by deterministic policy; record the transfer request/outcome through the outbox semantics (no provider call inside DB transactions).",
           "done_when": "Fixture transfer request returns the right destination; transfer recorded once; out-of-policy requests escalate; tests.",
-          "status": "pending",
+          "status": "in_progress",
           "depends_on": [
             "M2-T20"
           ],

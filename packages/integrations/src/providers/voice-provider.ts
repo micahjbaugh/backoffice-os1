@@ -62,6 +62,15 @@ export interface ToolCallResult {
   result: string;
 }
 
+/**
+ * Where a live call should go (M2-T21). The provider itself performs the transfer using this
+ * number — unlike `transferCall` above, there is no separate outbound request to make.
+ */
+export interface TransferDestination {
+  type: "number";
+  number: string;
+}
+
 /** See SmsProvider: durable idempotency lives in the outbox, not in adapters. */
 export interface VoiceProvider extends InboundWebhookAdapter {
   createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute>;
@@ -72,4 +81,8 @@ export interface VoiceProvider extends InboundWebhookAdapter {
   buildAssistantResponse(turn: AssistantTurn): Record<string, unknown>;
   /** Build the provider's synchronous reply to a tool-calls-style webhook. */
   buildToolCallResponse(results: readonly ToolCallResult[]): Record<string, unknown>;
+  /** Build the provider's synchronous reply to a transfer-destination-request-style webhook. */
+  buildTransferDestinationResponse(
+    destination: TransferDestination | null,
+  ): Record<string, unknown>;
 }

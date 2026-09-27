@@ -150,16 +150,11 @@ const handleCallEnded: WebhookHandler = async (ctx, event) => {
   return { status: "processed" };
 };
 
-/** transfer-destination-request is a tracked M2 task (M2-T21); no runtime answers it yet. */
-const notYetSupportedSync: WebhookHandler = async () => ({
-  status: "ignored",
-  note: "synchronous voice event; receptionist runtime not implemented yet (blueprint M2 repair tasks)",
-});
-
 /**
- * assistant-request and tool-calls are already answered synchronously, in the webhook route, before
- * this event is ever claimed (M2-T19/T20: apps/web/src/app/api/webhooks/voice/route.ts). This
- * handler only settles the durably-stored receipt so it is not retried.
+ * assistant-request, tool-calls and transfer-destination-request are already answered
+ * synchronously, in the webhook route, before this event is ever claimed (M2-T19/T20/T21:
+ * apps/web/src/app/api/webhooks/voice/route.ts). This handler only settles the durably-stored
+ * receipt so it is not retried.
  */
 const answeredSynchronously: WebhookHandler = async () => ({ status: "processed" });
 
@@ -170,7 +165,7 @@ export const DEFAULT_WEBHOOK_HANDLERS: Readonly<Record<string, WebhookHandler>> 
   "call.ended": handleCallEnded,
   "call.assistant_request": answeredSynchronously,
   "call.tool_calls": answeredSynchronously,
-  "call.transfer_destination_request": notYetSupportedSync,
+  "call.transfer_destination_request": answeredSynchronously,
 };
 
 export interface ProcessSummary {

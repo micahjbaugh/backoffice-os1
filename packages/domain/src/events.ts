@@ -19,7 +19,7 @@ export const EVENT_TYPES = {
   documentRegistered: "document.registered",
   communicationRecorded: "communication.recorded",
   communicationUpdated: "communication.updated",
-  /** A transfer was requested and queued in the outbox (not yet performed). */
+  /** A transfer was requested: queued in the outbox, or (native Vapi transfer) answered directly. */
   communicationTransferRequested: "communication.transfer_requested",
   /** The provider confirmed the transfer (recorded by the outbox worker). */
   communicationTransferred: "communication.transferred",

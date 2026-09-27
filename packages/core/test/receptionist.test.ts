@@ -1,8 +1,14 @@
 // M2-T19: resolving the tenant + receptionist configuration for a synchronous Vapi assistant-request.
 
+import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ForbiddenError, RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
-import { lookupBusinessInfo, resolveReceptionistConfig } from "../src";
+import {
+  createEmployee,
+  lookupBusinessInfo,
+  resolveReceptionistConfig,
+  resolveTransferDestination,
+} from "../src";
 import { asTx, count, inOrg, userActor } from "./helpers/db";
 import { createWorld, type World } from "./helpers/fixtures";
 
@@ -96,5 +102,107 @@ describe("resolveReceptionistConfig: disabled rule", () => {
       [w.orgA.id, RECEPTIONIST_CONFIG_RULE_ACTION],
     );
     expect(await resolve(BUSINESS_NUMBER)).toMatchObject({ status: "missing_config" });
+  });
+});
+
+describe("resolveTransferDestination", () => {
+  const TRANSFER_NUMBER = "+15125550200";
+  const resolveTransfer = (callId: string, routingAddress: string | null = TRANSFER_NUMBER) =>
+    asTx(w.db, RUNTIME, (tx) =>
+      resolveTransferDestination(tx, {
+        provider: "vapi",
+        routingAddress,
+        callId,
+        customerNumber: "+15551234567",
+        businessNumber: TRANSFER_NUMBER,
+      }),
+    );
+
+  beforeAll(async () => {
+    await w.pg.query(
+      `insert into public.provider_routes (organization_id, provider, channel, address)
+       values ($1, 'vapi', 'voice', $2)`,
+      [w.orgB.id, TRANSFER_NUMBER],
+    );
+  });
+
+  it("is unavailable for a number with no provider route, and opens no ops case", async () => {
+    expect(await resolveTransfer(`call-${randomUUID()}`, UNKNOWN_NUMBER)).toEqual({
+      status: "unavailable",
+    });
+  });
+
+  it("escalates with a missing_data ops case when no on-call employee is configured", async () => {
+    expect(await resolveTransfer(`call-${randomUUID()}`)).toEqual({ status: "unavailable" });
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.ops_cases where organization_id = $1 and reason_code = 'missing_data'`,
+        [w.orgB.id],
+      ),
+    ).toBe(1);
+  });
+
+  it("escalates with a policy_conflict ops case when the configured employee is inactive or phoneless", async () => {
+    const noPhone = await inOrg(w.db, userActor(w.orgB.owner), w.orgB.id, (ctx) =>
+      createEmployee(ctx, { displayName: "No Phone" }),
+    );
+    await w.pg.query(
+      `insert into public.business_rules (organization_id, action, rule_key, definition)
+       values ($1, $2, 'default', $3::jsonb)`,
+      [
+        w.orgB.id,
+        RECEPTIONIST_CONFIG_RULE_ACTION,
+        JSON.stringify({ business_hours: "Mon-Fri 8am-5pm", transfer_employee_id: noPhone.id }),
+      ],
+    );
+    expect(await resolveTransfer(`call-${randomUUID()}`)).toEqual({ status: "unavailable" });
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.ops_cases where organization_id = $1 and reason_code = 'policy_conflict'`,
+        [w.orgB.id],
+      ),
+    ).toBe(1);
+  });
+
+  it("resolves the on-call employee's number and records the request exactly once, even redelivered", async () => {
+    const onCall = await inOrg(w.db, userActor(w.orgB.owner), w.orgB.id, (ctx) =>
+      createEmployee(ctx, { displayName: "On-call Tech", phone: "+15005550099" }),
+    );
+    await w.pg.query(
+      `insert into public.business_rules (organization_id, action, rule_key, version, definition)
+       values ($1, $2, 'default', 2, $3::jsonb)`,
+      [
+        w.orgB.id,
+        RECEPTIONIST_CONFIG_RULE_ACTION,
+        JSON.stringify({ business_hours: "Mon-Fri 8am-5pm", transfer_employee_id: onCall.id }),
+      ],
+    );
+    const callId = `call-${randomUUID()}`;
+    const first = await resolveTransfer(callId);
+    const second = await resolveTransfer(callId); // simulated redelivery of the same webhook
+    expect(first).toEqual({
+      status: "resolved",
+      toEmployeeId: onCall.id,
+      toNumber: "+15005550099",
+    });
+    expect(second).toEqual(first);
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.business_events where type = 'communication.transfer_requested'
+          and organization_id = $1`,
+        [w.orgB.id],
+      ),
+    ).toBe(1);
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.audit_log where action = 'communication.transfer_requested'
+          and organization_id = $1`,
+        [w.orgB.id],
+      ),
+    ).toBe(1);
   });
 });

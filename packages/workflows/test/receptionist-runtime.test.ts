@@ -5,7 +5,11 @@
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RECEPTIONIST_CONFIG_RULE_ACTION } from "@backoffice/domain";
-import { executeReceptionistToolCalls, resolveAssistantTurn } from "../src";
+import {
+  executeReceptionistToolCalls,
+  resolveAssistantTurn,
+  resolveTransferDestination,
+} from "../src";
 import {
   BUSINESS_NUMBER,
   count,
@@ -162,6 +166,69 @@ describe("executeReceptionistToolCalls", () => {
           where al.action = 'task.created' and al.actor_type = 'agent'
             and t.organization_id = $1 and t.idempotency_key = $2`,
         [w.orgA.id, `vapi:tool_call:${taskCallId}`],
+      ),
+    ).toBe(1);
+  });
+});
+
+describe("resolveTransferDestination", () => {
+  const resolveTransfer = (callId: string, routingAddress: string | null = BUSINESS_NUMBER) =>
+    resolveTransferDestination(w.db, {
+      provider: "vapi",
+      routingAddress,
+      callId,
+      customerNumber: CUSTOMER_NUMBER,
+      businessNumber: BUSINESS_NUMBER,
+    });
+
+  it("returns null for an unknown number", async () => {
+    expect(await resolveTransfer(`call-${randomUUID()}`, UNKNOWN_NUMBER)).toBeNull();
+  });
+
+  it("returns null and escalates when the active config has no on-call employee", async () => {
+    // Org A's active receptionist.config (set up above) has no transfer_employee_id yet.
+    expect(await resolveTransfer(`call-${randomUUID()}`)).toBeNull();
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.ops_cases where organization_id = $1 and reason_code = 'missing_data'
+          and title like 'Caller needs a warm transfer%'`,
+        [w.orgA.id],
+      ),
+    ).toBe(1);
+  });
+
+  it("returns the on-call employee's number once configured, recording the request once even redelivered", async () => {
+    const employee = await w.pg.query<{ id: string }>(
+      `insert into public.employees (organization_id, display_name, phone) values ($1, 'On-call Tech', $2) returning id`,
+      [w.orgA.id, "+15005550088"],
+    );
+    const onCallId = employee.rows[0]?.id;
+    await w.pg.query(
+      `insert into public.business_rules (organization_id, action, rule_key, version, definition)
+       values ($1, $2, 'default', 3, $3::jsonb)`,
+      [
+        w.orgA.id,
+        RECEPTIONIST_CONFIG_RULE_ACTION,
+        JSON.stringify({
+          business_hours: "Mon-Fri 8am-5pm",
+          services: "Plumbing repair and installation",
+          transfer_employee_id: onCallId,
+        }),
+      ],
+    );
+
+    const callId = `call-${randomUUID()}`;
+    const first = await resolveTransfer(callId);
+    const second = await resolveTransfer(callId); // simulated redelivery of the same webhook
+    expect(first).toEqual({ type: "number", number: "+15005550088" });
+    expect(second).toEqual(first);
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.business_events
+          where type = 'communication.transfer_requested' and payload->>'to_employee_id' = $1`,
+        [onCallId],
       ),
     ).toBe(1);
   });

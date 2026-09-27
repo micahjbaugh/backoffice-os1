@@ -10,6 +10,7 @@ import type {
   OutboundCallRequest,
   ToolCallResult,
   TransferCallRequest,
+  TransferDestination,
   VoiceProvider,
 } from "../providers/voice-provider";
 import {
@@ -266,6 +267,20 @@ export class VapiVoiceProvider implements VoiceProvider {
     return {
       results: results.map((r) => ({ toolCallId: r.toolCallId, result: r.result })),
     };
+  }
+
+  /**
+   * Vapi's transfer-destination-request wire format
+   * (docs.vapi.ai/server-url/events#transfer-destination-request): a null destination is out of
+   * policy, so Vapi is told the transfer cannot proceed rather than sent an invented number.
+   */
+  buildTransferDestinationResponse(
+    destination: TransferDestination | null,
+  ): Record<string, unknown> {
+    if (!destination) {
+      return { error: "No one is available to take this transfer right now." };
+    }
+    return { destination };
   }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {

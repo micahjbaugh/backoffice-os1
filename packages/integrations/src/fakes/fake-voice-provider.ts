@@ -8,6 +8,7 @@ import type {
   OutboundCallRequest,
   ToolCallResult,
   TransferCallRequest,
+  TransferDestination,
   VoiceProvider,
 } from "../providers/voice-provider";
 import type { ParsedWebhookEvent, WebhookRequest } from "../webhooks";
@@ -79,6 +80,13 @@ export class FakeVoiceProvider implements VoiceProvider {
   /** Deterministic, inspectable stand-in for the real wire format (see VapiVoiceProvider). */
   buildToolCallResponse(results: readonly ToolCallResult[]): Record<string, unknown> {
     return { results };
+  }
+
+  /** Deterministic, inspectable stand-in for the real wire format (see VapiVoiceProvider). */
+  buildTransferDestinationResponse(
+    destination: TransferDestination | null,
+  ): Record<string, unknown> {
+    return destination ? { destination } : { error: "unavailable" };
   }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {

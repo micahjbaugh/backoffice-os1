@@ -206,7 +206,7 @@ describe("voice lifecycle: out of order and replayed", () => {
     ).toBe(1);
   });
 
-  it.each(["assistant-request", "tool-calls"])(
+  it.each(["assistant-request", "tool-calls", "transfer-destination-request"])(
     "%s is durably recorded and settles as processed (answered synchronously by the webhook route, not this background loop)",
     async (type) => {
       const accepted = await deliver(
@@ -220,9 +220,13 @@ describe("voice lifecycle: out of order and replayed", () => {
                 timestamp: T0,
                 call: { id: VAPI_CALL_ID },
                 phoneNumber: { id: VAPI_PHONE_NUMBER_ID, number: BUSINESS_NUMBER },
-                toolCallList: [
-                  { id: "tc-1", function: { name: "lookup_business_info", arguments: {} } },
-                ],
+                ...(type === "tool-calls"
+                  ? {
+                      toolCallList: [
+                        { id: "tc-1", function: { name: "lookup_business_info", arguments: {} } },
+                      ],
+                    }
+                  : {}),
               },
         ),
       );
@@ -234,26 +238,6 @@ describe("voice lifecycle: out of order and replayed", () => {
       expect(row.rows[0]).toMatchObject({ status: "processed", last_error: null });
     },
   );
-
-  it("transfer-destination-request is stored and explicitly marked as not handled yet (M2-T21)", async () => {
-    const accepted = await deliver(
-      w,
-      vapi,
-      vapiRequest({
-        type: "transfer-destination-request",
-        timestamp: T0,
-        call: { id: VAPI_CALL_ID },
-        phoneNumber: { id: VAPI_PHONE_NUMBER_ID, number: BUSINESS_NUMBER },
-      }),
-    );
-    await processWebhookEvents(w.db);
-    const row = await w.pg.query<{ status: string; last_error: string }>(
-      `select status, last_error from public.webhook_receipts where id = $1`,
-      [accepted.event.id],
-    );
-    expect(row.rows[0]?.status).toBe("ignored");
-    expect(row.rows[0]?.last_error).toMatch(/receptionist runtime not implemented/);
-  });
 });
 
 describe("processing failures and crashed workers", () => {

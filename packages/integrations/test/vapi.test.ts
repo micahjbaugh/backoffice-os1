@@ -11,6 +11,7 @@ import {
   vapiRequest,
   vapiStatusUpdate,
   vapiToolCalls,
+  vapiTransferDestinationRequest,
 } from "./fixtures/providers";
 
 const provider = (fetchFn?: typeof fetch) =>
@@ -80,6 +81,17 @@ describe("Vapi event identity (Vapi sends no event id)", () => {
   it("flags events Vapi waits on synchronously", () => {
     const e = provider().parseWebhookRequest(vapiRequest(vapiAssistantRequest()));
     expect(e).toMatchObject({ eventType: "call.assistant_request", requiresResponse: true });
+  });
+
+  it("normalizes a transfer-destination-request and flags it synchronous (M2-T21)", () => {
+    const e = provider().parseWebhookRequest(vapiRequest(vapiTransferDestinationRequest()));
+    expect(e).toMatchObject({
+      eventType: "call.transfer_destination_request",
+      requiresResponse: true,
+      resourceId: VAPI_CALL_ID,
+      routingAddress: BUSINESS_NUMBER,
+      payload: { customerNumber: CUSTOMER_NUMBER, phoneNumber: BUSINESS_NUMBER },
+    });
   });
 
   it("extracts each tool call's name and arguments (M2-T20)", () => {
@@ -239,5 +251,20 @@ describe("Vapi tool-calls response (M2-T20)", () => {
         { toolCallId: "call_2", result: "Lead recorded." },
       ],
     });
+  });
+});
+
+describe("Vapi transfer-destination-request response (M2-T21)", () => {
+  it("builds a destination reply for a resolved on-call number", () => {
+    const response = provider().buildTransferDestinationResponse({
+      type: "number",
+      number: "+15005550088",
+    });
+    expect(response).toEqual({ destination: { type: "number", number: "+15005550088" } });
+  });
+
+  it("declines instead of inventing a destination when the transfer is out of policy", () => {
+    const response = provider().buildTransferDestinationResponse(null);
+    expect(response).toEqual({ error: expect.any(String) });
   });
 });

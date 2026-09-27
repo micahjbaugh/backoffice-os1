@@ -13,6 +13,12 @@ export const receptionistConfigDefinitionSchema = z
     services: z.string().trim().min(1).max(1000).optional(),
     service_area: z.string().trim().min(1).max(500).optional(),
     address: z.string().trim().min(1).max(300).optional(),
+    /**
+     * The deterministic warm-transfer policy (M2-T21): the one employee a live caller transfer
+     * goes to. No employee configured (or one that turns out inactive / phoneless) is out of
+     * policy and escalates to an ops case instead of guessing a destination (CLAUDE.md rule 14).
+     */
+    transfer_employee_id: z.string().uuid().optional(),
   })
   .strict();
 

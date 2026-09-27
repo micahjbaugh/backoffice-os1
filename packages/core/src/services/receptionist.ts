@@ -6,15 +6,19 @@
 // owner can fix a missing configuration (CLAUDE.md rule 14: never guess business hours).
 
 import {
+  EVENT_TYPES,
   RECEPTIONIST_CONFIG_RULE_ACTION,
   receptionistConfigDefinitionSchema,
   type BusinessInfoTopic,
   type ReceptionistConfigDefinition,
   type UUID,
 } from "@backoffice/domain";
-import { toBusinessRule, toOrganization, type Row } from "../rows";
+import { toBusinessRule, toEmployee, toOrganization, type Row } from "../rows";
 import { inTenant, type ServiceContext } from "../runtime";
 import type { Tx } from "../db/tx";
+import { writeAudit } from "./audit";
+import { recordCall } from "./communications";
+import { recordEvent } from "./events";
 import { createOpsCase } from "./ops";
 import { resolveProviderRoute } from "./webhooks";
 
@@ -96,4 +100,93 @@ export async function lookupBusinessInfo(
   await ctx.authorize("receptionist.lookup");
   const config = await loadActiveReceptionistConfig(ctx);
   return config?.[BUSINESS_INFO_FIELD[topic]] ?? null;
+}
+
+async function loadReachableEmployee(
+  ctx: ServiceContext,
+  employeeId: UUID,
+): Promise<{ id: UUID; phone: string } | null> {
+  await ctx.authorize("employee.read");
+  const { rows } = await ctx.tx.asService<Row>(
+    `select * from public.employees where id = $1 and organization_id = $2 and active`,
+    [employeeId, ctx.organizationId],
+  );
+  const row = rows[0];
+  if (!row) return null;
+  const employee = toEmployee(row);
+  return employee.phone ? { id: employee.id, phone: employee.phone } : null;
+}
+
+export type TransferDestinationResolution =
+  { status: "unavailable" } | { status: "resolved"; toEmployeeId: UUID; toNumber: string };
+
+/**
+ * Resolve the on-call destination for Vapi's synchronous `transfer-destination-request` (M2-T21):
+ * the employee named by the tenant's active receptionist.config transfer policy, if that employee
+ * is still active and has a phone on file. Vapi performs the transfer itself using the number this
+ * returns, so there is no provider call to make — recording the request is just another write in
+ * this same transaction (no outbox entry needed). Anything the policy can't resolve (unknown
+ * number, no employee configured, or one that's inactive/phoneless) is out of policy: it escalates
+ * to an ops case instead of guessing a destination (CLAUDE.md rule 14).
+ */
+export async function resolveTransferDestination(
+  tx: Tx,
+  params: {
+    provider: string;
+    routingAddress: string | null;
+    callId: string;
+    customerNumber: string | null;
+    businessNumber: string | null;
+  },
+): Promise<TransferDestinationResolution> {
+  const organizationId = await resolveProviderRoute(tx, params.provider, params.routingAddress);
+  if (!organizationId) return { status: "unavailable" };
+
+  const ctx = inTenant(tx, organizationId);
+  await ctx.authorize("rule.read");
+  const config = await loadActiveReceptionistConfig(ctx);
+  const configuredEmployeeId = config?.transfer_employee_id ?? null;
+  const employee = configuredEmployeeId
+    ? await loadReachableEmployee(ctx, configuredEmployeeId)
+    : null;
+
+  const { communication } = await recordCall(ctx, {
+    direction: "inbound",
+    provider: params.provider,
+    providerConversationId: params.callId,
+    status: "in_progress",
+    fromNumber: params.customerNumber ?? undefined,
+    toNumber: params.businessNumber ?? undefined,
+  });
+
+  if (!employee) {
+    await createOpsCase(ctx, {
+      title: "Caller needs a warm transfer, but no on-call employee is available",
+      reasonCode: configuredEmployeeId ? "policy_conflict" : "missing_data",
+      priority: "high",
+      entityType: "communication",
+      entityId: communication.id,
+      evidence: { call_id: params.callId, configured_employee_id: configuredEmployeeId },
+    });
+    return { status: "unavailable" };
+  }
+
+  const { event, created } = await recordEvent(ctx, {
+    type: EVENT_TYPES.communicationTransferRequested,
+    entityType: "communication",
+    entityId: communication.id,
+    idempotencyKey: `communication.transfer_requested:${communication.id}`,
+    payload: { to_employee_id: employee.id, reason: "caller_requested_human" },
+  });
+  if (created) {
+    await writeAudit(ctx, {
+      action: "communication.transfer_requested",
+      entityType: "communication",
+      entityId: communication.id,
+      sourceEventId: event.id,
+      details: { to_employee_id: employee.id, call_id: params.callId },
+    });
+  }
+
+  return { status: "resolved", toEmployeeId: employee.id, toNumber: employee.phone };
 }

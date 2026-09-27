@@ -21,6 +21,7 @@ import {
   lookupBusinessInfo,
   recordCall,
   resolveReceptionistConfig,
+  resolveTransferDestination as resolveTransferDestinationInTx,
   runAs,
   type Database,
   type ServiceContext,
@@ -42,6 +43,7 @@ import type {
   AssistantToolDescriptor,
   AssistantTurn,
   ToolCallResult,
+  TransferDestination,
 } from "@backoffice/integrations";
 import { z } from "zod";
 
@@ -103,7 +105,10 @@ function asRecord(value: unknown): Record<string, unknown> {
   return value !== null && typeof value === "object" ? (value as Record<string, unknown>) : {};
 }
 
-/** request_transfer isn't a live transfer (that's M2-T21); it escalates to the human backstop. */
+/**
+ * request_transfer is a distinct, non-live path from the native transfer M2-T21 answers via
+ * transfer-destination-request below: it always escalates to the human backstop (an ops case).
+ */
 const TRANSFER_REASON_TO_OPS_CASE: Record<TransferReason, OpsCaseReasonCode> = {
   caller_requested_human: "caller_requested_human",
   uncertain_intake: "low_confidence",
@@ -236,4 +241,28 @@ export async function executeReceptionistToolCalls(
     }
     return results;
   });
+}
+
+/**
+ * Answer Vapi's synchronous transfer-destination-request (M2-T21): resolve the on-call employee
+ * for this tenant's transfer policy and record the request, in one transaction — no provider call
+ * inside it (Vapi performs the transfer itself using the number this returns). Out-of-policy
+ * requests (unknown number, no policy, or an unreachable employee) return `null`, which the
+ * adapter turns into a safe decline instead of an invented destination.
+ */
+export async function resolveTransferDestination(
+  db: Database,
+  params: {
+    provider: string;
+    routingAddress: string | null;
+    callId: string;
+    customerNumber: string | null;
+    businessNumber: string | null;
+  },
+): Promise<TransferDestination | null> {
+  const resolution = await runAs(db, RECEPTIONIST_RUNTIME, (tx) =>
+    resolveTransferDestinationInTx(tx, params),
+  );
+  if (resolution.status !== "resolved") return null;
+  return { type: "number", number: resolution.toNumber };
 }
