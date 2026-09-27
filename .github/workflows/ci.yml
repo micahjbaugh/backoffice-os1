@@ -1,0 +1,67 @@
+# Continuous integration: every push and pull request gets a clean, frozen-lockfile install and the
+# full gate, plus the migrations and live-stack tests against a real local Supabase stack.
+# Read-only token; forks get no secrets (none are used).
+
+name: ci
+
+on:
+  push:
+    branches: [main, autopilot, "repair/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_TELEMETRY_DISABLED: "1"
+
+jobs:
+  checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - name: Install (clean, frozen lockfile)
+        run: pnpm install --frozen-lockfile
+      - name: Format
+        run: pnpm format:check
+      - name: Lint
+        run: pnpm lint
+      - name: Typecheck
+        run: pnpm typecheck
+      - name: Tests (includes production build + browser secret scan, and the referee's own tests)
+        run: pnpm test
+      - name: Timezones (UTC, America/Chicago, Asia/Tokyo)
+        if: hashFiles('packages/core/scripts/test-timezones.mjs') != ''
+        run: pnpm --filter @backoffice/core test:tz
+
+  live-stack:
+    needs: checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Start local Supabase (applies every migration + seed)
+        run: pnpm exec supabase start
+      - name: Reset database from migrations + seed
+        run: pnpm exec supabase db reset
+      - name: Live-stack tests against real Postgres/PostgREST/Auth
+        run: BO_LIVE_TEST=1 pnpm --filter @backoffice/core exec vitest run test/live-stack.test.ts
+      - name: Stop Supabase
+        if: always()
+        run: pnpm exec supabase stop --no-backup

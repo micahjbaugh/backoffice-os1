@@ -1,27 +1,38 @@
 # Start Here
 
-## Goal
+## Where the project is
 
-Build Milestone 1 only: Business Brain + Owner Inbox foundation.
+- **M1** (Business Brain + Owner Inbox) is accepted: automated tests plus a person's live verification
+  (`docs/M1_LIVE_VERIFICATION.md`).
+- **M2** (communications) has its foundations rebuilt by the 2026-09 repair (`docs/REPAIR_REPORT.md`):
+  durable webhook ingestion, outbound queue, fail-closed provider configuration. The receptionist
+  runtime, route management and the automated acceptance suite are explicit open tasks. The live
+  phone check (M2-T17) needs a person and stays open until done.
+- **M3** (field capture) is partly built and resumes after M2's automated acceptance passes.
+- Live progress: `workflow/STATUS.md` on the `autopilot` branch. Do not use task counts as a readiness
+  measure; see the milestone levels there and `docs/PRODUCTION_HARDENING.md`.
 
-## With Claude Code
+## Run it locally (reproducible)
 
-1. Create a new Git repository from this folder.
-2. Open the repository in Claude Code.
-3. Tell Claude Code:
+Requirements: Node 22+ (24 tested), pnpm 10 (`npm i -g pnpm@10`), Git. For the local database: Docker
+Desktop running (the Supabase CLI is a project dev dependency).
 
-   `Read CLAUDE.md and .claude/IMPLEMENT_M1.md. Implement Milestone 1 completely. Follow the repository rules and do not begin Milestone 2.`
+```bash
+pnpm install --frozen-lockfile      # clean, exact install; re-run after every pull that adds packages
+pnpm format:check && pnpm lint && pnpm typecheck
+pnpm test                           # all packages (PGlite, no Docker) + production build secret scan + referee tests
+pnpm test:tz                        # date handling under UTC, America/Chicago, Asia/Tokyo
 
-4. Let Claude inspect the repository and create `docs/M1_IMPLEMENTATION_PLAN.md` before coding.
-5. Do not approve scope expansion into voice, procurement, or QuickBooks until M1 tests pass.
+pnpm exec supabase start            # local Postgres/Auth/Studio with every migration + seed
+cp apps/web/.env.example apps/web/.env.local   # fill from `pnpm exec supabase status`
+pnpm dev                            # http://localhost:3000
+```
 
-## Accounts needed during M1
+On Windows, the repository's `.gitattributes` keeps files LF so formatting checks match CI. If an
+old checkout shows formatting differences everywhere, re-checkout once (`git rm -r --cached . && git reset --hard`).
 
-- GitHub (recommended)
-- Supabase project
+## The autopilot
 
-You do **not** need Vapi, Twilio, QuickBooks, payroll, or payment-provider credentials for Milestone 1.
-
-## After M1 passes
-
-M2 connects communications and builds the first live receptionist demo.
+Claude builds, an OpenAI model reviews, a deterministic referee decides, every 30 minutes in GitHub
+Actions. How it works and how to control it: `workflow/README.md`. Rules every AI must follow:
+`CLAUDE.md`.

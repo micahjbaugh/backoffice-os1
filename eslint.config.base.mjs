@@ -13,4 +13,12 @@ export default tseslint.config(
       "no-console": ["error", { allow: ["warn", "error"] }],
     },
   },
+  {
+    // Node CLI helpers (e.g. test runners) print progress and read process state.
+    files: ["**/scripts/**/*.{js,mjs}"],
+    languageOptions: {
+      globals: { console: "readonly", process: "readonly", URL: "readonly" },
+    },
+    rules: { "no-console": "off" },
+  },
 );
