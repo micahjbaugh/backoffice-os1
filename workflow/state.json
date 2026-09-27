@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "current_task_id": "M3-T19",
-  "attempts": 0,
+  "attempts": 1,
   "stalled_runs": 0,
   "consecutive_failures": 0,
-  "review_notes": "Reviewer requested changes (1 of 1 part(s)): The report appears to misstate the M3 acceptance behavior around time entries. The milestone input “Me Jake Tyler …” implies three time entries, but the report claims a single “time-entry outcome” and zero time_entries rows due to low confidence, while also asserting the acceptance suite verifies every MILESTONES.md bullet. Please reconcile this: either update the report to reflect three time-entry drafts (and adjust the fixture/extractor and acceptance table accordingly) or explicitly call out the deviation from MILESTONES.md in Known limitations and change the “asserts every bullet” claim. Also ensure the stated test counts and per-package tallies reflect this exact run (or generalize to totals) to avoid drift.",
+  "review_notes": "Reviewer requested changes (1 of 1 part(s)): docs/M3_BUILD_REPORT.md looks solid and matches the described test outcomes, including a clear deviation note about the “three draft time entries.” However, this task’s scope was to add the M3 build report only. The PR also modifies BUILD_TO_SELL.md, MILESTONES.md, and adds TEXT_INVOICE*.md, which is work outside the current task. Please revert those unrelated doc changes so this step contains only the M3 build report update.",
   "review_base": "1770b678a9a5065e56fa4ff49860c6360fed84b2",
   "last_error": "",
   "last_validation": {
@@ -56,8 +56,8 @@
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 19,
-  "status": "AWAITING_REVIEW",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "Addressed review_notes on docs/M3_BUILD_REPORT.md: the report no longer claims the acceptance suite 'asserts every bullet' in MILESTONES.md. Added an explicit, prominent deviation note (status line, acceptance table, and a new first Known-limitations bullet) stating the current build produces one time-entry draft from the M3 input, not the three 'draft time entries' MILESTONES.md's text calls for, with the reasoning (no second/third employee is named; the other numbers are equipment hours, not employee hours, so inventing more time entries would be a guess forbidden by CLAUDE.md rule 14) and a request that a human confirm the intended reading of that milestone bullet. Did not change the fixture/extractor/schema themselves — that would be new extraction behavior requiring its own task, tests, and possibly a MILESTONES.md clarification, not something to guess at inside a report-writing task. Verified the test counts/tallies already in the report against a fresh full run (645 passing, 7 skipped, per-package figures unchanged) so no drift. format:check/lint/typecheck/test all pass; only docs/M3_BUILD_REPORT.md changed (29 lines). Next: reviewer re-check; if the human wants three actual time-entry rows for this input, that's a new source-code task (extractor + schema + tests), not a docs fix.",
-  "updated_at": "2026-09-27T21:58:22.025Z"
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "reviewer",
+  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
+  "updated_at": "2026-09-27T21:58:44.655Z"
 }
