@@ -6,7 +6,9 @@
 
 import {
   actorUserId,
+  ConflictError,
   createOpsCaseInput,
+  decideOpsCaseInput,
   EVENT_TYPES,
   ForbiddenError,
   grantOperatorAccessInput,
@@ -15,6 +17,7 @@ import {
   updateOpsCaseInput,
   type BusinessEvent,
   type CreateOpsCaseInput,
+  type DecideOpsCaseInput,
   type GrantOperatorAccessInput,
   type InternalStaff,
   type OperatorGrant,
@@ -81,6 +84,79 @@ export async function listOrgOpsCases(ctx: ServiceContext): Promise<OpsCase[]> {
     [ctx.organizationId],
   );
   return rows.map(toOpsCase);
+}
+
+export interface OpsCaseDecisionResult {
+  opsCase: OpsCase;
+  /** True when this call repeated an already-applied identical decision; nothing was written. */
+  replayed: boolean;
+}
+
+/**
+ * Owner/office admin/manager resolving or dismissing an open clarification from their own inbox.
+ * Distinct from `updateOpsCaseAsOperator`: this is the tenant side, and clients have no UPDATE
+ * privilege on `ops_cases` at all (0002_m1_foundation.sql revokes it), so this is the only way to
+ * change a case's status from that side. A repeated identical decision is a no-op replay; a
+ * conflicting one is a ConflictError.
+ */
+export async function decideOpsCase(
+  ctx: ServiceContext,
+  input: DecideOpsCaseInput,
+): Promise<OpsCaseDecisionResult> {
+  const data = parseInput(decideOpsCaseInput, input);
+  const entity = { entityType: "ops_case", entityId: data.id };
+  await ctx.authorize("ops_case.resolve", entity);
+  const decider = actorUserId(ctx.actor);
+  if (ctx.actor.type !== "user" || !decider) {
+    throw new ForbiddenError({
+      action: "ops_case.resolve",
+      reason: "only_human_members_decide",
+      organizationId: ctx.organizationId,
+      ...entity,
+    });
+  }
+
+  const locked = await ctx.tx.asService<Row>(
+    `select * from public.ops_cases where id = $1 and organization_id = $2 for update`,
+    [data.id, ctx.organizationId],
+  );
+  if (!locked.rows[0]) throw new NotFoundError("ops_case", data.id);
+  const current = toOpsCase(locked.rows[0]);
+  const status = data.decision === "resolved" ? "resolved" : "closed";
+
+  if (current.status === "resolved" || current.status === "closed") {
+    if (current.status === status) return { opsCase: current, replayed: true };
+    throw new ConflictError("already_decided", `ops case is already ${current.status}`);
+  }
+
+  const { rows } = await ctx.tx.asService<Row>(
+    `update public.ops_cases
+        set status = $3::public.ops_case_status, resolution = coalesce($4, resolution)
+      where id = $1 and organization_id = $2
+      returning *`,
+    [data.id, ctx.organizationId, status, data.note ?? null],
+  );
+  const opsCase = toOpsCase(rows[0] as Row);
+
+  const { event } = await recordEvent(ctx, {
+    type: EVENT_TYPES.opsCaseUpdated,
+    entityType: "ops_case",
+    entityId: opsCase.id,
+    idempotencyKey: `ops_case.decided:${opsCase.id}`,
+    payload: { decision: data.decision, previous_status: current.status },
+  });
+  await writeAudit(ctx, {
+    action: `ops_case.${data.decision}`,
+    entityType: "ops_case",
+    entityId: opsCase.id,
+    sourceEventId: event.id,
+    details: {
+      decision: data.decision,
+      previous_status: current.status,
+      decider_role: await ctx.role(),
+    },
+  });
+  return { opsCase, replayed: false };
 }
 
 export async function grantOperatorAccess(

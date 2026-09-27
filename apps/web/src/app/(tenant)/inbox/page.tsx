@@ -1,7 +1,10 @@
 import { randomUUID } from "node:crypto";
 import {
+  BILLABLE_OPPORTUNITY_POLICY_SUBJECT,
   listNotes,
+  listOpenBillableOpportunities,
   listOpenTasks,
+  listOrgOpsCases,
   listPendingApprovals,
   loadApprovalDelegationRules,
 } from "@backoffice/core";
@@ -11,8 +14,10 @@ import {
   PRIORITIES,
   roleHasPermission,
   type Approval,
+  type BillableOpportunity,
   type DecisionAuthority,
   type Note,
+  type OpsCase,
 } from "@backoffice/domain";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
 import { formatDateTime, formatMoney, humanize } from "@/lib/format";
@@ -24,6 +29,8 @@ import {
   createOpsCaseAction,
   createTaskAction,
   decideApprovalAction,
+  decideBillableOpportunityAction,
+  decideOpsCaseAction,
 } from "../../actions/tenant";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +45,10 @@ export default async function InboxPage() {
   const data = await withTenant(async (ctx, session) => {
     const can = (p: Parameters<typeof roleHasPermission>[1]) => roleHasPermission(session.role, p);
     const approvals = can("approval.read") ? await listPendingApprovals(ctx) : [];
-    const rules = can("approval.decide") ? await loadApprovalDelegationRules(ctx) : [];
+    const rules =
+      can("approval.decide") || can("billable.decide")
+        ? await loadApprovalDelegationRules(ctx)
+        : [];
     const notes = can("note.read")
       ? await listNotes(
           ctx,
@@ -50,9 +60,41 @@ export default async function InboxPage() {
     const authority = new Map<string, DecisionAuthority>(
       approvals.map((a) => [a.id, evaluateApprovalDecision(ctx.actor, session.role, a, rules)]),
     );
-    return { session, approvals, notes, tasks, authority, can };
+    const billables = can("billable.decide") ? await listOpenBillableOpportunities(ctx) : [];
+    const billableAuthority = can("billable.decide")
+      ? evaluateApprovalDecision(
+          ctx.actor,
+          session.role,
+          BILLABLE_OPPORTUNITY_POLICY_SUBJECT,
+          rules,
+        )
+      : undefined;
+    const clarifications = can("ops_case.read")
+      ? (await listOrgOpsCases(ctx)).filter((c) => c.status !== "resolved" && c.status !== "closed")
+      : [];
+    return {
+      session,
+      approvals,
+      notes,
+      tasks,
+      authority,
+      billables,
+      billableAuthority,
+      clarifications,
+      can,
+    };
   });
-  const { session, approvals, notes, tasks, authority, can } = data;
+  const {
+    session,
+    approvals,
+    notes,
+    tasks,
+    authority,
+    billables,
+    billableAuthority,
+    clarifications,
+    can,
+  } = data;
   const tz = session.organization.timezone;
 
   return (
@@ -76,6 +118,42 @@ export default async function InboxPage() {
               authority={authority.get(approval.id)}
               notes={notes.filter((n) => n.entityId === approval.id)}
               canNote={can("note.add")}
+              timeZone={tz}
+            />
+          ))
+        )}
+      </section>
+
+      <section className="section">
+        <h2>Billable opportunities ({billables.length})</h2>
+        {!can("billable.decide") ? (
+          <p className="empty">Billable opportunities are handled by the office.</p>
+        ) : billables.length === 0 ? (
+          <p className="empty">Nothing waiting on you.</p>
+        ) : (
+          billables.map((billable) => (
+            <BillableOpportunityCard
+              key={billable.id}
+              billable={billable}
+              authority={billableAuthority}
+              timeZone={tz}
+            />
+          ))
+        )}
+      </section>
+
+      <section className="section">
+        <h2>Clarifications ({clarifications.length})</h2>
+        {!can("ops_case.read") ? (
+          <p className="empty">Clarifications are handled by the office.</p>
+        ) : clarifications.length === 0 ? (
+          <p className="empty">Nothing waiting on you.</p>
+        ) : (
+          clarifications.map((opsCase) => (
+            <OpsCaseCard
+              key={opsCase.id}
+              opsCase={opsCase}
+              canDecide={can("ops_case.resolve")}
               timeZone={tz}
             />
           ))
@@ -283,6 +361,100 @@ function ApprovalCard({
             <SubmitButton variant="secondary">Add note</SubmitButton>
           </ActionForm>
         </details>
+      ) : null}
+    </div>
+  );
+}
+
+function BillableOpportunityCard({
+  billable,
+  authority,
+  timeZone,
+}: {
+  billable: BillableOpportunity;
+  authority: DecisionAuthority | undefined;
+  timeZone: string;
+}) {
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h3>{billable.description}</h3>
+          <div className="meta">
+            {billable.quantity !== null ? `${billable.quantity} ${billable.unit ?? ""}`.trim() : ""}
+            {" · Reported "}
+            {formatDateTime(billable.createdAt, timeZone)}
+          </div>
+        </div>
+      </div>
+
+      {authority?.allowed ? (
+        <ActionForm action={decideBillableOpportunityAction} className="stack">
+          <input type="hidden" name="billableOpportunityId" value={billable.id} />
+          <label>
+            Note (optional)
+            <input name="note" maxLength={2000} />
+          </label>
+          <div className="row">
+            <SubmitButton name="decision" value="approved">
+              Approve
+            </SubmitButton>
+            <SubmitButton name="decision" value="dismissed" variant="secondary">
+              Dismiss
+            </SubmitButton>
+          </div>
+        </ActionForm>
+      ) : (
+        <p className="meta">
+          {authority && !authority.allowed
+            ? (DENIAL_TEXT[authority.reason] ?? "Awaiting decision.")
+            : ""}
+        </p>
+      )}
+    </div>
+  );
+}
+
+function OpsCaseCard({
+  opsCase,
+  canDecide,
+  timeZone,
+}: {
+  opsCase: OpsCase;
+  canDecide: boolean;
+  timeZone: string;
+}) {
+  return (
+    <div className="card">
+      <div className="card-head">
+        <div>
+          <h3>{opsCase.title}</h3>
+          <div className="meta">
+            <span className={`badge ${opsCase.priority === "urgent" ? "red" : "yellow"}`}>
+              {humanize(opsCase.priority)}
+            </span>
+            <span className="badge">{humanize(opsCase.reasonCode)}</span>
+            Opened {formatDateTime(opsCase.createdAt, timeZone)}
+          </div>
+        </div>
+      </div>
+
+      {canDecide ? (
+        <ActionForm action={decideOpsCaseAction} className="stack">
+          <input type="hidden" name="opsCaseId" value={opsCase.id} />
+          <label>
+            Note (required to resolve)
+            <input name="note" maxLength={2000} />
+          </label>
+          <div className="row">
+            <SubmitButton name="decision" value="resolved">
+              Mark resolved
+            </SubmitButton>
+            <SubmitButton name="decision" value="dismissed" variant="secondary">
+              Dismiss
+            </SubmitButton>
+          </div>
+        </ActionForm>
       ) : null}
     </div>
   );

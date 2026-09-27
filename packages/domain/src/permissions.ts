@@ -32,6 +32,8 @@ export const PERMISSIONS = [
   "audit.read",
   "ops_case.read",
   "ops_case.create",
+  /** Resolve/dismiss an open clarification from the tenant side (never the internal ops console). */
+  "ops_case.resolve",
   "operator_grant.manage",
   "provider_route.manage",
   "document.read",
@@ -64,6 +66,7 @@ const STAFF_WRITE: readonly Permission[] = [
   "approval.request",
   "note.add",
   "ops_case.create",
+  "ops_case.resolve",
   "document.write",
   "lead.write",
   "time_entry.write",

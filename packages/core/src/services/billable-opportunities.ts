@@ -74,3 +74,18 @@ export async function createBillableOpportunity(
   });
   return { billableOpportunity, created: true };
 }
+
+/** Open opportunities for the owner inbox: eligibility to see them mirrors eligibility to decide
+ *  them (`billable.decide`); the approval policy narrows who can actually approve one. */
+export async function listOpenBillableOpportunities(
+  ctx: ServiceContext,
+): Promise<BillableOpportunity[]> {
+  await ctx.authorize("billable.decide");
+  const { rows } = await ctx.scoped<Row>(
+    `select * from public.billable_opportunities
+      where organization_id = $1 and status = 'open'
+      order by created_at`,
+    [ctx.organizationId],
+  );
+  return rows.map(toBillableOpportunity);
+}

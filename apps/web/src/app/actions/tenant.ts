@@ -22,6 +22,8 @@ import {
   createVendor,
   deactivateProviderRoute,
   decideApproval,
+  decideBillableOpportunity,
+  decideOpsCase,
   grantOperatorAccess,
   registerProviderRoute,
   retireRule,
@@ -59,6 +61,44 @@ export async function decideApprovalAction(
     );
     if (replayed) return `Already ${decision}. Nothing was repeated.`;
     return decision === "approved" ? "Approved." : "Rejected.";
+  }, ["/inbox"]);
+}
+
+export async function decideBillableOpportunityAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    const decision = field(form, "decision") === "approved" ? "approved" : "dismissed";
+    const { replayed } = await withTenant((ctx) =>
+      decideBillableOpportunity(ctx, {
+        id: field(form, "billableOpportunityId") ?? "",
+        decision,
+        note: field(form, "note"),
+      }),
+    );
+    if (replayed) return `Already ${decision}. Nothing was repeated.`;
+    return decision === "approved" ? "Approved as billable." : "Dismissed.";
+  }, ["/inbox"]);
+}
+
+// --- Inbox: clarifications (ops cases) ---------------------------------------
+
+export async function decideOpsCaseAction(
+  _prev: ActionState,
+  form: FormData,
+): Promise<ActionState> {
+  return runAction(async () => {
+    const decision = field(form, "decision") === "resolved" ? "resolved" : "dismissed";
+    const { replayed } = await withTenant((ctx) =>
+      decideOpsCase(ctx, {
+        id: field(form, "opsCaseId") ?? "",
+        decision,
+        note: field(form, "note"),
+      }),
+    );
+    if (replayed) return `Already ${decision}. Nothing was repeated.`;
+    return decision === "resolved" ? "Marked resolved." : "Dismissed.";
   }, ["/inbox"]);
 }
 

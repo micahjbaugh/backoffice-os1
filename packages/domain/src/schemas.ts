@@ -187,6 +187,20 @@ export const createOpsCaseInput = z
   })
   .superRefine(refineEntityRef);
 
+/** Owner/office admin/manager resolving or dismissing an open clarification from their own inbox
+ *  (distinct from `updateOpsCaseInput`, used only by the internal operator console). */
+export const decideOpsCaseInput = z
+  .object({
+    id: z.uuid(),
+    decision: z.enum(["resolved", "dismissed"]),
+    note: z.string().trim().max(2000).optional(),
+  })
+  .refine(
+    (v) => v.decision !== "resolved" || (v.note !== undefined && v.note.length > 0),
+    "a note is required to mark a clarification resolved",
+  );
+export type DecideOpsCaseInput = z.input<typeof decideOpsCaseInput>;
+
 export const updateOpsCaseInput = z
   .object({
     status: z.enum(OPS_CASE_STATUSES).optional(),

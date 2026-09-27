@@ -1022,7 +1022,7 @@
           "title": "Owner Inbox: clarifications and billables",
           "description": "Show open clarification tasks and billable opportunities in /inbox with resolve/approve/dismiss actions (audited). Decisions must go through decideDraftRecord / decideBillableOpportunity (0011); never update status directly.",
           "done_when": "next build succeeds; action tests pass.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 18,

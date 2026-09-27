@@ -1,9 +1,16 @@
 // Required M1 test 8: an internal operator cannot access a tenant without a scoped grant.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { ForbiddenError, NotFoundError, type Actor, type OpsCase } from "@backoffice/domain";
+import {
+  ConflictError,
+  ForbiddenError,
+  NotFoundError,
+  type Actor,
+  type OpsCase,
+} from "@backoffice/domain";
 import {
   createOpsCase,
+  decideOpsCase,
   grantOperatorAccess,
   listOperatorCases,
   listOperatorGrants,
@@ -324,5 +331,82 @@ describe("tenant view of ops cases", () => {
         [caseA.id],
       ),
     ).toBe(1);
+  });
+});
+
+describe("decideOpsCase (owner inbox, tenant side)", () => {
+  const seedCase = () =>
+    inOrg(w.db, workflow, w.orgA.id, (ctx) =>
+      createOpsCase(ctx, { title: "Low-confidence time entry", reasonCode: "low_confidence" }),
+    );
+
+  it("owner, office admin and manager can resolve or dismiss, with event + audit", async () => {
+    for (const [user, decision, note] of [
+      [w.orgA.owner, "resolved", "confirmed with the crew"],
+      [w.orgA.officeAdmin, "dismissed", undefined],
+      [w.orgA.manager, "resolved", "matched the job manually"],
+    ] as const) {
+      const opened = await seedCase();
+      const { opsCase, replayed } = await inOrg(w.db, userActor(user), w.orgA.id, (ctx) =>
+        decideOpsCase(ctx, { id: opened.id, decision, note }),
+      );
+      expect(replayed).toBe(false);
+      expect(opsCase.status).toBe(decision === "resolved" ? "resolved" : "closed");
+      expect(
+        await count(w.pg, `select 1 from public.audit_log where action = $1 and entity_id = $2`, [
+          `ops_case.${decision}`,
+          opened.id,
+        ]),
+      ).toBe(1);
+    }
+  });
+
+  it("resolving requires a note; dismissing does not", async () => {
+    const opened = await seedCase();
+    await expect(
+      inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
+        decideOpsCase(ctx, { id: opened.id, decision: "resolved" }),
+      ),
+    ).rejects.toThrow(/note is required/);
+    const { opsCase } = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
+      decideOpsCase(ctx, { id: opened.id, decision: "dismissed" }),
+    );
+    expect(opsCase.status).toBe("closed");
+  });
+
+  it("replays are no-ops and conflicting decisions are rejected", async () => {
+    const opened = await seedCase();
+    const decide = (decision: "resolved" | "dismissed") =>
+      inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
+        decideOpsCase(ctx, { id: opened.id, decision, note: "handled" }),
+      );
+    expect((await decide("dismissed")).replayed).toBe(false);
+    expect((await decide("dismissed")).replayed).toBe(true);
+    await expect(decide("resolved")).rejects.toBeInstanceOf(ConflictError);
+  });
+
+  it("field employees and accountants cannot decide", async () => {
+    const opened = await seedCase();
+    for (const user of [w.orgA.fieldEmployee, w.orgA.accountant]) {
+      await expect(
+        inOrg(w.db, userActor(user), w.orgA.id, (ctx) =>
+          decideOpsCase(ctx, { id: opened.id, decision: "dismissed" }),
+        ),
+      ).rejects.toBeInstanceOf(ForbiddenError);
+    }
+  });
+
+  it("is tenant-scoped", async () => {
+    const opened = await seedCase();
+    await expect(
+      inOrg(w.db, userActor(w.orgB.owner), w.orgA.id, (ctx) =>
+        decideOpsCase(ctx, { id: opened.id, decision: "dismissed" }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+    await expect(
+      inOrg(w.db, userActor(w.orgB.owner), w.orgB.id, (ctx) =>
+        decideOpsCase(ctx, { id: opened.id, decision: "dismissed" }),
+      ),
+    ).rejects.toBeInstanceOf(NotFoundError);
   });
 });

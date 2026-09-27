@@ -4,7 +4,11 @@
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ForbiddenError, NotFoundError } from "@backoffice/domain";
-import { createBillableOpportunity } from "../src";
+import {
+  createBillableOpportunity,
+  decideBillableOpportunity,
+  listOpenBillableOpportunities,
+} from "../src";
 import { inOrg, userActor } from "./helpers/db";
 import { eventCount, fieldCapture, seedCommunicationId } from "./helpers/draft-facts";
 import { createWorld, type World } from "./helpers/fixtures";
@@ -56,6 +60,40 @@ describe("createBillableOpportunity", () => {
     await expect(
       inOrg(w.db, userActor(w.orgA.fieldEmployee), w.orgA.id, (ctx) =>
         createBillableOpportunity(ctx, { jobId: w.orgA.job.id, description: "extra work" }),
+      ),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("listOpenBillableOpportunities (owner inbox)", () => {
+  it("keeps this org's open opportunities and drops decided ones and other orgs'", async () => {
+    const { billableOpportunity: keep } = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createBillableOpportunity(ctx, { jobId: w.orgA.job.id, description: "grade 200 ft more" }),
+    );
+    const { billableOpportunity: decided } = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createBillableOpportunity(ctx, { jobId: w.orgA.job.id, description: "already handled" }),
+    );
+    await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
+      decideBillableOpportunity(ctx, { id: decided.id, decision: "dismissed" }),
+    );
+    const { billableOpportunity: otherOrg } = await inOrg(w.db, fieldCapture, w.orgB.id, (ctx) =>
+      createBillableOpportunity(ctx, { jobId: w.orgB.job.id, description: "other org's work" }),
+    );
+
+    const listed = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
+      listOpenBillableOpportunities(ctx),
+    );
+    const listedIds = listed.map((b) => b.id);
+    expect(listedIds).toContain(keep.id);
+    expect(listedIds).not.toContain(decided.id);
+    expect(listedIds).not.toContain(otherOrg.id);
+    expect(listed.every((b) => b.status === "open")).toBe(true);
+  });
+
+  it("denies a manager, who cannot decide billable opportunities", async () => {
+    await expect(
+      inOrg(w.db, userActor(w.orgA.manager), w.orgA.id, (ctx) =>
+        listOpenBillableOpportunities(ctx),
       ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });
