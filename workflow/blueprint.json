@@ -507,7 +507,7 @@
           "title": "Receptionist runtime: assistant-request",
           "description": "Answer Vapi's synchronous assistant-request within its time limit with the tenant's receptionist configuration (packages/agents prompt + tool definitions) resolved from provider_routes. Unknown number or missing config -> safe fallback response + ops case. No authorization in prompts.",
           "done_when": "Fixture assistant-request gets a valid assistant response in-process within the time budget; unknown number gets the fallback; tests.",
-          "status": "pending",
+          "status": "in_progress",
           "depends_on": [
             "M2-T18"
           ],

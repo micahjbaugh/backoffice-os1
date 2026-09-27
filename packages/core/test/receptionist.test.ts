@@ -1,0 +1,78 @@
+// M2-T19: resolving the tenant + receptionist configuration for a synchronous Vapi assistant-request.
+
+import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
+import { resolveReceptionistConfig } from "../src";
+import { asTx, count } from "./helpers/db";
+import { createWorld, type World } from "./helpers/fixtures";
+
+let w: World;
+const RUNTIME: Actor = { type: "system", name: "receptionist-runtime-test" };
+const BUSINESS_NUMBER = "+15125550100";
+const UNKNOWN_NUMBER = "+15125559999";
+
+beforeAll(async () => {
+  w = await createWorld();
+  await w.pg.query(
+    `insert into public.provider_routes (organization_id, provider, channel, address)
+     values ($1, 'vapi', 'voice', $2)`,
+    [w.orgA.id, BUSINESS_NUMBER],
+  );
+});
+afterAll(async () => {
+  await w.close();
+});
+
+const resolve = (routingAddress: string | null) =>
+  asTx(w.db, RUNTIME, (tx) => resolveReceptionistConfig(tx, { provider: "vapi", routingAddress }));
+
+describe("resolveReceptionistConfig", () => {
+  it("has no tenant to escalate to for a number with no provider route", async () => {
+    expect(await resolve(UNKNOWN_NUMBER)).toEqual({ status: "unknown_number" });
+    expect(
+      await count(w.pg, `select 1 from public.ops_cases where organization_id = $1`, [w.orgA.id]),
+    ).toBe(0);
+  });
+
+  it("falls back and opens a high-priority ops case when the tenant has no active config", async () => {
+    expect(await resolve(BUSINESS_NUMBER)).toEqual({
+      status: "missing_config",
+      organizationId: w.orgA.id,
+    });
+    expect(
+      await count(
+        w.pg,
+        `select 1 from public.ops_cases
+          where organization_id = $1 and reason_code = 'missing_data' and priority = 'high'`,
+        [w.orgA.id],
+      ),
+    ).toBe(1);
+  });
+
+  it("resolves the business name and hours once an active receptionist.config rule exists", async () => {
+    await w.pg.query(
+      `insert into public.business_rules (organization_id, action, rule_key, definition)
+       values ($1, $2, 'default', $3::jsonb)`,
+      [
+        w.orgA.id,
+        RECEPTIONIST_CONFIG_RULE_ACTION,
+        JSON.stringify({ business_hours: "Mon-Fri 8am-5pm" }),
+      ],
+    );
+    expect(await resolve(BUSINESS_NUMBER)).toEqual({
+      status: "resolved",
+      organizationId: w.orgA.id,
+      businessName: "Org A",
+      businessHours: "Mon-Fri 8am-5pm",
+    });
+  });
+
+  it("ignores a disabled rule and falls back again", async () => {
+    await w.pg.query(
+      `update public.business_rules set enabled = false
+        where organization_id = $1 and action = $2`,
+      [w.orgA.id, RECEPTIONIST_CONFIG_RULE_ACTION],
+    );
+    expect(await resolve(BUSINESS_NUMBER)).toMatchObject({ status: "missing_config" });
+  });
+});

@@ -150,18 +150,25 @@ const handleCallEnded: WebhookHandler = async (ctx, event) => {
   return { status: "processed" };
 };
 
-/** Synchronous Vapi events need a live answer; the receptionist runtime is a tracked M2 task. */
+/** Synchronous Vapi events need a live answer; tool-calls/transfer are tracked M2 tasks. */
 const notYetSupportedSync: WebhookHandler = async () => ({
   status: "ignored",
   note: "synchronous voice event; receptionist runtime not implemented yet (blueprint M2 repair tasks)",
 });
+
+/**
+ * assistant-request is already answered synchronously, in the webhook route, before this event is
+ * ever claimed (M2-T19: apps/web/src/app/api/webhooks/voice/route.ts). This handler only settles
+ * the durably-stored receipt so it is not retried.
+ */
+const assistantRequestAnswered: WebhookHandler = async () => ({ status: "processed" });
 
 export const DEFAULT_WEBHOOK_HANDLERS: Readonly<Record<string, WebhookHandler>> = {
   "sms.inbound": handleInboundSms,
   "sms.status": handleSmsStatus,
   "call.status": handleCallStatus,
   "call.ended": handleCallEnded,
-  "call.assistant_request": notYetSupportedSync,
+  "call.assistant_request": assistantRequestAnswered,
   "call.tool_calls": notYetSupportedSync,
   "call.transfer_destination_request": notYetSupportedSync,
 };

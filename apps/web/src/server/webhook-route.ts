@@ -6,6 +6,7 @@ import {
   ProviderConfigError,
   WebhookPayloadError,
   type InboundWebhookAdapter,
+  type ParsedWebhookEvent,
   type WebhookRequest,
 } from "@backoffice/integrations";
 import { processWebhookEvents } from "@backoffice/workflows";
@@ -24,12 +25,17 @@ const json = (status: number, body: Record<string, unknown>) => NextResponse.jso
  *   3. signature over the ORIGINAL request valid?   no -> 401
  *   4. parse the provider's real wire format and validate   malformed -> 400
  *   5. durably accept (tenant from provider_routes, never from the payload)   DB error -> 500 (provider retries)
- *   6. acknowledge; then process in the background (the jobs endpoint is the authoritative backstop)
+ *   6. an event the provider waits on synchronously (e.g. Vapi assistant-request) gets its answer here,
+ *      within the request; everything else is acknowledged and processed in the background
  */
 export async function handleProviderWebhook(
   selectAdapter: () => InboundWebhookAdapter,
   request: Request,
-  options: { processInBackground?: boolean } = {},
+  options: {
+    processInBackground?: boolean;
+    /** Returns the synchronous reply for a `requiresResponse` event, or null to use the default ack. */
+    answerSynchronousEvent?: (event: ParsedWebhookEvent) => Promise<Record<string, unknown> | null>;
+  } = {},
 ): Promise<Response> {
   let adapter: InboundWebhookAdapter;
   try {
@@ -78,6 +84,11 @@ export async function handleProviderWebhook(
     console.warn(
       `${parsed.provider} event ${accepted.event.id} redelivered with a different body; kept the first`,
     );
+  }
+
+  if (parsed.requiresResponse && options.answerSynchronousEvent) {
+    const answer = await options.answerSynchronousEvent(parsed);
+    if (answer) return json(200, answer);
   }
 
   if (options.processInBackground ?? true) {

@@ -38,10 +38,30 @@ export interface CallStatusSnapshot {
   endedReason: string | null;
 }
 
+/** One tool the assistant may call, in provider-neutral JSON-Schema function-calling form. */
+export interface AssistantToolDescriptor {
+  name: string;
+  description: string;
+  parameters: Record<string, unknown>;
+}
+
+/**
+ * The receptionist's configuration for one call (M2-T19), independent of any voice provider's wire
+ * format (ARCHITECTURE.md §7-8: provider-independent interfaces). `tools` is empty for a safe
+ * fallback turn (unknown number or missing tenant configuration).
+ */
+export interface AssistantTurn {
+  systemPrompt: string;
+  firstMessage: string;
+  tools: AssistantToolDescriptor[];
+}
+
 /** See SmsProvider: durable idempotency lives in the outbox, not in adapters. */
 export interface VoiceProvider extends InboundWebhookAdapter {
   createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute>;
   initiateOutboundCall(request: OutboundCallRequest): Promise<CallOperationResult>;
   transferCall(request: TransferCallRequest): Promise<CallOperationResult>;
   getCall(providerCallId: string): Promise<CallStatusSnapshot>;
+  /** Build the provider's synchronous reply to an assistant-request-style webhook. */
+  buildAssistantResponse(turn: AssistantTurn): Record<string, unknown>;
 }

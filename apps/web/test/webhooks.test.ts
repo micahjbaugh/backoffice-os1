@@ -157,4 +157,36 @@ describe("handleProviderWebhook", () => {
       expect.objectContaining({ provider: "twilio", eventType: "sms.inbound" }),
     );
   });
+
+  it("answers a synchronous event with the caller's reply instead of the default ack", async () => {
+    const signed = fake.signWebhook({ ...envelope, requiresResponse: true });
+    const answerSynchronousEvent = vi.fn().mockResolvedValue({ assistant: { firstMessage: "hi" } });
+    const res = await handleProviderWebhook(
+      () => fake,
+      fakeRequest(signed.rawBody, signed.headers),
+      {
+        ...opts,
+        answerSynchronousEvent,
+      },
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ assistant: { firstMessage: "hi" } });
+    expect(answerSynchronousEvent).toHaveBeenCalledWith(
+      expect.objectContaining({ eventKey: "m1:inbound" }),
+    );
+  });
+
+  it("falls back to the default ack when the synchronous handler declines to answer", async () => {
+    const signed = fake.signWebhook({ ...envelope, requiresResponse: true });
+    const res = await handleProviderWebhook(
+      () => fake,
+      fakeRequest(signed.rawBody, signed.headers),
+      {
+        ...opts,
+        answerSynchronousEvent: async () => null,
+      },
+    );
+    expect(res.status).toBe(200);
+    await expect(res.json()).resolves.toEqual({ received: true, duplicate: false });
+  });
 });

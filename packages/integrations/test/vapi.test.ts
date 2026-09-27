@@ -142,3 +142,50 @@ describe("Vapi outbound calls", () => {
     });
   });
 });
+
+describe("Vapi assistant-request response (M2-T19)", () => {
+  it("builds a wire-format assistant with the system prompt, first message and function tools", () => {
+    const response = provider().buildAssistantResponse({
+      systemPrompt: "You are the receptionist for Acme Plumbing.",
+      firstMessage: "Thanks for calling Acme Plumbing!",
+      tools: [
+        {
+          name: "lookup_business_info",
+          description: "Look up hours.",
+          parameters: { type: "object" },
+        },
+      ],
+    });
+    expect(response).toMatchObject({
+      assistant: {
+        firstMessage: "Thanks for calling Acme Plumbing!",
+        model: {
+          provider: "openai",
+          messages: [{ role: "system", content: "You are the receptionist for Acme Plumbing." }],
+          tools: [
+            {
+              type: "function",
+              function: { name: "lookup_business_info", description: "Look up hours." },
+            },
+          ],
+        },
+      },
+    });
+  });
+
+  it("uses a configured assistant model instead of the default", () => {
+    const withModel = new VapiVoiceProvider({
+      apiKey: "vapi-api-key-for-tests-000001",
+      webhookSecret: VAPI_WEBHOOK_SECRET,
+      assistantModel: { provider: "anthropic", model: "claude-haiku-4-5" },
+    });
+    const response = withModel.buildAssistantResponse({
+      systemPrompt: "p",
+      firstMessage: "f",
+      tools: [],
+    });
+    expect(response).toMatchObject({
+      assistant: { model: { provider: "anthropic", model: "claude-haiku-4-5" } },
+    });
+  });
+});

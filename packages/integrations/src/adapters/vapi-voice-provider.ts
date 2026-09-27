@@ -2,6 +2,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { z } from "zod";
 import { errorForResponse, providerFetch } from "../outcomes";
 import type {
+  AssistantTurn,
   CallOperationResult,
   CallStatusSnapshot,
   InboundRoute,
@@ -26,7 +27,11 @@ export interface VapiVoiceProviderConfig {
   apiBaseUrl?: string;
   fetchFn?: typeof fetch;
   timeoutMs?: number;
+  /** Which hosted LLM Vapi runs the assistant with (docs.vapi.ai/assistants/model). */
+  assistantModel?: { provider: string; model: string };
 }
+
+const DEFAULT_ASSISTANT_MODEL = { provider: "openai", model: "gpt-4o-mini" };
 
 const STATUS_MAP: Record<string, CallOperationResult["status"]> = {
   queued: "queued",
@@ -113,9 +118,11 @@ export class VapiVoiceProvider implements VoiceProvider {
   readonly provider = "vapi";
   readonly channel = "voice" as const;
   private readonly fetchFn: typeof fetch;
+  private readonly assistantModel: { provider: string; model: string };
 
   constructor(private readonly config: VapiVoiceProviderConfig) {
     this.fetchFn = config.fetchFn ?? fetch;
+    this.assistantModel = config.assistantModel ?? DEFAULT_ASSISTANT_MODEL;
   }
 
   private get baseUrl(): string {
@@ -194,6 +201,29 @@ export class VapiVoiceProvider implements VoiceProvider {
         startedAt: isoTimestamp(m.startedAt),
         endedAt: isoTimestamp(m.endedAt),
         toolCallIds: m.toolCallList?.map((t) => t.id) ?? [],
+      },
+    };
+  }
+
+  /** Vapi's assistant-request wire format (docs.vapi.ai/server-url/events#assistant-request). */
+  buildAssistantResponse(turn: AssistantTurn): Record<string, unknown> {
+    return {
+      assistant: {
+        name: "receptionist",
+        firstMessage: turn.firstMessage,
+        model: {
+          provider: this.assistantModel.provider,
+          model: this.assistantModel.model,
+          messages: [{ role: "system", content: turn.systemPrompt }],
+          tools: turn.tools.map((tool) => ({
+            type: "function",
+            function: {
+              name: tool.name,
+              description: tool.description,
+              parameters: tool.parameters,
+            },
+          })),
+        },
       },
     };
   }

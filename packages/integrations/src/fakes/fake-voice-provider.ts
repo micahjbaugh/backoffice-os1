@@ -1,5 +1,6 @@
 import { ProviderRequestError } from "../outcomes";
 import type {
+  AssistantTurn,
   CallOperationResult,
   CallStatusSnapshot,
   InboundRoute,
@@ -61,6 +62,17 @@ export class FakeVoiceProvider implements VoiceProvider {
       failure.kind,
       failure.retryable ?? false,
     );
+  }
+
+  /** Deterministic, inspectable stand-in for the real wire format (see VapiVoiceProvider). */
+  buildAssistantResponse(turn: AssistantTurn): Record<string, unknown> {
+    return {
+      assistant: {
+        firstMessage: turn.firstMessage,
+        systemPrompt: turn.systemPrompt,
+        tools: turn.tools.map((tool) => tool.name),
+      },
+    };
   }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {

@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { RECEPTIONIST_PROMPT, receptionistAgent, receptionistTools, renderPrompt } from "../src";
+import {
+  RECEPTIONIST_FALLBACK_MESSAGE,
+  RECEPTIONIST_FALLBACK_PROMPT,
+  RECEPTIONIST_PROMPT,
+  receptionistAgent,
+  receptionistGreeting,
+  receptionistTools,
+  renderPrompt,
+} from "../src";
 
 describe("receptionist tool contracts", () => {
   it("only exposes green-risk tools (non-human actors are green-only, packages/domain/permissions.ts)", () => {
@@ -84,5 +92,17 @@ describe("receptionistAgent", () => {
   it("bundles the prompt and the bounded tool set", () => {
     expect(receptionistAgent.name).toBe("receptionist");
     expect(receptionistAgent.tools).toBe(receptionistTools);
+  });
+});
+
+describe("receptionist fallback (unknown number or missing tenant config)", () => {
+  it("greets by name for a resolved call", () => {
+    expect(receptionistGreeting("Acme Plumbing")).toContain("Acme Plumbing");
+  });
+
+  it("has no tools and never promises action or a transfer", () => {
+    expect(RECEPTIONIST_FALLBACK_MESSAGE.length).toBeGreaterThan(0);
+    expect(RECEPTIONIST_FALLBACK_PROMPT.template).not.toMatch(/you (may|can) approve/i);
+    expect(RECEPTIONIST_FALLBACK_PROMPT.template).toMatch(/do not.*transfer/i);
   });
 });

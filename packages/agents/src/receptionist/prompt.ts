@@ -26,3 +26,23 @@ Hard rules:
 
 You may only take action by calling one of your tools. You do not have any authority beyond what each tool's schema and risk class allow.`,
 };
+
+/** Scripted opening line for a resolved call (M2-T19); the rest of the conversation is model-driven. */
+export function receptionistGreeting(businessName: string): string {
+  return `Thanks for calling ${businessName}! How can I help you today?`;
+}
+
+/**
+ * Safe answer for an unknown caller number or a tenant with no active receptionist configuration
+ * (M2-T19): no business identity to disclose and no tools, so the call can only end politely
+ * instead of guessing or exposing another tenant's information.
+ */
+export const RECEPTIONIST_FALLBACK_MESSAGE =
+  "Thanks for calling. We're unable to take your call right now — we'll follow up as soon as possible.";
+
+export const RECEPTIONIST_FALLBACK_PROMPT: VersionedPrompt = {
+  agent: "receptionist",
+  version: 1,
+  template:
+    "Apologize once that the office cannot take calls right now, then end the call politely. Do not answer questions, take any action, or claim to transfer the caller.",
+};
