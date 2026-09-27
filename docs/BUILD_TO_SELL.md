@@ -9,6 +9,11 @@ sent an invoice or updated accounting before those integrations exist and are au
 
 ## Order
 
+**Update (2026-09-27): the text invoice app is priority one.** After M3 and PH, the autopilot builds
+SI1 → SI2 → SI3 → SI4 → SC → SI6 (launch) → SI5, then continues with VIS and the order below
+(PH is already done by then). Product: [TEXT_INVOICE.md](TEXT_INVOICE.md). Build plan and scale rules:
+[TEXT_INVOICE_BUILD.md](TEXT_INVOICE_BUILD.md).
+
 | # | Milestone | Outcome a buyer can see |
 |---|---|---|
 | done | M1, M2 (code complete), M3 | Business Brain, AI receptionist, crew texts become draft records |

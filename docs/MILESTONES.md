@@ -6,7 +6,9 @@ The customer-facing service may be broad. Engineering is still sequential.
 
 Do not start the next milestone until acceptance criteria for the current milestone pass.
 
-**Build order (2026-09-27):** M1 → M2 → M3 → VIS → OPS → OWN → CALL → PH → GO → M4 … M10.
+**Build order (updated 2026-09-27):** M1 → M2 → M3 → PH → SI1 → SI2 → SI3 → SI4 → SC → SI6 → SI5 →
+VIS → OPS → OWN → CALL → GO → M4 … M10. The SI and SC milestones (the text invoice app, priority one)
+are described in `TEXT_INVOICE.md` and `TEXT_INVOICE_BUILD.md`.
 The new milestones (VIS, OPS, OWN, CALL, GO) are described in `BUILD_TO_SELL.md`; Send back in
 `SEND_BACK.md`. The live task list is `workflow/blueprint.json` on the `autopilot` branch.
 
