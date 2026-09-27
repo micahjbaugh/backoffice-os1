@@ -1,0 +1,389 @@
+diff --git a/packages/core/src/rows.ts b/packages/core/src/rows.ts
+index e3a8cb9..9c0daae 100644
+--- a/packages/core/src/rows.ts
++++ b/packages/core/src/rows.ts
+@@ -17,6 +17,7 @@ import type {
+   Job,
+   JobNote,
+   Lead,
++  LeadActivity,
+   MaterialUsage,
+   Membership,
+   Message,
+@@ -299,6 +300,7 @@ export const toCommunication = (r: Row): Communication => ({
+   summary: strOrNull(r.summary),
+   transcript: strOrNull(r.transcript),
+   structuredExtraction: obj(r.structured_extraction),
++  retentionStatus: str(r.retention_status) as Communication["retentionStatus"],
+   createdAt: iso(r.created_at),
+   updatedAt: iso(r.updated_at),
+ });
+@@ -363,6 +365,20 @@ export const toLead = (r: Row): Lead => ({
+   updatedAt: iso(r.updated_at),
+ });
+ 
++export const toLeadActivity = (r: Row): LeadActivity => ({
++  id: str(r.id),
++  organizationId: str(r.organization_id),
++  leadId: str(r.lead_id),
++  activityType: str(r.activity_type) as LeadActivity["activityType"],
++  actorType: str(r.actor_type) as LeadActivity["actorType"],
++  actorUserId: strOrNull(r.actor_user_id),
++  communicationId: strOrNull(r.communication_id),
++  body: strOrNull(r.body),
++  metadata: obj(r.metadata),
++  occurredAt: iso(r.occurred_at),
++  createdAt: iso(r.created_at),
++});
++
+ export const toTimeEntry = (r: Row): TimeEntry => ({
+   id: str(r.id),
+   organizationId: str(r.organization_id),
+diff --git a/packages/core/src/services/call-disposition.ts b/packages/core/src/services/call-disposition.ts
+index 26588ac..2f3b605 100644
+--- a/packages/core/src/services/call-disposition.ts
++++ b/packages/core/src/services/call-disposition.ts
+@@ -16,12 +16,15 @@ import { toCall, toCommunication, type Row } from "../rows";
+ import type { ServiceContext } from "../runtime";
+ import { writeAudit } from "./audit";
+ import { recordEvent } from "./events";
++import { linkCallOutcomeToLeads, type LinkedCallOutcome } from "./leads";
+ 
+ export interface RecordCallDispositionResult {
+   communication: Communication;
+   call: Call;
+   /** False when `providerEventId` was already processed; nothing was changed this call. */
+   created: boolean;
++  /** Lead(s) originating from this communication (M2-T22); empty on replay. */
++  linkedLeads: LinkedCallOutcome[];
+ }
+ 
+ /**
+@@ -62,6 +65,7 @@ export async function recordCallDisposition(
+       communication: toCommunication(communicationRow),
+       call: toCall(callRows[0] as Row),
+       created: false,
++      linkedLeads: [],
+     };
+   }
+ 
+@@ -90,10 +94,17 @@ export async function recordCallDisposition(
+     sourceEventId: event.id,
+     details: { disposition: data.disposition, duration_seconds: data.durationSeconds ?? null },
+   });
++  const communication = toCommunication(updatedCommRows[0] as Row);
++  const linkedLeads = await linkCallOutcomeToLeads(ctx, {
++    communication,
++    disposition: data.disposition,
++    durationSeconds: data.durationSeconds ?? null,
++  });
+ 
+   return {
+-    communication: toCommunication(updatedCommRows[0] as Row),
++    communication,
+     call: toCall(callRows[0] as Row),
+     created: true,
++    linkedLeads,
+   };
+ }
+diff --git a/packages/core/src/services/leads.ts b/packages/core/src/services/leads.ts
+index c651307..a413343 100644
+--- a/packages/core/src/services/leads.ts
++++ b/packages/core/src/services/leads.ts
+@@ -2,15 +2,19 @@
+ // (organization_id, idempotency_key) so a retried/duplicate tool call never creates a second lead.
+ 
+ import {
++  actorUserId,
+   createLeadInput,
+   EVENT_TYPES,
+   NotFoundError,
+   parseInput,
++  type Communication,
+   type CreateLeadInput,
+   type Lead,
++  type LeadActivity,
++  type LeadStatus,
+   type UUID,
+ } from "@backoffice/domain";
+-import { toLead, type Row } from "../rows";
++import { toLead, toLeadActivity, type Row } from "../rows";
+ import type { ServiceContext } from "../runtime";
+ import { assertEntityInOrg } from "./entities";
+ import { recordEvent } from "./events";
+@@ -101,3 +105,78 @@ export async function getLead(ctx: ServiceContext, id: UUID): Promise<Lead | nul
+   );
+   return rows[0] ? toLead(rows[0]) : null;
+ }
++
++export interface LinkedCallOutcome {
++  lead: Lead;
++  activity: LeadActivity;
++}
++
++/**
++ * M2-T22: attach an ended call's outcome to any lead(s) it originated (`originating_communication_id`).
++ * The caller (recordCallDisposition) only invokes this the first time a call-ended event is
++ * processed, so a replayed webhook links nothing twice — no separate idempotency key is needed here.
++ *
++ * A fresh lead's "next step" is to be marked contacted, since a lead can only exist here because a
++ * live conversation created it (the create_lead tool runs mid-call); a lead already past `new` (e.g.
++ * qualified/converted by other means) keeps its status. The call's summary is only copied onto the
++ * lead's timeline while the communication's retention status is still `active` — once retention
++ * purges (M2-T25) a communication's content, this must stop copying it out to new places.
++ */
++export async function linkCallOutcomeToLeads(
++  ctx: ServiceContext,
++  params: { communication: Communication; disposition: string; durationSeconds: number | null },
++): Promise<LinkedCallOutcome[]> {
++  await ctx.authorize("lead.write");
++  const { communication } = params;
++  const { rows } = await ctx.tx.asService<Row>(
++    `select * from public.leads where organization_id = $1 and originating_communication_id = $2`,
++    [ctx.organizationId, communication.id],
++  );
++
++  const results: LinkedCallOutcome[] = [];
++  for (const leadRow of rows) {
++    const lead = toLead(leadRow);
++    const nextStatus: LeadStatus = lead.status === "new" ? "contacted" : lead.status;
++    const includeContent = communication.retentionStatus === "active";
++
++    const { rows: updatedRows } = await ctx.tx.asService<Row>(
++      `update public.leads set status = $2 where id = $1 and organization_id = $3 returning *`,
++      [lead.id, nextStatus, ctx.organizationId],
++    );
++    const updatedLead = toLead(updatedRows[0] as Row);
++
++    const { rows: activityRows } = await ctx.tx.asService<Row>(
++      `insert into public.lead_activities
++         (organization_id, lead_id, activity_type, actor_type, actor_user_id, communication_id, body, metadata)
++       values ($1, $2, 'communication', $3, $4, $5, $6, $7)
++       returning *`,
++      [
++        ctx.organizationId,
++        lead.id,
++        ctx.actor.type,
++        actorUserId(ctx.actor),
++        communication.id,
++        includeContent ? communication.summary : null,
++        {
++          disposition: params.disposition,
++          duration_seconds: params.durationSeconds,
++          previous_status: lead.status,
++          status: nextStatus,
++          retention_status: communication.retentionStatus,
++        },
++      ],
++    );
++    const activity = toLeadActivity(activityRows[0] as Row);
++
++    await recordEvent(ctx, {
++      type: EVENT_TYPES.leadCallOutcomeLinked,
++      entityType: "lead",
++      entityId: lead.id,
++      idempotencyKey: `lead.call_outcome_linked:${lead.id}:${communication.id}`,
++      payload: { disposition: params.disposition, status: nextStatus },
++    });
++
++    results.push({ lead: updatedLead, activity });
++  }
++  return results;
++}
+diff --git a/packages/core/test/call-disposition.test.ts b/packages/core/test/call-disposition.test.ts
+index 5c8f40b..88904ba 100644
+--- a/packages/core/test/call-disposition.test.ts
++++ b/packages/core/test/call-disposition.test.ts
+@@ -4,7 +4,7 @@
+ import { afterAll, beforeAll, describe, expect, it } from "vitest";
+ import { randomUUID } from "node:crypto";
+ import { ForbiddenError, NotFoundError, type Actor } from "@backoffice/domain";
+-import { recordCall, recordCallDisposition } from "../src";
++import { createLead, getLead, recordCall, recordCallDisposition } from "../src";
+ import { count, inOrg, userActor } from "./helpers/db";
+ import { createWorld, type World } from "./helpers/fixtures";
+ 
+@@ -122,3 +122,117 @@ describe("recordCallDisposition", () => {
+     ).rejects.toBeInstanceOf(ForbiddenError);
+   });
+ });
++
++describe("recordCallDisposition links a tool-created lead (M2-T22)", () => {
++  async function callWithLead(orgId: string, summary?: string) {
++    const { communication } = await inOrg(w.db, receptionist, orgId, (ctx) =>
++      recordCall(ctx, {
++        direction: "inbound",
++        provider: "vapi",
++        providerConversationId: `conv-${randomUUID()}`,
++        summary,
++      }),
++    );
++    const { lead } = await inOrg(w.db, receptionist, orgId, (ctx) =>
++      createLead(ctx, {
++        source: "voice",
++        originatingCommunicationId: communication.id,
++        idempotencyKey: `lead-${randomUUID()}`,
++      }),
++    );
++    return { communication, lead };
++  }
++
++  it("attaches the summary/disposition to the lead and marks it contacted", async () => {
++    const { communication, lead } = await callWithLead(
++      w.orgA.id,
++      "Caller wants a quote for a driveway.",
++    );
++
++    const result = await inOrg(w.db, voiceWebhook, w.orgA.id, (ctx) =>
++      recordCallDisposition(ctx, {
++        communicationId: communication.id,
++        disposition: "qualified_lead",
++        providerEventId: `evt-${randomUUID()}`,
++        durationSeconds: 220,
++      }),
++    );
++
++    expect(result.linkedLeads).toHaveLength(1);
++    expect(result.linkedLeads[0]?.lead).toMatchObject({ id: lead.id, status: "contacted" });
++    expect(result.linkedLeads[0]?.activity).toMatchObject({
++      leadId: lead.id,
++      activityType: "communication",
++      communicationId: communication.id,
++      body: "Caller wants a quote for a driveway.",
++    });
++    expect(result.linkedLeads[0]?.activity.metadata).toMatchObject({
++      disposition: "qualified_lead",
++      duration_seconds: 220,
++      status: "contacted",
++    });
++  });
++
++  it("replaying the call-ended webhook links the lead once", async () => {
++    const { communication, lead } = await callWithLead(w.orgA.id);
++    const providerEventId = `evt-${randomUUID()}`;
++    const args = {
++      communicationId: communication.id,
++      disposition: "qualified_lead",
++      providerEventId,
++    };
++
++    const first = await inOrg(w.db, voiceWebhook, w.orgA.id, (ctx) =>
++      recordCallDisposition(ctx, args),
++    );
++    const second = await inOrg(w.db, voiceWebhook, w.orgA.id, (ctx) =>
++      recordCallDisposition(ctx, args),
++    );
++
++    expect(first.linkedLeads).toHaveLength(1);
++    expect(second.linkedLeads).toHaveLength(0);
++    expect(
++      await count(w.pg, `select 1 from public.lead_activities where lead_id = $1`, [lead.id]),
++    ).toBe(1);
++    const linked = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
++      getLead(ctx, lead.id),
++    );
++    expect(linked?.status).toBe("contacted");
++  });
++
++  it("stops copying content once the communication is past 'active' retention", async () => {
++    const { communication } = await callWithLead(w.orgA.id, "Sensitive details discussed.");
++    await w.pg.query(
++      `update public.communications set retention_status = 'pending_deletion' where id = $1`,
++      [communication.id],
++    );
++
++    const result = await inOrg(w.db, voiceWebhook, w.orgA.id, (ctx) =>
++      recordCallDisposition(ctx, {
++        communicationId: communication.id,
++        disposition: "qualified_lead",
++        providerEventId: `evt-${randomUUID()}`,
++      }),
++    );
++
++    expect(result.linkedLeads[0]?.activity.body).toBeNull();
++    expect(result.linkedLeads[0]?.activity.metadata).toMatchObject({
++      retention_status: "pending_deletion",
++    });
++  });
++
++  it("leaves a lead's status alone once it has moved past 'new'", async () => {
++    const { communication, lead } = await callWithLead(w.orgA.id);
++    await w.pg.query(`update public.leads set status = 'qualified' where id = $1`, [lead.id]);
++
++    const result = await inOrg(w.db, voiceWebhook, w.orgA.id, (ctx) =>
++      recordCallDisposition(ctx, {
++        communicationId: communication.id,
++        disposition: "qualified_lead",
++        providerEventId: `evt-${randomUUID()}`,
++      }),
++    );
++
++    expect(result.linkedLeads[0]?.lead.status).toBe("qualified");
++  });
++});
+diff --git a/packages/domain/src/events.ts b/packages/domain/src/events.ts
+index 4769a18..fba07f2 100644
+--- a/packages/domain/src/events.ts
++++ b/packages/domain/src/events.ts
+@@ -25,6 +25,7 @@ export const EVENT_TYPES = {
+   communicationTransferred: "communication.transferred",
+   callDispositionRecorded: "communication.disposition_recorded",
+   leadCreated: "lead.created",
++  leadCallOutcomeLinked: "lead.call_outcome_linked",
+   timeEntryDrafted: "time_entry.drafted",
+   equipmentUsageDrafted: "equipment_usage.drafted",
+   materialUsageDrafted: "material_usage.drafted",
+diff --git a/packages/domain/src/types.ts b/packages/domain/src/types.ts
+index effd78c..563f99b 100644
+--- a/packages/domain/src/types.ts
++++ b/packages/domain/src/types.ts
+@@ -301,6 +301,11 @@ export type CommunicationDirection = (typeof COMMUNICATION_DIRECTIONS)[number];
+ export const COMMUNICATION_STATUSES = ["in_progress", "completed", "failed", "abandoned"] as const;
+ export type CommunicationStatus = (typeof COMMUNICATION_STATUSES)[number];
+ 
++/** MASTER_SPEC §11: "retention policy status". Governs whether raw content (e.g. summary,
++ * transcript) may still be copied elsewhere; M2-T25 owns transitioning it out of 'active'. */
++export const COMMUNICATION_RETENTION_STATUSES = ["active", "pending_deletion", "deleted"] as const;
++export type CommunicationRetentionStatus = (typeof COMMUNICATION_RETENTION_STATUSES)[number];
++
+ export const TRANSFER_REASONS = [
+   "caller_requested_human",
+   "uncertain_intake",
+@@ -329,6 +334,7 @@ export interface Communication extends TenantEntity {
+   summary: string | null;
+   transcript: string | null;
+   structuredExtraction: Record<string, unknown>;
++  retentionStatus: CommunicationRetentionStatus;
+   updatedAt: string;
+ }
+ 
+@@ -410,6 +416,29 @@ export interface Lead extends TenantEntity {
+   updatedAt: string;
+ }
+ 
++/** 0004_leads.sql lead_activities.activity_type check constraint. */
++export const LEAD_ACTIVITY_TYPES = [
++  "status_change",
++  "note",
++  "communication",
++  "assignment",
++  "follow_up",
++  "other",
++] as const;
++export type LeadActivityType = (typeof LEAD_ACTIVITY_TYPES)[number];
++
++/** A system-authored entry in a lead's timeline (0004_leads.sql); never client-writable. */
++export interface LeadActivity extends TenantEntity {
++  leadId: UUID;
++  activityType: LeadActivityType;
++  actorType: ActorType;
++  actorUserId: UUID | null;
++  communicationId: UUID | null;
++  body: string | null;
++  metadata: Record<string, unknown>;
++  occurredAt: string;
++}
++
+ export const DRAFT_RECORD_STATUSES = ["draft", "approved", "rejected"] as const;
+ export type DraftRecordStatus = (typeof DRAFT_RECORD_STATUSES)[number];
+ 
