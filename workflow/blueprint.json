@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "project": "Back Office OS",
-  "source": "docs/MILESTONES.md, docs/MASTER_SPEC.md, docs/M1_BUILD_REPORT.md, docs/BUILD_TO_SELL.md, docs/SEND_BACK.md",
+  "source": "docs/MILESTONES.md, docs/MASTER_SPEC.md, docs/M1_BUILD_REPORT.md, docs/BUILD_TO_SELL.md, docs/SEND_BACK.md, docs/TEXT_INVOICE.md, docs/TEXT_INVOICE_BUILD.md",
   "schema": {
     "milestone": {
       "id": "integer, unique, matches state.json current_milestone_id",
@@ -1090,6 +1090,806 @@
       }
     },
     {
+      "id": 11,
+      "key": "PH",
+      "name": "Production hardening",
+      "status": "pending",
+      "requires": [
+        {
+          "milestone": "M2",
+          "level": "automated"
+        },
+        {
+          "milestone": "M3",
+          "level": "automated"
+        }
+      ],
+      "acceptance": [
+        "server database access uses a least-privilege role; RLS-bypassing access limited to trusted paths",
+        "webhooks, sign-in and server actions are rate limited",
+        "MFA and re-authentication protect owner/admin sensitive operations",
+        "lists are paginated",
+        "documents are stored privately with signed, audited access",
+        "retention, monitoring/alerting and backup/restore are configured and verified"
+      ],
+      "tasks": [
+        {
+          "id": "PH-T00",
+          "title": "Least-privilege database role",
+          "description": "Migration + docs for an app_server role that owns nothing and only has the privileges trusted paths need; the RLS-bypassing owner connection is not used by the app.",
+          "done_when": "Tests prove the app role cannot bypass RLS on user paths and can perform the trusted writes it needs.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "PH-T01",
+          "title": "Rate limiting",
+          "description": "Per-IP and per-tenant rate limits for webhooks, sign-in and server actions with a storage-backed limiter behind an interface.",
+          "done_when": "Limits enforced with tests; provider retries are not broken.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "PH-T02",
+          "title": "Pagination",
+          "description": "Cursor pagination for customers, jobs, vendors, audit log, ops cases and the inbox.",
+          "done_when": "No unbounded list queries remain (test/lint check).",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "PH-T03",
+          "title": "Private document storage",
+          "description": "Supabase Storage buckets with RLS, signed URLs with short expiry, audited downloads for sensitive classes.",
+          "done_when": "Cross-tenant access impossible; downloads audited (tests).",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "PH-T04",
+          "title": "Monitoring and alerting hooks",
+          "description": "Structured logs, health endpoint, and an error-reporting adapter interface; alert on dead-lettered webhooks and unknown outbound operations.",
+          "done_when": "Health endpoint and alerts covered by tests; provider choice left to a person.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "PH-T05",
+          "title": "MFA and re-authentication",
+          "description": "Require MFA for owners/admins and recent re-authentication for role changes, grants, rule changes and provider settings.",
+          "done_when": "Enforced server-side with tests; enabling MFA in the hosted Supabase project is a human step.",
+          "status": "pending",
+          "requires_human": "Enable MFA factors in the hosted Supabase project and choose the enforcement policy.",
+          "deferred": true,
+          "index": 5
+        },
+        {
+          "id": "PH-T06",
+          "title": "Backup and restore verification",
+          "description": "Enable point-in-time recovery in the hosted project and perform a documented restore drill.",
+          "done_when": "A person restored a backup into a scratch project and recorded the result.",
+          "status": "pending",
+          "requires_human": "Requires the hosted Supabase project, a paid plan decision, and a person to run the drill.",
+          "deferred": true,
+          "index": 6
+        },
+        {
+          "id": "PH-T07",
+          "title": "Production hardening acceptance",
+          "description": "Automated checks for everything above that can be verified in CI.",
+          "done_when": "Hardening suite passes in the acceptance gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "depends_on": [
+            "PH-T00",
+            "PH-T01",
+            "PH-T02",
+            "PH-T03",
+            "PH-T04"
+          ],
+          "index": 7
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter @backoffice/core exec vitest run test/hardening"
+      ]
+    },
+    {
+      "id": 17,
+      "key": "SI1",
+      "name": "Text invoice: Solo accounts and the text front door",
+      "status": "pending",
+      "acceptance": [
+        "a new phone number can sign up by text, verify, and set a business name",
+        "a second org cannot see the first",
+        "STOP/HELP work",
+        "an unknown message gets a clarifying reply, never a guess"
+      ],
+      "requires": [
+        {
+          "milestone": "PH",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-si1"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SI1-T00",
+          "title": "Edition flag",
+          "description": "Migration: `organizations.edition` (`office`|`solo`, default `office`), plus solo settings table (business name, logo document id, reminder time, time zone, markup %, review link). RLS. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Migration + RLS isolation tests pass.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SI1-T01",
+          "title": "Self-serve signup",
+          "description": "`/start` form and \"START\" by text. One-time code by SMS, creates org + owner membership. Idempotent per phone; rate-limited (PH-T01). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Duplicate START doesn't create two orgs; code expiry and retry tests.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SI1-T02",
+          "title": "MMS in and out",
+          "description": "Extend `SmsProvider` for inbound media and outbound media URLs; Twilio adapter + fake; media stored in private storage (PH-T03). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Fixture tests for Twilio media webhooks; stored media is org-scoped.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SI1-T03",
+          "title": "Solo command router",
+          "description": "Inbound SMS from a solo owner's phone → structured intent (invoice, customer, question, settings, stop, unknown) via the extraction contract. Unknown → clarification. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Table-driven tests for 30+ sample texts; unknown never becomes an action.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SI1-T04",
+          "title": "Business profile by text",
+          "description": "Business name, logo photo, time zone, reminder time, markup % through the router, with confirmations. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Each setting has a confirm/undo test.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SI1-T05",
+          "title": "Texting compliance",
+          "description": "Opt-in record at signup, STOP/START/HELP, quiet hours (8pm to 6am local unless the owner asked), message templates with business identification. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "STOP blocks all outbound to that number; tests per keyword.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "SI1-T06",
+          "title": "SI1 acceptance suite",
+          "description": "Running app, signed webhooks, local Supabase: signup, isolation, compliance, clarification. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes in CI.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 6
+        },
+        {
+          "id": "SI1-T07",
+          "title": "SI1 walkthrough by a person",
+          "description": "Micah signs up from his own phone against staging. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SI1-T06"
+          ],
+          "index": 7
+        }
+      ]
+    },
+    {
+      "id": 18,
+      "key": "SI2",
+      "name": "Text invoice: Invoices by text",
+      "status": "pending",
+      "acceptance": [
+        "\"Invoice Ann Wilson 555-123-4567, water heater swap, $450\" produces a correct preview",
+        "YES sends exactly once",
+        "tap-to-send link and email both work",
+        "ambiguity produces a question",
+        "a public invoice link shows only that invoice"
+      ],
+      "requires": [
+        {
+          "milestone": "SI1",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-si2"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SI2-T00",
+          "title": "Migration: invoices",
+          "description": "`invoices`, `invoice_lines`, `invoice_revisions`, per-org numbering, public token, status (`draft`, `sent`, `partially_paid`, `paid`, `void`). Shared with M4-T02. RLS, idempotency keys. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Isolation + numbering concurrency tests.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SI2-T01",
+          "title": "Customer capture",
+          "description": "Name/phone/email from text; vCard (shared contact) parser; photo of a work order via `VisionExtractor` (interface + fake). Matching reuses entities/caller-matching; two candidates → clarification. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "vCard fixtures; \"two Wilsons\" asks; never merges customers silently.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SI2-T02",
+          "title": "Invoice draft from text",
+          "description": "Extraction contract for invoice lines; missing amount or customer → ask. Voice memo via `TranscriptionProvider` (interface + fake, then adapter). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "25+ sample texts incl. voice transcripts; no invented amounts.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SI2-T03",
+          "title": "Parts receipt photo",
+          "description": "`VisionExtractor` adapter (Anthropic) reads a receipt into parts lines; markup % applied in domain code; tradesperson confirms. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Fixture receipts; markup rounding tests; low confidence asks.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SI2-T04",
+          "title": "Preview and YES",
+          "description": "Preview text with total and customer; YES creates an approval bound to the revision; \"change X\" creates a new revision; double YES is a no-op. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Idempotency and stale-revision tests (YES to an old preview is refused).",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SI2-T05",
+          "title": "Public invoice page",
+          "description": "`/i/[token]`: branded, mobile-first, invoice only. Pay button disabled until SI3. Rate-limited, revocable. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Token-guessing, cross-org and revoked-token tests; no session required or accepted.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "SI2-T06",
+          "title": "Delivery",
+          "description": "Tap-to-send: `sms:` link with the customer number and prefilled note, returned to the tradesperson. `EmailProvider` interface + fake + adapter (Postmark or Resend; pick one, document it). Sends via the outbox. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Outbox retry/ambiguity tests; email bounce recorded.",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "SI2-T07",
+          "title": "SI2 acceptance suite",
+          "description": "Running app end to end. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 7
+        },
+        {
+          "id": "SI2-T08",
+          "title": "SI2 walkthrough by a person",
+          "description": "Micah invoices himself three ways (text, voice memo, receipt photo). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SI2-T07"
+          ],
+          "index": 8
+        }
+      ]
+    },
+    {
+      "id": 19,
+      "key": "SI3",
+      "name": "Text invoice: Get paid",
+      "status": "pending",
+      "acceptance": [
+        "a connected account can be onboarded",
+        "a customer pays by card and by bank",
+        "the invoice becomes paid exactly once from the signed webhook",
+        "fees are exact",
+        "the tradesperson is told",
+        "subscription trial and failed payment behave"
+      ],
+      "requires": [
+        {
+          "milestone": "SI2",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-si3"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SI3-T00",
+          "title": "PaymentsProvider contract + fake",
+          "description": "Connected-account onboarding link, checkout/payment link with application fee, refunds, webhook verification. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Contract tests run against the fake.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SI3-T01",
+          "title": "Stripe Connect Express adapter",
+          "description": "Adapter only; SDK stays here. Test mode fixtures. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Signed-webhook fixture tests; bad signature → 401.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SI3-T02",
+          "title": "Payout setup by text",
+          "description": "\"Set up payouts\" returns an onboarding link; status tracked from webhooks; invoices before payout setup say \"pay by check or cash.\" Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Status transitions tested from fixtures.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SI3-T03",
+          "title": "Fee rules",
+          "description": "Domain: the advertised all-in rate (card 3.5% + 30¢, bank 1%) and our application fee (the all-in rate minus Stripe's own fee, about 0.6% on cards) are settings, not constants. Stripe's fee is charged to the connected account. Integer cents, rounding tests. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Property tests on fee math.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SI3-T04",
+          "title": "Migration + payment webhooks",
+          "description": "`payments` (shared with M6-T00). Webhook → payment record → invoice status; duplicate and out-of-order events safe; notify tradesperson \"Ann Wilson paid $450.\" Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Replay, reorder and partial-payment tests.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SI3-T05",
+          "title": "Paid cash, void, refund by text",
+          "description": "\"Wilson paid cash\" and \"void 1042\" with confirmation; refunds only through the provider and with confirmation. Audit on each. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Each command's confirm and audit tests.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "SI3-T06",
+          "title": "Subscription billing",
+          "description": "$29/month, 14-day trial, card update link, failed payment → grace → pause sending (never delete data). Add-on line item hook for SI5. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Trial/grace/pause state machine tests.",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "SI3-T07",
+          "title": "SI3 acceptance suite",
+          "description": "Running app with the fake provider; Stripe test-mode fixtures. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 7
+        },
+        {
+          "id": "SI3-T08",
+          "title": "SI3 walkthrough by a person",
+          "description": "A real Stripe test-mode payment from a phone. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SI3-T07"
+          ],
+          "index": 8
+        }
+      ]
+    },
+    {
+      "id": 20,
+      "key": "SI4",
+      "name": "Text invoice: Beat Square (launch set)",
+      "status": "pending",
+      "acceptance": [
+        "the daily nudge turns a one-line reply into an invoice draft",
+        "reminders go at 3/7/14 days and stop on payment or request",
+        "a customer's \"Can I pay Friday?\" becomes a promise with a Friday reminder",
+        "disputes go to the tradesperson",
+        "one review ask per paid customer",
+        "\"Who owes me?\" is accurate"
+      ],
+      "requires": [
+        {
+          "milestone": "SI3",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-si4"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SI4-T00",
+          "title": "Daily \"anything to bill?\"",
+          "description": "Job at the tenant's local reminder time, quiet hours respected, skipped on days with an invoice already sent (setting). Reply goes through SI2 drafting. Shared with M4-T04. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Time zone, quiet-hours and skip tests.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SI4-T01",
+          "title": "Reminder cadence",
+          "description": "3/7/14 days (settings), per-customer and per-invoice stop, stops on payment/void. Via outbox. Shared with M6-T02/T03. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Cadence and stop tests; no reminder after paid, even with a late job run.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SI4-T02",
+          "title": "Customer reply handling",
+          "description": "Replies to our number or email only. Classify: promise to pay (date) → schedule; \"already paid\" or dispute → forward to tradesperson, pause reminders; other → forward. The AI never argues, discounts or agrees to terms. Shared with M6-T04/T05. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "30+ reply samples; disputes always forwarded.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SI4-T03",
+          "title": "Review ask",
+          "description": "After payment, once per customer, only if a review link is set and no dispute. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Once-only and suppression tests.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SI4-T04",
+          "title": "Questions by text",
+          "description": "\"Who owes me?\", \"What did I make in May?\", \"Resend Wilson's invoice\" through a fixed query layer (no free-form SQL from the model). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Correct totals across time zones and partial payments.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SI4-T05",
+          "title": "Weekly summary",
+          "description": "Sunday text: billed, paid, owed, open questions. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Content and empty-week tests.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "SI4-T06",
+          "title": "SI4 acceptance suite",
+          "description": "Running app, simulated clock. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 6
+        },
+        {
+          "id": "SI4-T07",
+          "title": "SI4 walkthrough by a person",
+          "description": "A week of Micah's test business, compressed. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SI4-T06"
+          ],
+          "index": 7
+        }
+      ]
+    },
+    {
+      "id": 21,
+      "key": "SC",
+      "name": "Scale to 100,000 customers",
+      "status": "pending",
+      "acceptance": [
+        "a load test with 100,000 simulated tenants sustains the design target",
+        "the 6pm nudge burst completes within its window without provider rate-limit failures",
+        "webhook ingestion holds 500/second with no loss",
+        "model outages fall back or queue without losing messages",
+        "spend caps stop sending at the cap"
+      ],
+      "requires": [
+        {
+          "milestone": "SI4",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter @backoffice/workflows exec vitest run test/acceptance-sc"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SC-T00",
+          "title": "Durable work queue",
+          "description": "Postgres queue (claim with SKIP LOCKED, visibility timeout, retries, dead-letter), per-tenant fairness; move webhook processing, outbox dispatch and scheduled work onto it. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Concurrency, crash-recovery and fairness tests.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SC-T01",
+          "title": "Scheduled work as due-time rows",
+          "description": "Reminders, nudges and summaries become indexed due-time rows; no per-tenant scans. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Query plans checked in tests; 100k-tenant fixture runs in bounded time.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SC-T02",
+          "title": "Sender pool",
+          "description": "Pool of sending numbers with per-sender throughput, sticky assignment per customer, provider rate-limit backoff, burst spreading. Short code slots in as a pool member. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Throughput and backoff tests against the fake provider.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SC-T03",
+          "title": "Model capacity",
+          "description": "Fast-path parser for common shapes; concurrency limits, backoff, fallback model, per-tenant caps, cost metering. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Fast path covers the top sample shapes; outage test queues instead of failing.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SC-T04",
+          "title": "Database scale",
+          "description": "Indexes led by `organization_id` on hot tables; retention jobs; partitioning plan for messages/audit/events; pooler settings documented. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Migration + index tests; EXPLAIN checks for hot queries.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SC-T05",
+          "title": "Spend guards",
+          "description": "Per-tenant and global caps for SMS, voice and model spend; alerts at 80%; hard stop at cap. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Cap and alert tests.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "SC-T06",
+          "title": "Load test harness",
+          "description": "Script that seeds 100,000 tenants and replays a month's traffic shape against a staging stack; reports throughput, latency, errors and cost. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Harness runs locally at 1/100 scale in CI; full run documented.",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "SC-T07",
+          "title": "SC acceptance suite",
+          "description": "Automated checks for the acceptance list (reduced scale in CI). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 7
+        },
+        {
+          "id": "SC-T08",
+          "title": "SC full-scale run by a person",
+          "description": "Micah (or Claude with him) runs the full 100k load test against staging and records results. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SC-T07"
+          ],
+          "index": 8
+        }
+      ]
+    },
+    {
+      "id": 22,
+      "key": "SI6",
+      "name": "Text invoice: Launch readiness",
+      "status": "pending",
+      "acceptance": [
+        "funnel metrics recorded",
+        "abuse limits enforced",
+        "terms accepted at signup",
+        "help by text works",
+        "founding-customer pricing applies"
+      ],
+      "requires": [
+        {
+          "milestone": "SC",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-si6"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SI6-T00",
+          "title": "Funnel metrics",
+          "description": "Events: signup, verified, first invoice sent, payouts set up, first payment, week-4 active. Ops-only dashboard. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Events emitted once each; no customer PII in metrics.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SI6-T01",
+          "title": "Abuse and fraud limits",
+          "description": "New-account send limits, unusual-amount holds, account freeze by ops, phishing-pattern check on invoice text. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Limit and freeze tests; frozen account can't send.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SI6-T02",
+          "title": "Terms and consent",
+          "description": "Terms/privacy acceptance at signup (text supplied by Micah), versioned; payments terms via Stripe. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Consent recorded with version.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SI6-T03",
+          "title": "Help by text",
+          "description": "\"HELP\"/\"how do I…\" answered from a fixed FAQ; anything else → \"We'll email you\" and an ops case. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "FAQ coverage tests; unknown → ops case.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SI6-T04",
+          "title": "Founding pricing and referrals",
+          "description": "Founding-customer price, referral codes (\"give a month, get a month\"), \"Sent with [name]\" footer on invoice pages (owner can turn off on paid plan). Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Discount and referral credit tests; no double credit.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SI6-T05",
+          "title": "Launch acceptance suite",
+          "description": "Signup to first payment through the running app. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 5
+        },
+        {
+          "id": "SI6-T06",
+          "title": "Launch walkthrough by a person",
+          "description": "Micah onboards one real founding customer. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SI6-T05"
+          ],
+          "index": 6
+        }
+      ]
+    },
+    {
+      "id": 23,
+      "key": "SI5",
+      "name": "Text invoice: Business number add-on",
+      "status": "pending",
+      "acceptance": [
+        "a number can be bought and released",
+        "registration status is tracked and sending falls back to tap-to-send while pending",
+        "calls ring the owner with a whisper and fall back to missed-call text-back",
+        "relayed texts reach the right customer",
+        "\"call Ann\" bridges",
+        "minutes are metered"
+      ],
+      "requires": [
+        {
+          "milestone": "SI6",
+          "level": "automated"
+        },
+        {
+          "milestone": "M2",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-si5"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "SI5-T00",
+          "title": "NumberProvider contract + fake",
+          "description": "Search, buy, release, registration submit/status. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Contract tests.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "SI5-T01",
+          "title": "Twilio number adapter",
+          "description": "Adapter only. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Fixture tests.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "SI5-T02",
+          "title": "Registration workflow",
+          "description": "State machine (collect details → submitted → approved/rejected); status by text; fallback sending while pending. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Each state and rejection path tested.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "SI5-T03",
+          "title": "Ring owner, then missed-call text-back",
+          "description": "Whisper, ring timeout, missed-call SMS, receptionist runtime gathers details, summary to owner. Written so CALL-T00/T01 extend it. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Timeout and failed-ring fallback tests.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "SI5-T04",
+          "title": "Two-way text relay",
+          "description": "Customer texts forwarded to owner with name; owner's reply relayed to the right customer (\"reply to latest\" plus \"to Ann: …\"); ambiguous → ask. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Multi-conversation and ambiguity tests.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "SI5-T05",
+          "title": "\"Call Ann\" bridge",
+          "description": "Ring owner, then connect customer with business caller ID. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Bridge and failure tests.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "SI5-T06",
+          "title": "Add-on billing and metering",
+          "description": "$15 with 300 minutes; usage metering; 80% and 100% alerts; no silent overage charges. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Metering and alert tests.",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "SI5-T07",
+          "title": "SI5 acceptance suite",
+          "description": "Running app with fakes. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Suite passes.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 7
+        },
+        {
+          "id": "SI5-T08",
+          "title": "SI5 walkthrough by a person",
+          "description": "A real number, a real missed call. Follow the architecture and scale rules in docs/TEXT_INVOICE_BUILD.md (product: docs/TEXT_INVOICE.md).",
+          "done_when": "Deferred human check.",
+          "status": "pending",
+          "requires_human": "Needs a person (Micah) with a phone and the staging app.",
+          "deferred": true,
+          "depends_on": [
+            "SI5-T07"
+          ],
+          "index": 8
+        }
+      ]
+    },
+    {
       "id": 12,
       "key": "VIS",
       "name": "See it: leads, conversations, crew, job history",
@@ -1478,111 +2278,6 @@
       ]
     },
     {
-      "id": 11,
-      "key": "PH",
-      "name": "Production hardening",
-      "status": "pending",
-      "requires": [
-        {
-          "milestone": "M2",
-          "level": "automated"
-        },
-        {
-          "milestone": "M3",
-          "level": "automated"
-        }
-      ],
-      "acceptance": [
-        "server database access uses a least-privilege role; RLS-bypassing access limited to trusted paths",
-        "webhooks, sign-in and server actions are rate limited",
-        "MFA and re-authentication protect owner/admin sensitive operations",
-        "lists are paginated",
-        "documents are stored privately with signed, audited access",
-        "retention, monitoring/alerting and backup/restore are configured and verified"
-      ],
-      "tasks": [
-        {
-          "id": "PH-T00",
-          "title": "Least-privilege database role",
-          "description": "Migration + docs for an app_server role that owns nothing and only has the privileges trusted paths need; the RLS-bypassing owner connection is not used by the app.",
-          "done_when": "Tests prove the app role cannot bypass RLS on user paths and can perform the trusted writes it needs.",
-          "status": "pending",
-          "index": 0
-        },
-        {
-          "id": "PH-T01",
-          "title": "Rate limiting",
-          "description": "Per-IP and per-tenant rate limits for webhooks, sign-in and server actions with a storage-backed limiter behind an interface.",
-          "done_when": "Limits enforced with tests; provider retries are not broken.",
-          "status": "pending",
-          "index": 1
-        },
-        {
-          "id": "PH-T02",
-          "title": "Pagination",
-          "description": "Cursor pagination for customers, jobs, vendors, audit log, ops cases and the inbox.",
-          "done_when": "No unbounded list queries remain (test/lint check).",
-          "status": "pending",
-          "index": 2
-        },
-        {
-          "id": "PH-T03",
-          "title": "Private document storage",
-          "description": "Supabase Storage buckets with RLS, signed URLs with short expiry, audited downloads for sensitive classes.",
-          "done_when": "Cross-tenant access impossible; downloads audited (tests).",
-          "status": "pending",
-          "index": 3
-        },
-        {
-          "id": "PH-T04",
-          "title": "Monitoring and alerting hooks",
-          "description": "Structured logs, health endpoint, and an error-reporting adapter interface; alert on dead-lettered webhooks and unknown outbound operations.",
-          "done_when": "Health endpoint and alerts covered by tests; provider choice left to a person.",
-          "status": "pending",
-          "index": 4
-        },
-        {
-          "id": "PH-T05",
-          "title": "MFA and re-authentication",
-          "description": "Require MFA for owners/admins and recent re-authentication for role changes, grants, rule changes and provider settings.",
-          "done_when": "Enforced server-side with tests; enabling MFA in the hosted Supabase project is a human step.",
-          "status": "pending",
-          "requires_human": "Enable MFA factors in the hosted Supabase project and choose the enforcement policy.",
-          "deferred": true,
-          "index": 5
-        },
-        {
-          "id": "PH-T06",
-          "title": "Backup and restore verification",
-          "description": "Enable point-in-time recovery in the hosted project and perform a documented restore drill.",
-          "done_when": "A person restored a backup into a scratch project and recorded the result.",
-          "status": "pending",
-          "requires_human": "Requires the hosted Supabase project, a paid plan decision, and a person to run the drill.",
-          "deferred": true,
-          "index": 6
-        },
-        {
-          "id": "PH-T07",
-          "title": "Production hardening acceptance",
-          "description": "Automated checks for everything above that can be verified in CI.",
-          "done_when": "Hardening suite passes in the acceptance gate.",
-          "status": "pending",
-          "kind": "acceptance",
-          "depends_on": [
-            "PH-T00",
-            "PH-T01",
-            "PH-T02",
-            "PH-T03",
-            "PH-T04"
-          ],
-          "index": 7
-        }
-      ],
-      "acceptance_commands": [
-        "pnpm --filter @backoffice/core exec vitest run test/hardening"
-      ]
-    },
-    {
       "id": 16,
       "key": "GO",
       "name": "Go-live: setup checklist and sales demo",
@@ -1694,7 +2389,7 @@
           "index": 2,
           "id": "M4-T02",
           "title": "Migration: invoices",
-          "description": "invoices and invoice_lines; each line has source_type/source_id evidence references. Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
+          "description": "invoices and invoice_lines; each line has source_type/source_id evidence references. Includes RLS, audit trigger or service audit, and tenant-isolation tests. Extend what SI2-T00 built for the text invoice app; do not rebuild it.",
           "done_when": "Migration applies; isolation tests pass.",
           "status": "pending"
         },
@@ -1710,7 +2405,7 @@
           "index": 4,
           "id": "M4-T04",
           "title": "Unbilled-work detector",
-          "description": "Compare approved time/equipment/material and billable opportunities against invoiced lines and scope; output unbilled items with evidence.",
+          "description": "Compare approved time/equipment/material and billable opportunities against invoiced lines and scope; output unbilled items with evidence. Extend what SI4-T00 built for the text invoice app; do not rebuild it.",
           "done_when": "Detector tests pass (billed, unbilled, partially billed).",
           "status": "pending"
         },
@@ -1988,7 +2683,7 @@
           "index": 0,
           "id": "M6-T00",
           "title": "Migration: payments",
-          "description": "payments table + invoice status/due fields. Includes RLS, audit trigger or service audit, and tenant-isolation tests.",
+          "description": "payments table + invoice status/due fields. Includes RLS, audit trigger or service audit, and tenant-isolation tests. Extend what SI3-T04 built for the text invoice app; do not rebuild it.",
           "done_when": "Migration applies; isolation tests pass.",
           "status": "pending"
         },
@@ -2004,7 +2699,7 @@
           "index": 2,
           "id": "M6-T02",
           "title": "AR cadence rules",
-          "description": "Owner-approved reminder cadence and message templates as versioned business rules.",
+          "description": "Owner-approved reminder cadence and message templates as versioned business rules. Extend what SI4-T01 built for the text invoice app; do not rebuild it.",
           "done_when": "Rule tests pass.",
           "status": "pending"
         },
@@ -2012,7 +2707,7 @@
           "index": 3,
           "id": "M6-T03",
           "title": "AR reminder workflow",
-          "description": "Send due reminders via SMS/email adapters using only approved templates; audited; idempotent per invoice+step.",
+          "description": "Send due reminders via SMS/email adapters using only approved templates; audited; idempotent per invoice+step. Extend what SI4-T01 built for the text invoice app; do not rebuild it.",
           "done_when": "Workflow tests with fake adapters pass.",
           "status": "pending"
         },
@@ -2020,7 +2715,7 @@
           "index": 4,
           "id": "M6-T04",
           "title": "Promise-to-pay capture",
-          "description": "Record customer promise-to-pay from communications; schedule follow-up task.",
+          "description": "Record customer promise-to-pay from communications; schedule follow-up task. Extend what SI4-T02 built for the text invoice app; do not rebuild it.",
           "done_when": "Tests pass.",
           "status": "pending"
         },
@@ -2028,7 +2723,7 @@
           "index": 5,
           "id": "M6-T05",
           "title": "Dispute handling",
-          "description": "Dispute detection pauses reminders and creates an ops case.",
+          "description": "Dispute detection pauses reminders and creates an ops case. Extend what SI4-T02 built for the text invoice app; do not rebuild it.",
           "done_when": "Tests pass.",
           "status": "pending"
         },
