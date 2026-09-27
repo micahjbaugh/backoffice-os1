@@ -1,0 +1,708 @@
+diff --git a/apps/web/src/app/actions/auth.ts b/apps/web/src/app/actions/auth.ts
+index fae91b3..b1283be 100644
+--- a/apps/web/src/app/actions/auth.ts
++++ b/apps/web/src/app/actions/auth.ts
+@@ -1,18 +1,23 @@
+ "use server";
+ 
+-import { cookies } from "next/headers";
++import { cookies, headers } from "next/headers";
+ import { redirect } from "next/navigation";
+ import { createOrganizationWithOwner, runAs } from "@backoffice/core";
+ import type { ActionState } from "@/lib/action-state";
+ import { field, runAction } from "@/server/actions";
+ import { db } from "@/server/db";
++import { clientIp, enforceSignInRateLimit, RateLimitedError } from "@/server/rate-limit";
+ import { auth, ORG_COOKIE, ORG_COOKIE_OPTIONS, requireUser } from "@/server/session";
+ 
+ export async function signInAction(_prev: ActionState, form: FormData): Promise<ActionState> {
+-  const result = await auth.signInWithPassword(
+-    field(form, "email") ?? "",
+-    String(form.get("password") ?? ""),
+-  );
++  const email = field(form, "email") ?? "";
++  try {
++    await enforceSignInRateLimit(clientIp(await headers()), email);
++  } catch (error) {
++    if (error instanceof RateLimitedError) return { ok: false, message: error.message };
++    throw error;
++  }
++  const result = await auth.signInWithPassword(email, String(form.get("password") ?? ""));
+   if (result.error) return { ok: false, message: result.error };
+   redirect("/inbox");
+ }
+diff --git a/apps/web/src/server/rate-limit.ts b/apps/web/src/server/rate-limit.ts
+new file mode 100644
+index 0000000..d98657c
+--- /dev/null
++++ b/apps/web/src/server/rate-limit.ts
+@@ -0,0 +1,70 @@
++import "server-only";
++
++import { createPostgresRateLimiter, enforceRateLimit, type RateLimiter } from "@backoffice/core";
++import { db } from "./db";
++
++export { RateLimitedError } from "@backoffice/domain";
++
++interface HeaderLike {
++  get(name: string): string | null;
++}
++
++const globalForLimiter = globalThis as unknown as { backofficeRateLimiter?: RateLimiter };
++
++function limiter(): RateLimiter {
++  globalForLimiter.backofficeRateLimiter ??= createPostgresRateLimiter(db());
++  return globalForLimiter.backofficeRateLimiter;
++}
++
++/** Client IP from the proxy headers our deployment target sets; "unknown" shares one bucket rather
++ *  than throwing when a proxy is missing (e.g. local dev), so limiting still degrades safely. */
++export function clientIp(headers: HeaderLike): string {
++  const forwarded = headers.get("x-forwarded-for");
++  if (forwarded) return forwarded.split(",")[0]!.trim() || "unknown";
++  return headers.get("x-real-ip")?.trim() || "unknown";
++}
++
++// Providers share IP ranges across tenants, so this is a coarse flood guard, not a per-tenant
++// budget: tenant identity for a webhook isn't known until after signature verification anyway.
++// Generous on purpose so a legitimate retry storm from a provider still gets through.
++const WEBHOOK_LIMIT = 300;
++const WEBHOOK_WINDOW_MS = 60_000;
++
++export async function enforceWebhookRateLimit(request: Request, provider: string): Promise<void> {
++  await enforceRateLimit(
++    limiter(),
++    `webhook:${provider}:${clientIp(request.headers)}`,
++    WEBHOOK_LIMIT,
++    WEBHOOK_WINDOW_MS,
++  );
++}
++
++// Two dimensions so one leaked/guessed address can't be brute-forced from many IPs, and one IP
++// can't spray many addresses; both must pass.
++const SIGNIN_IP_LIMIT = 20;
++const SIGNIN_EMAIL_LIMIT = 8;
++const SIGNIN_WINDOW_MS = 5 * 60_000;
++
++export async function enforceSignInRateLimit(ip: string, email: string): Promise<void> {
++  await enforceRateLimit(limiter(), `signin:ip:${ip}`, SIGNIN_IP_LIMIT, SIGNIN_WINDOW_MS);
++  await enforceRateLimit(
++    limiter(),
++    `signin:email:${email.trim().toLowerCase()}`,
++    SIGNIN_EMAIL_LIMIT,
++    SIGNIN_WINDOW_MS,
++  );
++}
++
++// Authenticated server actions: scoped to the tenant (or operator) already established by
++// withTenant/withOperator, so a compromised or scripted account can't hammer the domain layer.
++const SERVER_ACTION_LIMIT = 60;
++const SERVER_ACTION_WINDOW_MS = 60_000;
++
++export async function enforceServerActionRateLimit(scopeKey: string): Promise<void> {
++  await enforceRateLimit(
++    limiter(),
++    `action:${scopeKey}`,
++    SERVER_ACTION_LIMIT,
++    SERVER_ACTION_WINDOW_MS,
++  );
++}
+diff --git a/apps/web/src/server/session.ts b/apps/web/src/server/session.ts
+index b6e1ce7..f955a7f 100644
+--- a/apps/web/src/server/session.ts
++++ b/apps/web/src/server/session.ts
+@@ -16,6 +16,7 @@ import type { InternalStaff, MembershipRole, Organization } from "@backoffice/do
+ import type { AuthProvider, AuthUser } from "./auth/provider";
+ import { supabaseAuth } from "./auth/supabase";
+ import { db } from "./db";
++import { enforceServerActionRateLimit } from "./rate-limit";
+ 
+ export const auth: AuthProvider = supabaseAuth;
+ 
+@@ -71,6 +72,7 @@ export async function withTenant<T>(
+   fn: (ctx: ServiceContext, session: TenantSession) => Promise<T>,
+ ): Promise<T> {
+   const session = await getTenantSession();
++  await enforceServerActionRateLimit(`tenant:${session.organization.id}`);
+   return runAs(db(), { type: "user", userId: session.user.id }, (tx) =>
+     fn(inTenant(tx, session.organization.id), session),
+   );
+@@ -86,5 +88,6 @@ export async function requireOperator(): Promise<{ user: AuthUser; staff: Intern
+ /** Run Ops Console work as an internal operator. Tenant access additionally requires a live grant. */
+ export async function withOperator<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
+   const { user } = await requireOperator();
++  await enforceServerActionRateLimit(`operator:${user.id}`);
+   return runAs(db(), { type: "internal_operator", userId: user.id }, fn);
+ }
+diff --git a/apps/web/src/server/webhook-route.ts b/apps/web/src/server/webhook-route.ts
+index 1b23c3d..d778ad0 100644
+--- a/apps/web/src/server/webhook-route.ts
++++ b/apps/web/src/server/webhook-route.ts
+@@ -2,6 +2,7 @@ import "server-only";
+ 
+ import { NextResponse, after } from "next/server";
+ import { acceptWebhookEvent, runAs } from "@backoffice/core";
++import { RateLimitedError } from "@backoffice/domain";
+ import {
+   ProviderConfigError,
+   WebhookPayloadError,
+@@ -11,6 +12,7 @@ import {
+ } from "@backoffice/integrations";
+ import { processWebhookEvents, type WebhookHandler } from "@backoffice/workflows";
+ import { db } from "./db";
++import { enforceWebhookRateLimit } from "./rate-limit";
+ 
+ /** Largest body we accept (Vapi end-of-call reports with transcripts can be large). */
+ export const MAX_WEBHOOK_BYTES = 1_000_000;
+@@ -22,10 +24,13 @@ const json = (status: number, body: Record<string, unknown>) => NextResponse.jso
+  *
+  *   1. adapter available?          no  -> 503 (misconfigured deployments fail closed)
+  *   2. body within size limit?      no  -> 413
+- *   3. signature over the ORIGINAL request valid?   no -> 401
+- *   4. parse the provider's real wire format and validate   malformed -> 400
+- *   5. durably accept (tenant from provider_routes, never from the payload)   DB error -> 500 (provider retries)
+- *   6. an event the provider waits on synchronously (e.g. Vapi assistant-request) gets its answer here,
++ *   3. signature over the ORIGINAL request valid?   no -> 401 (checked before the rate limit and
++ *      every other DB-backed step, so an unauthenticated flood or a database outage never turns
++ *      an otherwise-cheap rejection into a 500)
++ *   4. per-(provider, IP) request rate under the flood guard?   no -> 429 with Retry-After (providers retry)
++ *   5. parse the provider's real wire format and validate   malformed -> 400
++ *   6. durably accept (tenant from provider_routes, never from the payload)   DB error -> 500 (provider retries)
++ *   7. an event the provider waits on synchronously (e.g. Vapi assistant-request) gets its answer here,
+  *      within the request; everything else is acknowledged and processed in the background
+  */
+ export async function handleProviderWebhook(
+@@ -64,6 +69,22 @@ export async function handleProviderWebhook(
+     return json(401, { error: "invalid signature" });
+   }
+ 
++  try {
++    await enforceWebhookRateLimit(request, adapter.provider);
++  } catch (error) {
++    if (error instanceof RateLimitedError) {
++      console.warn(`${adapter.provider} webhook rate limited: ${error.message}`);
++      return new NextResponse(JSON.stringify({ error: "rate limited" }), {
++        status: 429,
++        headers: {
++          "content-type": "application/json",
++          "retry-after": String(Math.ceil(error.retryAfterMs / 1000)),
++        },
++      });
++    }
++    throw error;
++  }
++
+   let parsed;
+   try {
+     parsed = adapter.parseWebhookRequest(req);
+diff --git a/apps/web/test/auth-actions.test.ts b/apps/web/test/auth-actions.test.ts
+new file mode 100644
+index 0000000..2394e2e
+--- /dev/null
++++ b/apps/web/test/auth-actions.test.ts
+@@ -0,0 +1,23 @@
++// PH-T01: sign-in must be rate limited before any credential check reaches the identity provider.
++// auth.ts pulls in `@/...` aliases vitest doesn't resolve (unlike the real Next build), so this is
++// a static guard on the source rather than an executed unit test; the rate limiter's own behavior
++// (key construction, throwing once denied) is covered in rate-limit.test.ts.
++
++import { readFileSync } from "node:fs";
++import { join } from "node:path";
++import { describe, expect, it } from "vitest";
++
++const source = readFileSync(join(import.meta.dirname, "../src/app/actions/auth.ts"), "utf8");
++
++describe("signInAction", () => {
++  it("enforces the sign-in rate limit before calling the identity provider", () => {
++    const start = source.indexOf("export async function signInAction");
++    const end = source.indexOf("export async function signUpAction");
++    const body = source.slice(start, end);
++    expect(body).toMatch(/enforceSignInRateLimit\(/);
++    const rateLimitCallIndex = body.indexOf("enforceSignInRateLimit(");
++    const signInCallIndex = body.indexOf("auth.signInWithPassword(");
++    expect(rateLimitCallIndex).toBeGreaterThan(-1);
++    expect(signInCallIndex).toBeGreaterThan(rateLimitCallIndex);
++  });
++});
+diff --git a/apps/web/test/rate-limit.test.ts b/apps/web/test/rate-limit.test.ts
+new file mode 100644
+index 0000000..5d0ca39
+--- /dev/null
++++ b/apps/web/test/rate-limit.test.ts
+@@ -0,0 +1,101 @@
++// PH-T01: the app-level wiring (key construction, per-surface limits) on top of the storage-backed
++// limiter. The limiter itself (Postgres semantics) is covered in packages/core/test/rate-limit.test.ts;
++// here it is faked so this stays a fast, DB-free unit test of the wiring.
++
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import type * as CoreModule from "@backoffice/core";
++
++const { consume } = vi.hoisted(() => ({ consume: vi.fn() }));
++vi.mock("server-only", () => ({}));
++vi.mock("../src/server/db", () => ({ db: () => ({}) }));
++vi.mock("@backoffice/core", async () => {
++  const actual = await vi.importActual<typeof CoreModule>("@backoffice/core");
++  return { ...actual, createPostgresRateLimiter: () => ({ consume }) };
++});
++
++const allow = (remaining = 0) => ({ allowed: true, remaining, retryAfterMs: 0 });
++const deny = (retryAfterMs = 1000) => ({ allowed: false, remaining: 0, retryAfterMs });
++
++function headers(value: Record<string, string>) {
++  return { get: (name: string) => value[name.toLowerCase()] ?? null };
++}
++
++beforeEach(() => {
++  consume.mockReset().mockResolvedValue(allow());
++  (globalThis as { backofficeRateLimiter?: unknown }).backofficeRateLimiter = undefined;
++});
++
++describe("clientIp", () => {
++  it("takes the first address from X-Forwarded-For", async () => {
++    const { clientIp } = await import("../src/server/rate-limit");
++    expect(clientIp(headers({ "x-forwarded-for": "1.2.3.4, 5.6.7.8" }))).toBe("1.2.3.4");
++  });
++
++  it("falls back to X-Real-IP, then unknown", async () => {
++    const { clientIp } = await import("../src/server/rate-limit");
++    expect(clientIp(headers({ "x-real-ip": "9.9.9.9" }))).toBe("9.9.9.9");
++    expect(clientIp(headers({}))).toBe("unknown");
++  });
++});
++
++describe("enforceWebhookRateLimit", () => {
++  it("keys by provider and IP, and passes when allowed", async () => {
++    const { enforceWebhookRateLimit } = await import("../src/server/rate-limit");
++    const request = new Request("https://app.example.com/api/webhooks/sms", {
++      headers: { "x-forwarded-for": "1.2.3.4" },
++    });
++    await enforceWebhookRateLimit(request, "twilio");
++    expect(consume).toHaveBeenCalledWith(
++      "webhook:twilio:1.2.3.4",
++      expect.any(Number),
++      expect.any(Number),
++    );
++  });
++
++  it("throws RateLimitedError when denied", async () => {
++    consume.mockResolvedValueOnce(deny(5000));
++    const { enforceWebhookRateLimit, RateLimitedError } = await import("../src/server/rate-limit");
++    const request = new Request("https://app.example.com/api/webhooks/sms");
++    await expect(enforceWebhookRateLimit(request, "twilio")).rejects.toBeInstanceOf(
++      RateLimitedError,
++    );
++  });
++});
++
++describe("enforceSignInRateLimit", () => {
++  it("checks both the IP and the email budget", async () => {
++    const { enforceSignInRateLimit } = await import("../src/server/rate-limit");
++    await enforceSignInRateLimit("1.2.3.4", "Owner@Example.com");
++    expect(consume).toHaveBeenCalledWith(
++      "signin:ip:1.2.3.4",
++      expect.any(Number),
++      expect.any(Number),
++    );
++    expect(consume).toHaveBeenCalledWith(
++      "signin:email:owner@example.com",
++      expect.any(Number),
++      expect.any(Number),
++    );
++  });
++
++  it("fails on the IP budget without checking email", async () => {
++    consume.mockResolvedValueOnce(deny());
++    const { enforceSignInRateLimit, RateLimitedError } = await import("../src/server/rate-limit");
++    await expect(enforceSignInRateLimit("1.2.3.4", "a@b.test")).rejects.toBeInstanceOf(
++      RateLimitedError,
++    );
++    expect(consume).toHaveBeenCalledTimes(1);
++  });
++});
++
++describe("enforceServerActionRateLimit", () => {
++  it("scopes the bucket key to the caller-provided scope", async () => {
++    const { enforceServerActionRateLimit } = await import("../src/server/rate-limit");
++    await enforceServerActionRateLimit("tenant:org-1");
++    expect(consume).toHaveBeenCalledWith(
++      "action:tenant:org-1",
++      expect.any(Number),
++      expect.any(Number),
++    );
++  });
++});
+diff --git a/apps/web/test/session.test.ts b/apps/web/test/session.test.ts
+new file mode 100644
+index 0000000..85ab804
+--- /dev/null
++++ b/apps/web/test/session.test.ts
+@@ -0,0 +1,89 @@
++// PH-T01: withTenant/withOperator are the single choke point every tenant/operator server action
++// goes through (see boundaries.test.ts), so per-tenant/per-operator rate limiting lives here. The
++// limiter's own semantics are covered elsewhere; this proves the check runs, and blocks the action
++// when it fails, rather than being wired up wrong or skipped.
++
++import { beforeEach, describe, expect, it, vi } from "vitest";
++
++const {
++  getInternalStaff,
++  inTenant,
++  listMyOrganizations,
++  runAs,
++  enforceServerActionRateLimit,
++  getUser,
++} = vi.hoisted(() => ({
++  getInternalStaff: vi.fn(),
++  inTenant: vi.fn((tx: unknown, organizationId: unknown) => ({ tx, organizationId })),
++  listMyOrganizations: vi.fn(),
++  runAs: vi.fn((_db: unknown, actor: unknown, fn: (tx: unknown) => unknown) => fn({ actor })),
++  enforceServerActionRateLimit: vi.fn(),
++  getUser: vi.fn(),
++}));
++
++vi.mock("server-only", () => ({}));
++vi.mock("next/headers", () => ({
++  cookies: async () => ({ get: () => undefined, set: () => {}, delete: () => {} }),
++}));
++vi.mock("next/navigation", () => ({
++  redirect: vi.fn((url: string) => {
++    throw new Error(`redirect:${url}`);
++  }),
++  notFound: vi.fn(() => {
++    throw new Error("notFound");
++  }),
++}));
++vi.mock("@backoffice/core", () => ({ getInternalStaff, inTenant, listMyOrganizations, runAs }));
++vi.mock("../src/server/auth/supabase", () => ({ supabaseAuth: { getUser } }));
++vi.mock("../src/server/db", () => ({ db: () => ({}) }));
++vi.mock("../src/server/rate-limit", () => ({ enforceServerActionRateLimit }));
++
++const { withOperator, withTenant } = await import("../src/server/session");
++
++beforeEach(() => {
++  getInternalStaff.mockReset().mockResolvedValue(null);
++  listMyOrganizations
++    .mockReset()
++    .mockResolvedValue([{ organization: { id: "org-1", name: "Org" }, role: "owner" }]);
++  runAs.mockClear();
++  enforceServerActionRateLimit.mockReset().mockResolvedValue(undefined);
++  getUser.mockReset().mockResolvedValue({ id: "user-1", email: "a@b.test" });
++});
++
++describe("withTenant", () => {
++  it("enforces the tenant's rate limit before running the action", async () => {
++    const action = vi.fn(async () => "ok");
++    await withTenant(action);
++    expect(enforceServerActionRateLimit).toHaveBeenCalledWith("tenant:org-1");
++    expect(action).toHaveBeenCalled();
++  });
++
++  it("never runs the action when the tenant is rate limited", async () => {
++    const { RateLimitedError } = await import("@backoffice/domain");
++    enforceServerActionRateLimit.mockRejectedValueOnce(new RateLimitedError(1_000));
++    const action = vi.fn(async () => "ok");
++    await expect(withTenant(action)).rejects.toBeInstanceOf(RateLimitedError);
++    expect(action).not.toHaveBeenCalled();
++  });
++});
++
++describe("withOperator", () => {
++  beforeEach(() => {
++    getInternalStaff.mockResolvedValue({ id: "staff-1", role: "ops_agent" });
++  });
++
++  it("enforces the operator's rate limit before running the action", async () => {
++    const action = vi.fn(async () => "ok");
++    await withOperator(action);
++    expect(enforceServerActionRateLimit).toHaveBeenCalledWith("operator:user-1");
++    expect(action).toHaveBeenCalled();
++  });
++
++  it("never runs the action when the operator is rate limited", async () => {
++    const { RateLimitedError } = await import("@backoffice/domain");
++    enforceServerActionRateLimit.mockRejectedValueOnce(new RateLimitedError(1_000));
++    const action = vi.fn(async () => "ok");
++    await expect(withOperator(action)).rejects.toBeInstanceOf(RateLimitedError);
++    expect(action).not.toHaveBeenCalled();
++  });
++});
+diff --git a/apps/web/test/webhooks.test.ts b/apps/web/test/webhooks.test.ts
+index 5fb5bcb..1a4e2a5 100644
+--- a/apps/web/test/webhooks.test.ts
++++ b/apps/web/test/webhooks.test.ts
+@@ -12,9 +12,10 @@ import {
+   twilioRequest,
+ } from "../../../packages/integrations/test/fixtures/providers";
+ 
+-const { acceptWebhookEvent, runAs } = vi.hoisted(() => ({
++const { acceptWebhookEvent, runAs, enforceWebhookRateLimit } = vi.hoisted(() => ({
+   acceptWebhookEvent: vi.fn(),
+   runAs: vi.fn((_db: unknown, _actor: unknown, fn: (tx: unknown) => unknown) => fn({})),
++  enforceWebhookRateLimit: vi.fn(),
+ }));
+ 
+ // "server-only" throws outside Next's bundler; stub it so src/server modules can be unit tested.
+@@ -22,6 +23,7 @@ vi.mock("server-only", () => ({}));
+ vi.mock("@backoffice/core", () => ({ acceptWebhookEvent, runAs }));
+ vi.mock("@backoffice/workflows", () => ({ processWebhookEvents: vi.fn() }));
+ vi.mock("../src/server/db", () => ({ db: () => ({}) }));
++vi.mock("../src/server/rate-limit", () => ({ enforceWebhookRateLimit }));
+ 
+ const { handleProviderWebhook, MAX_WEBHOOK_BYTES } = await import("../src/server/webhook-route");
+ 
+@@ -55,6 +57,7 @@ describe("handleProviderWebhook", () => {
+       .mockReset()
+       .mockResolvedValue({ event: { id: "evt-1" }, duplicate: false, payloadMismatch: false });
+     runAs.mockClear();
++    enforceWebhookRateLimit.mockReset().mockResolvedValue(undefined);
+   });
+ 
+   it("fails closed with 503 when providers are not configured, storing nothing", async () => {
+@@ -69,6 +72,20 @@ describe("handleProviderWebhook", () => {
+     expect(acceptWebhookEvent).not.toHaveBeenCalled();
+   });
+ 
++  it("answers 429 with Retry-After when a validly signed caller is rate limited, storing nothing", async () => {
++    const { RateLimitedError } = await import("@backoffice/domain");
++    enforceWebhookRateLimit.mockRejectedValueOnce(new RateLimitedError(5_000));
++    const signed = fake.signWebhook(envelope);
++    const res = await handleProviderWebhook(
++      () => fake,
++      fakeRequest(signed.rawBody, signed.headers),
++      opts,
++    );
++    expect(res.status).toBe(429);
++    expect(res.headers.get("retry-after")).toBe("5");
++    expect(acceptWebhookEvent).not.toHaveBeenCalled();
++  });
++
+   it("rejects an invalid or missing signature with 401", async () => {
+     const signed = fake.signWebhook(envelope);
+     const tampered = await handleProviderWebhook(
+@@ -84,6 +101,9 @@ describe("handleProviderWebhook", () => {
+     );
+     expect(unsigned.status).toBe(401);
+     expect(acceptWebhookEvent).not.toHaveBeenCalled();
++    // Signature verification never needs the rate limiter's (database-backed) budget check, so an
++    // outage there can't turn a cheap, correct 401 into a 500.
++    expect(enforceWebhookRateLimit).not.toHaveBeenCalled();
+   });
+ 
+   it("answers a validly signed but malformed payload with 400", async () => {
+diff --git a/docs/PRODUCTION_HARDENING.md b/docs/PRODUCTION_HARDENING.md
+index e4c6ea7..7d54055 100644
+--- a/docs/PRODUCTION_HARDENING.md
++++ b/docs/PRODUCTION_HARDENING.md
+@@ -14,7 +14,7 @@ autopilot tracks them as milestone **PH** (it must pass before any M4+ work star
+ | Secrets never in the browser bundle | Done | Production build scanned for sentinel secrets on every test run. |
+ | Background job trigger | Code done; **scheduling is a human decision** | `POST /api/internal/jobs` with `INTERNAL_JOBS_SECRET`. Needs a scheduler (e.g. Vercel Cron, GitHub Actions, Supabase cron) calling it every ~1 min. |
+ | Least-privilege DB role | Done | `app_server` role (migration `0017_app_server_role.sql`): owns nothing, not superuser, `NOBYPASSRLS`. User paths still go through `SET LOCAL ROLE authenticated` (full RLS); trusted service writes (audit, events, decisions, webhook/outbox processing, non-human-actor domain writes) are scoped to an explicit per-table grant + policy list, not a blanket bypass. `DATABASE_URL` must point at `app_server`, never at the migration-owner role, in every deployed environment (`packages/core/test/hardening/least-privilege-role.test.ts`). |
+-| Rate limiting | Planned (PH-T01) | No limits yet on webhooks, sign-in, server actions. |
++| Rate limiting | Done | Storage-backed fixed-window limiter behind a `RateLimiter` interface (`packages/core/src/services/rate-limit.ts`, table `rate_limit_counters`). Applied per (provider, IP) on webhooks (429 + `Retry-After`, generous enough that provider retries still land), per IP and per email on sign-in, and per tenant/operator on every `withTenant`/`withOperator` server action (`apps/web/src/server/rate-limit.ts`). |
+ | Pagination | Planned (PH-T02) | List pages are unbounded. |
+ | Private document storage | Planned (PH-T03) | Metadata only; no storage buckets/signed URLs yet. |
+ | Monitoring & alerting | Planned (PH-T04) | Logs only; no health endpoint or alerting on dead letters/unknown operations. |
+diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
+index a563020..1036dd6 100644
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -34,6 +34,7 @@ export * from "./services/ops-operations";
+ export * from "./services/ops-outbound";
+ export * from "./services/organizations";
+ export * from "./services/provider-routes";
++export * from "./services/rate-limit";
+ export * from "./services/receptionist";
+ export * from "./services/records";
+ export * from "./services/retention";
+diff --git a/packages/core/src/services/rate-limit.ts b/packages/core/src/services/rate-limit.ts
+new file mode 100644
+index 0000000..f67efef
+--- /dev/null
++++ b/packages/core/src/services/rate-limit.ts
+@@ -0,0 +1,69 @@
++// Storage-backed rate limiting behind an interface (PH-T01): callers depend only on `RateLimiter`,
++// never on how buckets are stored, so the backing store can change without touching call sites.
++
++import { RateLimitedError } from "@backoffice/domain";
++import type { Database } from "../db/types";
++
++export interface RateLimitResult {
++  allowed: boolean;
++  /** Requests left in the current window when `allowed`; 0 otherwise. */
++  remaining: number;
++  /** Milliseconds until the caller may retry; 0 when `allowed`. */
++  retryAfterMs: number;
++}
++
++export interface RateLimiter {
++  /** Consume one unit of `key`'s budget of `limit` per `windowMs` (a fixed window). */
++  consume(key: string, limit: number, windowMs: number): Promise<RateLimitResult>;
++}
++
++/**
++ * Postgres-backed fixed-window limiter: one row per bucket key. The `on conflict` upsert takes a
++ * row lock, so concurrent requests for the same key still get a correct, serialized count instead
++ * of a lost update. A fixed window can allow up to 2x `limit` right at a window boundary; that
++ * trade-off is fine here because every limit below is a coarse abuse guard, not a billing meter.
++ */
++export function createPostgresRateLimiter(db: Database): RateLimiter {
++  return {
++    async consume(key, limit, windowMs) {
++      const now = Date.now();
++      const windowStart = new Date(Math.floor(now / windowMs) * windowMs);
++      const { rows } = await db.transaction((exec) =>
++        exec.query<{ count: number; window_start: string }>(
++          `insert into public.rate_limit_counters (bucket_key, window_start, count, updated_at)
++           values ($1, $2, 1, now())
++           on conflict (bucket_key) do update
++             set count = case
++                   when public.rate_limit_counters.window_start = excluded.window_start
++                   then public.rate_limit_counters.count + 1
++                   else 1
++                 end,
++                 window_start = excluded.window_start,
++                 updated_at = now()
++           returning count, window_start`,
++          [key, windowStart.toISOString()],
++        ),
++      );
++      const row = rows[0];
++      const count = row ? Number(row.count) : 1;
++      const bucketStart = row ? new Date(row.window_start).getTime() : windowStart.getTime();
++      return {
++        allowed: count <= limit,
++        remaining: Math.max(0, limit - count),
++        retryAfterMs: Math.max(0, bucketStart + windowMs - now),
++      };
++    },
++  };
++}
++
++/** Consume from `limiter`, throwing `RateLimitedError` instead of returning a decision, for call
++ *  sites that want limiting to short-circuit like any other domain error. */
++export async function enforceRateLimit(
++  limiter: RateLimiter,
++  key: string,
++  limit: number,
++  windowMs: number,
++): Promise<void> {
++  const result = await limiter.consume(key, limit, windowMs);
++  if (!result.allowed) throw new RateLimitedError(result.retryAfterMs);
++}
+diff --git a/packages/core/test/rate-limit.test.ts b/packages/core/test/rate-limit.test.ts
+new file mode 100644
+index 0000000..c00961f
+--- /dev/null
++++ b/packages/core/test/rate-limit.test.ts
+@@ -0,0 +1,61 @@
++// PH-T01: the Postgres-backed limiter enforces a fixed window per bucket key, independently of
++// other keys, and resets once the window rolls over.
++
++import { randomUUID } from "node:crypto";
++import { afterAll, beforeAll, describe, expect, it } from "vitest";
++import { RateLimitedError } from "@backoffice/domain";
++import { createPostgresRateLimiter, enforceRateLimit, type RateLimiter } from "../src";
++import { createTestDatabase, type TestDatabase } from "./helpers/db";
++
++let t: TestDatabase;
++let limiter: RateLimiter;
++
++beforeAll(async () => {
++  t = await createTestDatabase();
++  limiter = createPostgresRateLimiter(t.db);
++});
++afterAll(async () => {
++  await t.close();
++});
++
++describe("createPostgresRateLimiter", () => {
++  it("allows requests under the limit and blocks once it is exceeded", async () => {
++    const key = `test:${randomUUID()}`;
++    const first = await limiter.consume(key, 2, 60_000);
++    expect(first).toMatchObject({ allowed: true, remaining: 1 });
++    const second = await limiter.consume(key, 2, 60_000);
++    expect(second).toMatchObject({ allowed: true, remaining: 0 });
++    const third = await limiter.consume(key, 2, 60_000);
++    expect(third.allowed).toBe(false);
++    expect(third.retryAfterMs).toBeGreaterThan(0);
++  });
++
++  it("tracks independent keys separately", async () => {
++    const a = `test:${randomUUID()}`;
++    const b = `test:${randomUUID()}`;
++    await limiter.consume(a, 1, 60_000);
++    const blockedA = await limiter.consume(a, 1, 60_000);
++    const allowedB = await limiter.consume(b, 1, 60_000);
++    expect(blockedA.allowed).toBe(false);
++    expect(allowedB.allowed).toBe(true);
++  });
++
++  it("resets once the window rolls over", async () => {
++    const key = `test:${randomUUID()}`;
++    const windowMs = 50;
++    await limiter.consume(key, 1, windowMs);
++    expect((await limiter.consume(key, 1, windowMs)).allowed).toBe(false);
++    await new Promise((resolve) => setTimeout(resolve, windowMs * 2));
++    expect((await limiter.consume(key, 1, windowMs)).allowed).toBe(true);
++  });
++});
++
++describe("enforceRateLimit", () => {
++  it("throws RateLimitedError once the limiter denies", async () => {
++    const key = `test:${randomUUID()}`;
++    await enforceRateLimit(limiter, key, 1, 60_000);
++    await expect(enforceRateLimit(limiter, key, 1, 60_000)).rejects.toBeInstanceOf(
++      RateLimitedError,
++    );
++  });
++});
+diff --git a/packages/domain/src/errors.ts b/packages/domain/src/errors.ts
+index fb044a5..6ebf1df 100644
+--- a/packages/domain/src/errors.ts
++++ b/packages/domain/src/errors.ts
+@@ -1,7 +1,7 @@
+ import type { UUID } from "./types";
+ 
+ export type DomainErrorCode =
+-  "unauthenticated" | "forbidden" | "not_found" | "conflict" | "validation";
++  "unauthenticated" | "forbidden" | "not_found" | "conflict" | "validation" | "rate_limited";
+ 
+ export class DomainError extends Error {
+   readonly code: DomainErrorCode;
+@@ -61,6 +61,13 @@ export class ValidationError extends DomainError {
+   }
+ }
+ 
++/** A caller exceeded a rate limit (webhook flood, sign-in brute force, server action abuse). */
++export class RateLimitedError extends DomainError {
++  constructor(readonly retryAfterMs: number) {
++    super("rate_limited", `Too many requests. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`);
++  }
++}
++
+ export function isDomainError(error: unknown): error is DomainError {
+   return error instanceof DomainError;
+ }
+diff --git a/supabase/migrations/0018_rate_limits.sql b/supabase/migrations/0018_rate_limits.sql
+new file mode 100644
+index 0000000..47ba5b4
+--- /dev/null
++++ b/supabase/migrations/0018_rate_limits.sql
+@@ -0,0 +1,17 @@
++-- PH-T01: storage for the fixed-window rate limiter (packages/core/src/services/rate-limit.ts).
++-- One row per bucket key, e.g. "webhook:twilio:203.0.113.4", "signin:email:a@b.test",
++-- "action:tenant:<org-id>". Never read or written from the browser and no tenant column applies
++-- (a bucket key can span tenants, e.g. per-IP webhook keys), so there is no policy for
++-- `authenticated`; RLS is still enabled for the same defense-in-depth reason every other
++-- app_server-owned table has it (see migration 0017).
++create table public.rate_limit_counters (
++  bucket_key text primary key,
++  window_start timestamptz not null,
++  count integer not null default 0,
++  updated_at timestamptz not null default now()
++);
++
++alter table public.rate_limit_counters enable row level security;
++create policy rate_limit_counters_app_server_all on public.rate_limit_counters
++  for all to app_server using (true) with check (true);
++grant select, insert, update, delete on public.rate_limit_counters to app_server;
