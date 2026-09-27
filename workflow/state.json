@@ -1,10 +1,10 @@
 {
   "schema_version": 2,
   "current_task_id": "M2-T26",
-  "attempts": 0,
+  "attempts": 1,
   "stalled_runs": 0,
   "consecutive_failures": 0,
-  "review_notes": "",
+  "review_notes": "Step discarded: it changed files the builder may not change: packages/workflows/tsconfig.json (existing check configuration), packages/workflows/vitest.config.ts (existing check configuration).",
   "review_base": null,
   "last_error": "",
   "last_validation": null,
@@ -14,8 +14,8 @@
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
   "current_task_index": 26,
-  "status": "READY_TO_START",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T25 is done. Next: M2-T26 \"M2 automated acceptance suite\".",
-  "updated_at": "2026-09-27T07:17:33.620Z"
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "referee",
+  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
+  "updated_at": "2026-09-27T07:46:53.523Z"
 }
