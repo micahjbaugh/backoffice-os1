@@ -119,6 +119,8 @@ export const createTaskInput = z
     priority: z.enum(PRIORITIES).default("normal"),
     dueAt: isoDateTime.optional(),
     assignedUserId: uuid.optional(),
+    /** Set by agent-callable wrappers (e.g. createCallbackTask); manual/UI tasks omit it. */
+    idempotencyKey: z.string().trim().min(8).max(200).optional(),
     ...entityRef,
   })
   .superRefine(refineEntityRef);
@@ -127,7 +129,10 @@ export const updateTaskStatusInput = z.object({
   status: z.enum(TASK_STATUSES),
 });
 
-/** Agent-callable: a task linked to the call/communication that prompted it. */
+/**
+ * Agent-callable: a task linked to the call/communication that prompted it. Idempotent on
+ * (organization_id, idempotency_key) so a retried/duplicate tool call never creates a second task.
+ */
 export const createCallbackTaskInput = z.object({
   communicationId: uuid,
   title: name,
@@ -135,6 +140,7 @@ export const createCallbackTaskInput = z.object({
   priority: z.enum(PRIORITIES).default("normal"),
   dueAt: isoDateTime.optional(),
   assignedUserId: uuid.optional(),
+  idempotencyKey: z.string().trim().min(8).max(200),
 });
 
 export const createApprovalInput = z

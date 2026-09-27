@@ -138,3 +138,19 @@ export const vapiAssistantRequest = () => ({
   phoneNumber: { id: VAPI_PHONE_NUMBER_ID, number: BUSINESS_NUMBER },
   customer: { number: CUSTOMER_NUMBER },
 });
+
+export const vapiToolCalls = (
+  toolCallList: { id: string; name: string; arguments: Record<string, unknown> }[],
+  timestamp = T0 + 5_000,
+) => ({
+  type: "tool-calls",
+  timestamp,
+  call: vapiCall,
+  phoneNumber: { id: VAPI_PHONE_NUMBER_ID, number: BUSINESS_NUMBER },
+  customer: { number: CUSTOMER_NUMBER },
+  toolCallList: toolCallList.map((t) => ({
+    id: t.id,
+    type: "function",
+    function: { name: t.name, arguments: t.arguments },
+  })),
+});

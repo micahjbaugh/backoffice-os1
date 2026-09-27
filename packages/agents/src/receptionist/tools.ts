@@ -1,4 +1,4 @@
-import { createCallbackTaskInput, createLeadInput } from "@backoffice/domain";
+import { BUSINESS_INFO_TOPICS, createCallbackTaskInput, createLeadInput } from "@backoffice/domain";
 import { z } from "zod";
 import type { ToolContract } from "../tool-contract";
 
@@ -8,7 +8,7 @@ import type { ToolContract } from "../tool-contract";
  * agent's reach.
  */
 export const lookupBusinessInfoInput = z.object({
-  topic: z.enum(["hours", "services", "service_area", "address"]),
+  topic: z.enum(BUSINESS_INFO_TOPICS),
 });
 
 export const requestTransferInput = z.object({

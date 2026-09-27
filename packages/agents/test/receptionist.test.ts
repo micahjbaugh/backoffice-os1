@@ -29,12 +29,13 @@ describe("receptionist tool contracts", () => {
     expect(tool?.inputSchema.safeParse({ source: "voice", firstName: "Jane" }).success).toBe(false);
   });
 
-  it("create_callback_task requires a communication link and a title", () => {
+  it("create_callback_task requires a communication link, a title and an idempotency key", () => {
     const tool = receptionistTools.create_callback_task;
     expect(
       tool?.inputSchema.safeParse({
         communicationId: "11111111-1111-4111-8111-111111111111",
         title: "Call back about quote",
+        idempotencyKey: "call-abc123",
       }).success,
     ).toBe(true);
     expect(tool?.inputSchema.safeParse({ title: "Call back about quote" }).success).toBe(false);

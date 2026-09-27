@@ -6,6 +6,7 @@ import type {
   InboundRoute,
   InboundRouteConfig,
   OutboundCallRequest,
+  ToolCallResult,
   TransferCallRequest,
   VoiceProvider,
 } from "../providers/voice-provider";
@@ -73,6 +74,11 @@ export class FakeVoiceProvider implements VoiceProvider {
         tools: turn.tools.map((tool) => tool.name),
       },
     };
+  }
+
+  /** Deterministic, inspectable stand-in for the real wire format (see VapiVoiceProvider). */
+  buildToolCallResponse(results: readonly ToolCallResult[]): Record<string, unknown> {
+    return { results };
   }
 
   async createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute> {

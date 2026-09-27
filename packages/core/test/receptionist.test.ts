@@ -1,13 +1,14 @@
 // M2-T19: resolving the tenant + receptionist configuration for a synchronous Vapi assistant-request.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
-import { resolveReceptionistConfig } from "../src";
-import { asTx, count } from "./helpers/db";
+import { ForbiddenError, RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
+import { lookupBusinessInfo, resolveReceptionistConfig } from "../src";
+import { asTx, count, inOrg, userActor } from "./helpers/db";
 import { createWorld, type World } from "./helpers/fixtures";
 
 let w: World;
 const RUNTIME: Actor = { type: "system", name: "receptionist-runtime-test" };
+const RECEPTIONIST: Actor = { type: "agent", name: "receptionist-test" };
 const BUSINESS_NUMBER = "+15125550100";
 const UNKNOWN_NUMBER = "+15125559999";
 
@@ -66,7 +67,28 @@ describe("resolveReceptionistConfig", () => {
       businessHours: "Mon-Fri 8am-5pm",
     });
   });
+});
 
+describe("lookupBusinessInfo", () => {
+  const lookup = (topic: "hours" | "services" | "service_area" | "address") =>
+    inOrg(w.db, RECEPTIONIST, w.orgA.id, (ctx) => lookupBusinessInfo(ctx, topic));
+
+  it("returns only the tenant's own configured, caller-safe field for a known topic", async () => {
+    expect(await lookup("hours")).toBe("Mon-Fri 8am-5pm");
+  });
+
+  it("never invents a value for a topic the owner hasn't configured", async () => {
+    expect(await lookup("address")).toBeNull();
+  });
+
+  it("denies actors without receptionist.lookup, e.g. a regular staff user", async () => {
+    await expect(
+      inOrg(w.db, userActor(w.orgA.manager), w.orgA.id, (ctx) => lookupBusinessInfo(ctx, "hours")),
+    ).rejects.toBeInstanceOf(ForbiddenError);
+  });
+});
+
+describe("resolveReceptionistConfig: disabled rule", () => {
   it("ignores a disabled rule and falls back again", async () => {
     await w.pg.query(
       `update public.business_rules set enabled = false

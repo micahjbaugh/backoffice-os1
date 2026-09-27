@@ -8,6 +8,7 @@ import type {
   InboundRoute,
   InboundRouteConfig,
   OutboundCallRequest,
+  ToolCallResult,
   TransferCallRequest,
   VoiceProvider,
 } from "../providers/voice-provider";
@@ -100,7 +101,21 @@ const messageSchema = z.object({
         .partial()
         .optional(),
       toolCallList: z
-        .array(z.object({ id: z.string().max(200) }).passthrough())
+        .array(
+          z
+            .object({
+              id: z.string().min(1).max(200),
+              function: z
+                .object({
+                  name: z.string().min(1).max(100),
+                  arguments: z
+                    .union([z.string().max(20_000), z.record(z.string(), z.unknown())])
+                    .optional(),
+                })
+                .optional(),
+            })
+            .passthrough(),
+        )
         .max(50)
         .optional(),
     })
@@ -111,6 +126,17 @@ function isoTimestamp(value: number | string | undefined): string | null {
   if (value === undefined) return null;
   const date = typeof value === "number" ? new Date(value) : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toISOString();
+}
+
+/** Vapi's function arguments arrive as a JSON string or an already-parsed object. */
+function toolCallArguments(raw: string | Record<string, unknown> | undefined): unknown {
+  if (raw === undefined) return {};
+  if (typeof raw !== "string") return raw;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return {};
+  }
 }
 
 /** Real Vapi voice adapter. The only place the Vapi REST API is called (CLAUDE.md rule 9). */
@@ -200,8 +226,15 @@ export class VapiVoiceProvider implements VoiceProvider {
         durationSeconds: m.durationSeconds ?? null,
         startedAt: isoTimestamp(m.startedAt),
         endedAt: isoTimestamp(m.endedAt),
-        toolCallIds: m.toolCallList?.map((t) => t.id) ?? [],
       },
+      toolCalls:
+        m.type === "tool-calls"
+          ? (m.toolCallList ?? []).map((t) => ({
+              id: t.id,
+              name: t.function?.name ?? "",
+              arguments: toolCallArguments(t.function?.arguments),
+            }))
+          : undefined,
     };
   }
 
@@ -225,6 +258,13 @@ export class VapiVoiceProvider implements VoiceProvider {
           })),
         },
       },
+    };
+  }
+
+  /** Vapi's tool-calls wire format (docs.vapi.ai/server-url/events#tool-calls). */
+  buildToolCallResponse(results: readonly ToolCallResult[]): Record<string, unknown> {
+    return {
+      results: results.map((r) => ({ toolCallId: r.toolCallId, result: r.result })),
     };
   }
 

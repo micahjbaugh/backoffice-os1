@@ -10,7 +10,14 @@ export const RECEPTIONIST_CONFIG_RULE_ACTION = "receptionist.config";
 export const receptionistConfigDefinitionSchema = z
   .object({
     business_hours: z.string().trim().min(1).max(200),
+    services: z.string().trim().min(1).max(1000).optional(),
+    service_area: z.string().trim().min(1).max(500).optional(),
+    address: z.string().trim().min(1).max(300).optional(),
   })
   .strict();
 
 export type ReceptionistConfigDefinition = z.infer<typeof receptionistConfigDefinitionSchema>;
+
+/** Topics the receptionist's lookup_business_info tool may ask about (packages/agents tools.ts). */
+export const BUSINESS_INFO_TOPICS = ["hours", "services", "service_area", "address"] as const;
+export type BusinessInfoTopic = (typeof BUSINESS_INFO_TOPICS)[number];

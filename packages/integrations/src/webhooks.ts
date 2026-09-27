@@ -37,6 +37,8 @@ export interface ParsedWebhookEvent {
   requiresResponse: boolean;
   /** Validated, normalized fields needed to process (and later re-process) the event. */
   payload: Record<string, unknown>;
+  /** Present only for a synchronous tool-calls-style webhook (e.g. Vapi's "tool-calls" message). */
+  toolCalls?: readonly { id: string; name: string; arguments: unknown }[];
 }
 
 /** A well-authenticated request whose body is malformed or not what the provider sends: HTTP 400. */

@@ -10,6 +10,7 @@ import {
   vapiEndOfCallReport,
   vapiRequest,
   vapiStatusUpdate,
+  vapiToolCalls,
 } from "./fixtures/providers";
 
 const provider = (fetchFn?: typeof fetch) =>
@@ -79,6 +80,42 @@ describe("Vapi event identity (Vapi sends no event id)", () => {
   it("flags events Vapi waits on synchronously", () => {
     const e = provider().parseWebhookRequest(vapiRequest(vapiAssistantRequest()));
     expect(e).toMatchObject({ eventType: "call.assistant_request", requiresResponse: true });
+  });
+
+  it("extracts each tool call's name and arguments (M2-T20)", () => {
+    const e = provider().parseWebhookRequest(
+      vapiRequest(
+        vapiToolCalls([
+          { id: "call_1", name: "lookup_business_info", arguments: { topic: "hours" } },
+          { id: "call_2", name: "create_lead", arguments: { firstName: "Jane" } },
+        ]),
+      ),
+    );
+    expect(e).toMatchObject({ eventType: "call.tool_calls", requiresResponse: true });
+    expect(e.toolCalls).toEqual([
+      { id: "call_1", name: "lookup_business_info", arguments: { topic: "hours" } },
+      { id: "call_2", name: "create_lead", arguments: { firstName: "Jane" } },
+    ]);
+  });
+
+  it("parses stringified JSON arguments the same as an object", () => {
+    const message = vapiToolCalls([{ id: "call_1", name: "lookup_business_info", arguments: {} }]);
+    (message.toolCallList[0] as { function: { arguments: unknown } }).function.arguments =
+      JSON.stringify({ topic: "hours" });
+    const e = provider().parseWebhookRequest(vapiRequest(message));
+    expect(e.toolCalls).toEqual([
+      { id: "call_1", name: "lookup_business_info", arguments: { topic: "hours" } },
+    ]);
+  });
+
+  it("a redelivery of the same tool-calls batch has the same identity", () => {
+    const a = provider().parseWebhookRequest(
+      vapiRequest(vapiToolCalls([{ id: "call_1", name: "lookup_business_info", arguments: {} }])),
+    );
+    const b = provider().parseWebhookRequest(
+      vapiRequest(vapiToolCalls([{ id: "call_1", name: "lookup_business_info", arguments: {} }])),
+    );
+    expect(a.eventKey).toBe(b.eventKey);
   });
 
   it.each([
@@ -186,6 +223,21 @@ describe("Vapi assistant-request response (M2-T19)", () => {
     });
     expect(response).toMatchObject({
       assistant: { model: { provider: "anthropic", model: "claude-haiku-4-5" } },
+    });
+  });
+});
+
+describe("Vapi tool-calls response (M2-T20)", () => {
+  it("builds a results array keyed by toolCallId", () => {
+    const response = provider().buildToolCallResponse([
+      { toolCallId: "call_1", result: "Mon-Fri 8am-5pm" },
+      { toolCallId: "call_2", result: "Lead recorded." },
+    ]);
+    expect(response).toEqual({
+      results: [
+        { toolCallId: "call_1", result: "Mon-Fri 8am-5pm" },
+        { toolCallId: "call_2", result: "Lead recorded." },
+      ],
     });
   });
 });

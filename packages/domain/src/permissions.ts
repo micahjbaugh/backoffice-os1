@@ -39,6 +39,8 @@ export const PERMISSIONS = [
   "communication.write",
   "lead.read",
   "lead.write",
+  /** Read-only, caller-safe business info lookup (hours/services/service area/address) only. */
+  "receptionist.lookup",
   "time_entry.write",
   "equipment_usage.write",
   "material_usage.write",
@@ -121,6 +123,7 @@ const AUTOMATED_PERMISSIONS: ReadonlySet<Permission> = new Set<Permission>([
   "ops_case.create",
   "communication.write",
   "lead.write",
+  "receptionist.lookup",
   "time_entry.write",
   "equipment_usage.write",
   "material_usage.write",

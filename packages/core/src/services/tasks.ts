@@ -17,6 +17,11 @@ import type { ServiceContext } from "../runtime";
 import { assertEntityInOrg, assertUserIsMember } from "./entities";
 import { recordEvent } from "./events";
 
+/**
+ * Create a task. Idempotent on (organization_id, idempotency_key) when the caller supplies one
+ * (agent-callable wrappers always do; manual/UI tasks don't): a retried call with the same key
+ * returns the original task and writes no new event or audit.
+ */
 export async function createTask(ctx: ServiceContext, input: CreateTaskInput): Promise<Task> {
   await ctx.authorize("task.create");
   const data = parseInput(createTaskInput, input);
@@ -25,8 +30,10 @@ export async function createTask(ctx: ServiceContext, input: CreateTaskInput): P
 
   const { rows } = await ctx.scoped<Row>(
     `insert into public.tasks
-       (organization_id, title, description, priority, due_at, entity_type, entity_id, assigned_user_id)
-     values ($1, $2, $3, $4, $5, $6, $7, $8) returning *`,
+       (organization_id, title, description, priority, due_at, entity_type, entity_id, assigned_user_id, idempotency_key)
+     values ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+     on conflict (organization_id, idempotency_key) where idempotency_key is not null do nothing
+     returning *`,
     [
       ctx.organizationId,
       data.title,
@@ -36,8 +43,19 @@ export async function createTask(ctx: ServiceContext, input: CreateTaskInput): P
       data.entityType ?? null,
       data.entityId ?? null,
       data.assignedUserId ?? null,
+      data.idempotencyKey ?? null,
     ],
   );
+
+  if (!rows[0]) {
+    const existing = await ctx.scoped<Row>(
+      `select * from public.tasks where organization_id = $1 and idempotency_key = $2`,
+      [ctx.organizationId, data.idempotencyKey],
+    );
+    if (!existing.rows[0]) throw new Error("task idempotency conflict without existing row");
+    return toTask(existing.rows[0]);
+  }
+
   const task = toTask(rows[0] as Row);
   await recordEvent(ctx, {
     type: EVENT_TYPES.taskCreated,
@@ -64,6 +82,7 @@ export async function createCallbackTask(
     priority: data.priority,
     dueAt: data.dueAt,
     assignedUserId: data.assignedUserId,
+    idempotencyKey: data.idempotencyKey,
     entityType: "communication",
     entityId: data.communicationId,
   });

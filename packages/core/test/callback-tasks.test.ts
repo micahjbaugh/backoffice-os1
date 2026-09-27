@@ -31,6 +31,11 @@ const recordedAgentAudits = (id: string) =>
       where action = 'task.created' and entity_id = $1 and actor_type = 'agent'`,
     [id],
   );
+const taskRows = (organizationId: string, idempotencyKey: string) =>
+  count(w.pg, `select 1 from public.tasks where organization_id = $1 and idempotency_key = $2`, [
+    organizationId,
+    idempotencyKey,
+  ]);
 
 async function callInOrg(orgId: string) {
   return inOrg(w.db, receptionist, orgId, (ctx) =>
@@ -46,7 +51,11 @@ describe("createCallbackTask", () => {
   it("creates a task linked to the call and audited with the agent actor", async () => {
     const { communication } = await callInOrg(w.orgA.id);
     const task = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-      createCallbackTask(ctx, { communicationId: communication.id, title: "Call Jane back" }),
+      createCallbackTask(ctx, {
+        communicationId: communication.id,
+        title: "Call Jane back",
+        idempotencyKey: `cb-${randomUUID()}`,
+      }),
     );
 
     expect(task.title).toBe("Call Jane back");
@@ -57,11 +66,38 @@ describe("createCallbackTask", () => {
     expect(await recordedAgentAudits(task.id)).toBe(1);
   });
 
+  it("is idempotent per (organization_id, idempotency_key): a duplicate call creates one task", async () => {
+    const { communication } = await callInOrg(w.orgA.id);
+    const idempotencyKey = `cb-${randomUUID()}`;
+    const first = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
+      createCallbackTask(ctx, {
+        communicationId: communication.id,
+        title: "Call back",
+        idempotencyKey,
+      }),
+    );
+    const second = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
+      createCallbackTask(ctx, {
+        communicationId: communication.id,
+        title: "Call back",
+        idempotencyKey,
+      }),
+    );
+
+    expect(second.id).toBe(first.id);
+    expect(await taskRows(w.orgA.id, idempotencyKey)).toBe(1);
+    expect(await recordedEvents(first.id)).toBe(1);
+  });
+
   it("rejects a communication belonging to a different organization", async () => {
     const { communication } = await callInOrg(w.orgB.id);
     await expect(
       inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-        createCallbackTask(ctx, { communicationId: communication.id, title: "Call back" }),
+        createCallbackTask(ctx, {
+          communicationId: communication.id,
+          title: "Call back",
+          idempotencyKey: `cb-${randomUUID()}`,
+        }),
       ),
     ).rejects.toBeInstanceOf(NotFoundError);
   });
@@ -70,7 +106,11 @@ describe("createCallbackTask", () => {
     const { communication } = await callInOrg(w.orgA.id);
     await expect(
       inOrg(w.db, userActor(w.orgA.fieldEmployee), w.orgA.id, (ctx) =>
-        createCallbackTask(ctx, { communicationId: communication.id, title: "Call back" }),
+        createCallbackTask(ctx, {
+          communicationId: communication.id,
+          title: "Call back",
+          idempotencyKey: `cb-${randomUUID()}`,
+        }),
       ),
     ).rejects.toBeInstanceOf(ForbiddenError);
   });

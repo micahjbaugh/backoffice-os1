@@ -56,6 +56,12 @@ export interface AssistantTurn {
   tools: AssistantToolDescriptor[];
 }
 
+/** The outcome of executing one requested tool call, keyed back to the provider's own call id. */
+export interface ToolCallResult {
+  toolCallId: string;
+  result: string;
+}
+
 /** See SmsProvider: durable idempotency lives in the outbox, not in adapters. */
 export interface VoiceProvider extends InboundWebhookAdapter {
   createInboundRoute(config: InboundRouteConfig): Promise<InboundRoute>;
@@ -64,4 +70,6 @@ export interface VoiceProvider extends InboundWebhookAdapter {
   getCall(providerCallId: string): Promise<CallStatusSnapshot>;
   /** Build the provider's synchronous reply to an assistant-request-style webhook. */
   buildAssistantResponse(turn: AssistantTurn): Record<string, unknown>;
+  /** Build the provider's synchronous reply to a tool-calls-style webhook. */
+  buildToolCallResponse(results: readonly ToolCallResult[]): Record<string, unknown>;
 }
