@@ -44,7 +44,12 @@ Local (Windows, Node 24.21, pnpm 10.34.5), at the final commit:
 | `pnpm test` | 473 tests pass: domain 40, integrations 49, agents 9, core 302 (+7 live-stack tests skipped without Docker), workflows 24, web 22 (incl. production build + secret scan), referee 27 |
 | `pnpm test:tz` | 19/19 in each of UTC, America/Chicago, Asia/Tokyo |
 
-CI on GitHub (`ci.yml`, clean Linux runner): CI_RESULTS_PLACEHOLDER
+CI on GitHub (`ci.yml`, clean Linux runner, Node 22): run 36284111416 on `repair/foundation`
+passed both jobs: **checks** (frozen install, format, lint, typecheck, all tests incl. production
+build + secret scan and referee tests, timezone matrix) and **live-stack** (local Supabase started
+with every migration incl. 0011/0012 applied to real Postgres, `db reset` + seed, 7 live tests
+through real Auth/PostgREST). The first run (36283800308) failed live-stack only because the test
+required a hand-made `apps/web/.env.local`; fixed in `165f097` (key taken from `supabase status`).
 
 Behavior demonstrated by tests (not mocked happy paths):
 restart (new process/runtime completes pending work once), concurrency (concurrent deliveries → one
