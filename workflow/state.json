@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M3-T15",
+  "current_task_id": "M3-T16",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "ebc6ff2935d5a05dd4c9d493b76668a34a332f49",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "3a4b31bfcf9b209e7bfe0149bc2bc576b7c86e01785467196f367586257ee78c",
-    "at": "2026-09-27T17:04:50.093Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 3
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 7
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 10
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 84
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 12
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
-  "current_task_index": 15,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 16,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "M3-T15 done in one step. Added migration 0016_billable_opportunity_idempotency.sql giving billable_opportunities a fact_key column + unique (organization_id, source_communication_id, fact_key) index, matching 0010's pattern for the other draft tables (it predated 0010 and was missed). Added BillableOpportunity.factKey to the domain type (now extends DraftFact) and rows.ts mapping, a new 'billable_opportunity.write' permission (staff + automated actors), createBillableOpportunityInput/CreateBillableOpportunityInput schema, EVENT_TYPES.billableOpportunityCreated, and a new packages/core/src/services/billable-opportunities.ts::createBillableOpportunity service (same idempotent-insert shape as createDraftJobNote). Wired it into field-capture-drafts.ts: a validated billable_opportunity fact now drafts a real 'open' row (recordId/created) instead of the old placeholder 'deferred' status, which is removed from FieldCaptureFactOutcome; a missing job reference clarifies exactly like the other fact types. The owner-facing side of this is the billable_opportunity row itself (status='open') — decideBillableOpportunity (already built, 0011) is how it gets approved/dismissed, and M3-T17 wires it into /inbox; no separate approval/task row is created here. Updated field-capture.test.ts (billable opportunity now asserted as a real drafted row, not deferred) and added packages/core/test/billable-opportunities.test.ts (idempotent replay, cross-org job rejection, permission denial for field_employee). format/lint/typecheck/test all pass. Next: M3-T16 \"Inbound SMS to field capture\".",
-  "updated_at": "2026-09-27T17:04:50.096Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M3-T15 is done. Next: M3-T16 \"Inbound SMS to field capture\".",
+  "updated_at": "2026-09-27T17:05:19.523Z"
 }
