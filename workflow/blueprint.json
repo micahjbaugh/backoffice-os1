@@ -507,11 +507,25 @@
           "title": "Receptionist runtime: assistant-request",
           "description": "Answer Vapi's synchronous assistant-request within its time limit with the tenant's receptionist configuration (packages/agents prompt + tool definitions) resolved from provider_routes. Unknown number or missing config -> safe fallback response + ops case. No authorization in prompts.",
           "done_when": "Fixture assistant-request gets a valid assistant response in-process within the time budget; unknown number gets the fallback; tests.",
-          "status": "in_progress",
+          "status": "done",
           "depends_on": [
             "M2-T18"
           ],
-          "index": 19
+          "index": 19,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "fda8aebcc491c7dce51db93c604bb3092fb7e80d50848af6190804016350b2a3",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T02:04:25.460Z"
+          }
         },
         {
           "id": "M2-T20",
