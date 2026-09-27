@@ -532,11 +532,25 @@
           "title": "Receptionist runtime: tool-calls",
           "description": "Answer Vapi tool-calls synchronously by executing receptionist tools through domain services as the receptionist agent actor: look up permitted business info, create lead (idempotent per toolCall.id), create callback task. Every tool call validated, authorized in code, audited.",
           "done_when": "Fixture tool-calls create exactly one lead/callback per toolCall.id even when redelivered; forbidden data is never returned; tests.",
-          "status": "in_progress",
+          "status": "done",
           "depends_on": [
             "M2-T19"
           ],
-          "index": 20
+          "index": 20,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "cb48f08d30864ac5b19cd5cbd2f64412f2de712c9922df593bccb82dffbf9b34",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-27T03:05:50.445Z"
+          }
         },
         {
           "id": "M2-T21",

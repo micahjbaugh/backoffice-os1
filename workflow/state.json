@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M2-T20",
+  "current_task_id": "M2-T21",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "25ed3acb255f6bba69c3609d76b51dc4952614a8",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "cb48f08d30864ac5b19cd5cbd2f64412f2de712c9922df593bccb82dffbf9b34",
-    "at": "2026-09-27T03:04:54.096Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 3
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 8
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 11
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 77
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 14
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
-  "current_task_index": 20,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 21,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Re-applied the previous run's wip patch (git apply --3way, clean) and finished M2-T20: receptionist tool-calls runtime. Changes: apps/web voice webhook route now answers call.tool_calls synchronously via executeReceptionistToolCalls (packages/workflows/src/receptionist-runtime.ts), executing lookup_business_info/create_lead/create_callback_task/request_transfer as the new RECEPTIONIST_AGENT actor (green-permission-only). lookupBusinessInfo (packages/core/src/services/receptionist.ts) reads only the one whitelisted receptionist.config field per topic, gated by new receptionist.lookup permission (agent-callable). create_lead and create_callback_task are made idempotent per `vapi:tool_call:${toolCall.id}` (createTask gained the same organization_id+idempotency_key upsert-or-return pattern leads already had; new migration 0013_task_idempotency.sql adds tasks.idempotency_key + partial unique index). Vapi adapter now parses toolCallList function name/arguments and builds the toolCallId-keyed response (packages/integrations). Fixed one pre-existing test in packages/agents that broke because create_callback_task's input now requires idempotencyKey. Added tests: packages/workflows/test/receptionist-runtime.test.ts (new describe executeReceptionistToolCalls — redelivery creates exactly one lead/one task, forbidden/unconfigured info is never invented, mutation is audited exactly once), packages/core/test/{receptionist,callback-tasks}.test.ts, packages/integrations/test/vapi.test.ts, packages/workflows/test/ingestion.test.ts. format:check/lint/typecheck/test all pass. Next: M2-T21 (transfer-destination-request / warm transfer).",
-  "updated_at": "2026-09-27T03:04:54.099Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T20 is done. Next: M2-T21 \"Warm transfer via transfer-destination-request\".",
+  "updated_at": "2026-09-27T03:05:50.446Z"
 }
