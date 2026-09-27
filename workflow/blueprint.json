@@ -846,7 +846,7 @@
           "title": "Deterministic test extractor",
           "description": "Fixture extractor that returns the M3 acceptance extraction, used by tests without any LLM call.",
           "done_when": "Fixture validates against the schema.",
-          "status": "pending"
+          "status": "in_progress"
         },
         {
           "index": 10,

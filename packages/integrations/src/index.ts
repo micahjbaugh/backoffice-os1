@@ -9,6 +9,7 @@ export * from "./providers/sms-provider";
 export * from "./fakes/fake-webhooks";
 export * from "./fakes/fake-sms-provider";
 export * from "./fakes/fake-voice-provider";
+export * from "./fakes/fixture-structured-extractor";
 export * from "./adapters/twilio-sms-provider";
 export * from "./adapters/vapi-voice-provider";
 export * from "./runtime-config";
