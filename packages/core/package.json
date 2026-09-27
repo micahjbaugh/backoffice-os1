@@ -12,11 +12,13 @@
   "scripts": {
     "lint": "eslint .",
     "typecheck": "tsc -p tsconfig.json",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:tz": "node scripts/test-timezones.mjs"
   },
   "dependencies": {
     "@backoffice/domain": "workspace:*",
-    "pg": "^8.23.0"
+    "pg": "^8.23.0",
+    "zod": "^4.6.5"
   },
   "devDependencies": {
     "@backoffice/integrations": "workspace:*",

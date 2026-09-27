@@ -22,7 +22,10 @@ async function seedRows(w: World, orgId: string, jobId: string): Promise<Seed> {
      values ($1, $2, 'grade another 200 ft', 200, 'ft') returning id`,
     [orgId, jobId],
   );
-  return { jobNoteId: (n[0] as { id: string }).id, billableOpportunityId: (b[0] as { id: string }).id };
+  return {
+    jobNoteId: (n[0] as { id: string }).id,
+    billableOpportunityId: (b[0] as { id: string }).id,
+  };
 }
 
 let w: World;
@@ -72,9 +75,12 @@ describe.each(cases)("M3-T05: $table tenant isolation", (cfg) => {
   });
 
   it("org A cannot fetch org B's row by id", async () => {
-    const { rows } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.${cfg.table} where id = $1`, [
-      cfg.idOf(seedB),
-    ]);
+    const { rows } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.${cfg.table} where id = $1`,
+      [cfg.idOf(seedB)],
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -90,9 +96,12 @@ describe.each(cases)("M3-T05: $table tenant isolation", (cfg) => {
 
   it("field employees, accountants, and outsiders cannot read rows", async () => {
     for (const user of [w.orgA.fieldEmployee, w.orgA.accountant, w.outsider]) {
-      const { rows } = await rawAsUser(w.pg, user, `select * from public.${cfg.table} where id = $1`, [
-        cfg.idOf(seedA),
-      ]);
+      const { rows } = await rawAsUser(
+        w.pg,
+        user,
+        `select * from public.${cfg.table} where id = $1`,
+        [cfg.idOf(seedA)],
+      );
       expect(rows).toHaveLength(0);
     }
   });
@@ -106,40 +115,47 @@ describe.each(cases)("M3-T05: $table tenant isolation", (cfg) => {
   it("RLS rejects inserting a row into org B", async () => {
     await expect(
       rawAsUser(w.pg, w.orgA.owner, cfg.insertSql, [w.orgB.id, w.orgB.job.id]),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|permission denied/); // billable org is not client-updatable (0011)
   });
 
   it("field employees and accountants cannot mutate rows", async () => {
     for (const user of [w.orgA.fieldEmployee, w.orgA.accountant]) {
-      await expect(rawAsUser(w.pg, user, cfg.insertSql, [w.orgA.id, w.orgA.job.id])).rejects.toThrow(
-        /row-level security/,
-      );
+      await expect(
+        rawAsUser(w.pg, user, cfg.insertSql, [w.orgA.id, w.orgA.job.id]),
+      ).rejects.toThrow(/row-level security|permission denied/); // billable org is not client-updatable (0011)
     }
   });
 
   it("org A cannot update or delete org B's row", async () => {
-    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.${cfg.table} where id = $1`, [
-      cfg.idOf(seedB),
-    ]);
+    const deleted = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `delete from public.${cfg.table} where id = $1`,
+      [cfg.idOf(seedB)],
+    );
     expect(deleted.rowCount).toBe(0);
 
-    const { rows } = await w.pg.query(`select id from public.${cfg.table} where id = $1`, [cfg.idOf(seedB)]);
+    const { rows } = await w.pg.query(`select id from public.${cfg.table} where id = $1`, [
+      cfg.idOf(seedB),
+    ]);
     expect(rows).toHaveLength(1);
   });
 
   it("RLS rejects moving a row into org B", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, `update public.${cfg.table} set organization_id = $2 where id = $1`, [
-        cfg.idOf(seedA),
-        w.orgB.id,
-      ]),
-    ).rejects.toThrow(/row-level security/);
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        `update public.${cfg.table} set organization_id = $2 where id = $1`,
+        [cfg.idOf(seedA), w.orgB.id],
+      ),
+    ).rejects.toThrow(/row-level security|permission denied/); // billable org is not client-updatable (0011)
   });
 
   it("a manager can update a row in their own org, audited", async () => {
     const updateSql =
       cfg.table === "billable_opportunities"
-        ? `update public.billable_opportunities set status = 'approved' where id = $1`
+        ? `update public.billable_opportunities set quantity = 250 where id = $1` // status: decideBillableOpportunity only
         : `update public.job_notes set body = 'updated note' where id = $1`;
     const updated = await rawAsUser(w.pg, w.orgA.manager, updateSql, [cfg.idOf(seedA)]);
     expect(updated.rowCount).toBe(1);
@@ -162,10 +178,12 @@ describe.each(cases)("M3-T05: $table tenant isolation", (cfg) => {
 describe("M3-T05: cross-table FK isolation", () => {
   it("a same-org job reference from another org is rejected for job_notes", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, `insert into public.job_notes (organization_id, job_id, body) values ($1, $2, 'x')`, [
-        w.orgA.id,
-        w.orgB.job.id,
-      ]),
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        `insert into public.job_notes (organization_id, job_id, body) values ($1, $2, 'x')`,
+        [w.orgA.id, w.orgB.job.id],
+      ),
     ).rejects.toThrow();
   });
 

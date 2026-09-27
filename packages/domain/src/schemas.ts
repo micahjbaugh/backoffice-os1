@@ -295,11 +295,32 @@ function refineFactRef(
   ctx: z.RefinementCtx,
 ) {
   if ((value.sourceCommunicationId === undefined) !== (value.factKey === undefined)) {
-    ctx.addIssue({ code: "custom", message: "sourceCommunicationId and factKey must be provided together" });
+    ctx.addIssue({
+      code: "custom",
+      message: "sourceCommunicationId and factKey must be provided together",
+    });
   }
 }
 
 /** Agent-callable: a draft time entry extracted from a crew report (MASTER_SPEC §C, GREEN action). */
+export const DECIDABLE_DRAFT_KINDS = ["time_entry", "equipment_usage", "material_usage"] as const;
+export type DecidableDraftKind = (typeof DECIDABLE_DRAFT_KINDS)[number];
+
+export const decideDraftRecordInput = z.object({
+  kind: z.enum(DECIDABLE_DRAFT_KINDS),
+  id: z.uuid(),
+  decision: z.enum(["approved", "rejected"]),
+  note: z.string().trim().max(2000).optional(),
+});
+export type DecideDraftRecordInput = z.input<typeof decideDraftRecordInput>;
+
+export const decideBillableOpportunityInput = z.object({
+  id: z.uuid(),
+  decision: z.enum(["approved", "dismissed"]),
+  note: z.string().trim().max(2000).optional(),
+});
+export type DecideBillableOpportunityInput = z.input<typeof decideBillableOpportunityInput>;
+
 export const createDraftTimeEntryInput = z
   .object({
     employeeId: uuid,

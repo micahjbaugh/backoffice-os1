@@ -49,7 +49,12 @@ export async function createDraftMaterialUsage(
   );
 
   if (!rows[0]) {
-    const existing = await findFactKeyRow(ctx, "public.material_usages", data.sourceCommunicationId, data.factKey);
+    const existing = await findFactKeyRow(
+      ctx,
+      "public.material_usages",
+      data.sourceCommunicationId,
+      data.factKey,
+    );
     if (!existing) throw new Error("material usage idempotency conflict without existing row");
     return { materialUsage: toMaterialUsage(existing), created: false };
   }
@@ -60,7 +65,11 @@ export async function createDraftMaterialUsage(
     entityType: "material_usage",
     entityId: materialUsage.id,
     idempotencyKey: `material_usage.drafted:${materialUsage.id}`,
-    payload: { job_id: materialUsage.jobId, description: materialUsage.description, quantity: materialUsage.quantity },
+    payload: {
+      job_id: materialUsage.jobId,
+      description: materialUsage.description,
+      quantity: materialUsage.quantity,
+    },
   });
   return { materialUsage, created: true };
 }

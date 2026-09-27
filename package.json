@@ -10,9 +10,11 @@
     "build": "pnpm -r build",
     "lint": "pnpm -r lint",
     "typecheck": "pnpm -r typecheck",
-    "test": "pnpm -r test",
+    "test": "pnpm -r test && pnpm test:workflow",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "test:workflow": "node --test --test-timeout=120000 workflow/test/referee.test.mjs",
+    "test:tz": "pnpm --filter @backoffice/core test:tz"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",

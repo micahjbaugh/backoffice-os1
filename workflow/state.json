@@ -1,13 +1,21 @@
 {
-  "current_milestone_id": 3,
-  "current_task_index": 9,
+  "current_milestone_id": 2,
+  "current_task_index": 18,
   "status": "READY_TO_START",
-  "last_engineer_used": "chatgpt",
-  "handoff_instructions": "ChatGPT approved: Looks good. The provider-independent StructuredExtractor contract and zod schemas for field-capture facts, evidence spans, and unresolved questions are implemented with no vendor SDK imports. Tests cover valid/invalid fact types, confidence bounds, evidence requirement, unresolved defaults, and the M3 acceptance extraction shape; they pass. Scope is limited to domain types, no persistence or side effects. Minor future improvement (non-blocking): consider validating that the confidence record includes entries for all populated fields, either via schema refinement or a separate validator.. M3-T08 is done. Next: M3-T09 \"Deterministic test extractor\".",
+  "last_engineer_used": "human",
+  "handoff_instructions": "Foundation repair complete (docs/REPAIR_REPORT.md). Continue M2 with the explicit repair tasks, starting with M2-T18 provider route management. M3 resumes after M2's automated acceptance suite (M2-T26) passes.",
   "attempts": 0,
   "review_notes": "",
   "review_base": null,
   "updated_at": "2026-09-26T22:58:43.359Z",
   "last_error": "",
-  "consecutive_failures": 0
+  "consecutive_failures": 0,
+  "schema_version": 2,
+  "current_task_id": "M2-T18",
+  "stalled_runs": 0,
+  "last_validation": null,
+  "wip_patch": null,
+  "pause_reason": null,
+  "paused_from": null,
+  "line_limit_exceptions": []
 }

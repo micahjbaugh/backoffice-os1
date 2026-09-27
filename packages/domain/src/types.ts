@@ -369,7 +369,15 @@ export const LEAD_STATUSES = [
 ] as const;
 export type LeadStatus = (typeof LEAD_STATUSES)[number];
 
-export const LEAD_SOURCES = ["voice", "sms", "email", "web_form", "referral", "manual", "other"] as const;
+export const LEAD_SOURCES = [
+  "voice",
+  "sms",
+  "email",
+  "web_form",
+  "referral",
+  "manual",
+  "other",
+] as const;
 export type LeadSource = (typeof LEAD_SOURCES)[number];
 
 export interface Lead extends TenantEntity {
@@ -401,7 +409,14 @@ export interface DraftFact {
   evidence: Record<string, unknown>;
 }
 
-export interface TimeEntry extends TenantEntity, DraftFact {
+/** Who decided a draft record, when, and why. Null while the record is still a draft. */
+export interface DraftDecision {
+  decidedByUserId: UUID | null;
+  decidedAt: string | null;
+  decisionNote: string | null;
+}
+
+export interface TimeEntry extends TenantEntity, DraftFact, DraftDecision {
   employeeId: UUID;
   jobId: UUID;
   workDate: string;
@@ -412,7 +427,7 @@ export interface TimeEntry extends TenantEntity, DraftFact {
   updatedAt: string;
 }
 
-export interface EquipmentUsage extends TenantEntity, DraftFact {
+export interface EquipmentUsage extends TenantEntity, DraftFact, DraftDecision {
   equipmentId: UUID;
   jobId: UUID;
   hours: number | null;
@@ -420,12 +435,30 @@ export interface EquipmentUsage extends TenantEntity, DraftFact {
   updatedAt: string;
 }
 
-export interface MaterialUsage extends TenantEntity, DraftFact {
+export interface MaterialUsage extends TenantEntity, DraftFact, DraftDecision {
   jobId: UUID;
   description: string;
   quantity: number | null;
   unit: string | null;
   status: DraftRecordStatus;
+  updatedAt: string;
+}
+
+export const BILLABLE_OPPORTUNITY_STATUSES = ["open", "approved", "dismissed"] as const;
+export type BillableOpportunityStatus = (typeof BILLABLE_OPPORTUNITY_STATUSES)[number];
+
+/** Possible extra billable work (e.g. customer-requested scope). Approving it is a financial decision. */
+export interface BillableOpportunity extends TenantEntity, DraftDecision {
+  jobId: UUID;
+  description: string;
+  quantity: number | null;
+  unit: string | null;
+  status: BillableOpportunityStatus;
+  sourceCommunicationId: UUID | null;
+  confidence: Record<string, unknown>;
+  evidence: Record<string, unknown>;
+  /** Which policy authorized the decision (e.g. "default:owner", "business_rule:<id>@v2"). */
+  decisionPolicySource: string | null;
   updatedAt: string;
 }
 

@@ -18,9 +18,15 @@ afterAll(async () => {
 });
 
 const recordedEvents = (id: string) =>
-  count(w.pg, `select 1 from public.business_events where type = 'lead.created' and entity_id = $1`, [id]);
+  count(
+    w.pg,
+    `select 1 from public.business_events where type = 'lead.created' and entity_id = $1`,
+    [id],
+  );
 const recordedAudits = (id: string) =>
-  count(w.pg, `select 1 from public.audit_log where action = 'lead.created' and entity_id = $1`, [id]);
+  count(w.pg, `select 1 from public.audit_log where action = 'lead.created' and entity_id = $1`, [
+    id,
+  ]);
 const leadRows = (organizationId: string, idempotencyKey: string) =>
   count(w.pg, `select 1 from public.leads where organization_id = $1 and idempotency_key = $2`, [
     organizationId,
@@ -67,7 +73,11 @@ describe("createLead", () => {
 
   it("links a lead to its originating communication within the same organization", async () => {
     const { communication } = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-      recordCall(ctx, { direction: "inbound", provider: "vapi", providerConversationId: `conv-${randomUUID()}` }),
+      recordCall(ctx, {
+        direction: "inbound",
+        provider: "vapi",
+        providerConversationId: `conv-${randomUUID()}`,
+      }),
     );
     const { lead } = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
       createLead(ctx, {
@@ -93,7 +103,11 @@ describe("createLead", () => {
 
   it("rejects an originating communication belonging to a different organization", async () => {
     const { communication } = await inOrg(w.db, receptionist, w.orgB.id, (ctx) =>
-      recordCall(ctx, { direction: "inbound", provider: "vapi", providerConversationId: `conv-${randomUUID()}` }),
+      recordCall(ctx, {
+        direction: "inbound",
+        provider: "vapi",
+        providerConversationId: `conv-${randomUUID()}`,
+      }),
     );
     await expect(
       inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
@@ -121,10 +135,14 @@ describe("getLead", () => {
       createLead(ctx, { source: "voice", idempotencyKey: `lead-${randomUUID()}` }),
     );
 
-    const asOwnerA = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) => getLead(ctx, lead.id));
+    const asOwnerA = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
+      getLead(ctx, lead.id),
+    );
     expect(asOwnerA?.id).toBe(lead.id);
 
-    const asOwnerB = await inOrg(w.db, userActor(w.orgB.owner), w.orgB.id, (ctx) => getLead(ctx, lead.id));
+    const asOwnerB = await inOrg(w.db, userActor(w.orgB.owner), w.orgB.id, (ctx) =>
+      getLead(ctx, lead.id),
+    );
     expect(asOwnerB).toBeNull();
   });
 });

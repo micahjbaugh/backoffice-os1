@@ -15,7 +15,10 @@ export interface VersionedPrompt {
  * missing value so a gap in the caller-supplied context fails closed instead of sending the
  * model a literal, unfilled placeholder.
  */
-export function renderPrompt(prompt: VersionedPrompt, values: Readonly<Record<string, string>>): string {
+export function renderPrompt(
+  prompt: VersionedPrompt,
+  values: Readonly<Record<string, string>>,
+): string {
   return prompt.template.replace(/\{\{\s*(\w+)\s*\}\}/g, (_match, key: string) => {
     const value = values[key];
     if (value === undefined) throw new Error(`renderPrompt: missing value for "${key}"`);

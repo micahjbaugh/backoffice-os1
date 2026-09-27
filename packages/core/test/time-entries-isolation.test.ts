@@ -19,8 +19,11 @@ let seedA: Seed;
 let seedB: Seed;
 
 async function seedTimeEntry(w: World, orgId: string, jobId: string): Promise<Seed> {
-  const employee = await inOrg(w.db, { type: "user", userId: (orgId === w.orgA.id ? w.orgA.owner : w.orgB.owner) }, orgId, (ctx) =>
-    createEmployee(ctx, { displayName: "Jake Tyler", phone: "415-555-0142" }),
+  const employee = await inOrg(
+    w.db,
+    { type: "user", userId: orgId === w.orgA.id ? w.orgA.owner : w.orgB.owner },
+    orgId,
+    (ctx) => createEmployee(ctx, { displayName: "Jake Tyler", phone: "415-555-0142" }),
   );
   const { rows } = await w.pg.query<{ id: string }>(
     `insert into public.time_entries (organization_id, employee_id, job_id, work_date, start_at, end_at, hours)
@@ -55,9 +58,12 @@ describe("M3-T03: org A cannot read org B's time entries", () => {
   );
 
   it("org A cannot fetch org B's time entry by id", async () => {
-    const { rows } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.time_entries where id = $1`, [
-      seedB.timeEntryId,
-    ]);
+    const { rows } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.time_entries where id = $1`,
+      [seedB.timeEntryId],
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -73,9 +79,12 @@ describe("M3-T03: org A cannot read org B's time entries", () => {
 
   it("field employees and accountants cannot read time entries", async () => {
     for (const user of [w.orgA.fieldEmployee, w.orgA.accountant]) {
-      const { rows } = await rawAsUser(w.pg, user, `select * from public.time_entries where id = $1`, [
-        seedA.timeEntryId,
-      ]);
+      const { rows } = await rawAsUser(
+        w.pg,
+        user,
+        `select * from public.time_entries where id = $1`,
+        [seedA.timeEntryId],
+      );
       expect(rows).toHaveLength(0);
     }
   });
@@ -91,20 +100,24 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
          values ($1, $2, $3, '2026-01-05')`,
         [w.orgB.id, seedB.employeeId, seedB.jobId],
       ),
-    ).rejects.toThrow(/row-level security/);
+    ).rejects.toThrow(/row-level security|permission denied/); // org is not client-updatable (0011)
   });
 
   it("org A cannot update or delete org B's time entry", async () => {
     const updated = await rawAsUser(
       w.pg,
       w.orgA.owner,
-      `update public.time_entries set status = 'approved' where id = $1`,
+      // Status is not client-writable at all (0011); an editable column exercises RLS isolation.
+      `update public.time_entries set hours = 1 where id = $1`,
       [seedB.timeEntryId],
     );
     expect(updated.rowCount).toBe(0);
-    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.time_entries where id = $1`, [
-      seedB.timeEntryId,
-    ]);
+    const deleted = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `delete from public.time_entries where id = $1`,
+      [seedB.timeEntryId],
+    );
     expect(deleted.rowCount).toBe(0);
 
     const { rows } = await w.pg.query<{ status: string }>(
@@ -116,11 +129,13 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
 
   it("RLS rejects moving org A's time entry into org B", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, `update public.time_entries set organization_id = $2 where id = $1`, [
-        seedA.timeEntryId,
-        w.orgB.id,
-      ]),
-    ).rejects.toThrow(/row-level security/);
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        `update public.time_entries set organization_id = $2 where id = $1`,
+        [seedA.timeEntryId, w.orgB.id],
+      ),
+    ).rejects.toThrow(/row-level security|permission denied/); // org is not client-updatable (0011)
   });
 
   it("a same-org employee reference from another org is rejected", async () => {
@@ -145,15 +160,15 @@ describe("M3-T03: org A cannot write org B's time entries", () => {
            values ($1, $2, $3, '2026-01-05')`,
           [w.orgA.id, seedA.employeeId, w.orgA.job.id],
         ),
-      ).rejects.toThrow(/row-level security/);
+      ).rejects.toThrow(/row-level security|permission denied/); // org is not client-updatable (0011)
     }
   });
 
-  it("a manager can approve a draft time entry in their own org, audited", async () => {
+  it("a manager can edit a draft time entry in their own org, audited (decisions go through decideDraftRecord)", async () => {
     const updated = await rawAsUser(
       w.pg,
       w.orgA.manager,
-      `update public.time_entries set status = 'approved' where id = $1`,
+      `update public.time_entries set hours = 9 where id = $1`,
       [seedA.timeEntryId],
     );
     expect(updated.rowCount).toBe(1);

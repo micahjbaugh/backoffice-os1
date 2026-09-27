@@ -19,7 +19,11 @@ afterAll(async () => {
 });
 
 const recordedEvents = (id: string) =>
-  count(w.pg, `select 1 from public.business_events where type = 'task.created' and entity_id = $1`, [id]);
+  count(
+    w.pg,
+    `select 1 from public.business_events where type = 'task.created' and entity_id = $1`,
+    [id],
+  );
 const recordedAgentAudits = (id: string) =>
   count(
     w.pg,
@@ -30,7 +34,11 @@ const recordedAgentAudits = (id: string) =>
 
 async function callInOrg(orgId: string) {
   return inOrg(w.db, receptionist, orgId, (ctx) =>
-    recordCall(ctx, { direction: "inbound", provider: "vapi", providerConversationId: `conv-${randomUUID()}` }),
+    recordCall(ctx, {
+      direction: "inbound",
+      provider: "vapi",
+      providerConversationId: `conv-${randomUUID()}`,
+    }),
   );
 }
 

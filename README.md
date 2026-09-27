@@ -60,8 +60,11 @@ If automation is uncertain, the workflow escalates to an internal operator. The 
 - `.claude/IMPLEMENT_M1.md` — first implementation brief for Claude Code
 - `CLAUDE.md` — repository rules for Claude Code
 
-## First engineering objective
+## Current status
 
-Implement **Milestone 1: Business Brain + Owner Inbox foundation**.
+See `START_HERE.md` (where the project is and how to run it), `workflow/STATUS.md` on the
+`autopilot` branch (live progress by verification level), `docs/REPAIR_REPORT.md` (the 2026-09
+foundation repair) and `docs/PRODUCTION_HARDENING.md` (what must happen before production).
 
-Do not build the receptionist first. Voice is easy to demo, but every call must have somewhere safe and structured to land. The Business Brain, policy engine, audit log, and approval objects are foundational.
+The original principle still holds: every call must have somewhere safe and structured to land
+before the receptionist is built on top of it.

@@ -1,99 +1,72 @@
-# Autopilot — Claude + ChatGPT build Back Office OS on their own
+# Autopilot (v2)
 
-## How it works
+Claude builds, an OpenAI model reviews, and a deterministic **referee** decides. It runs in GitHub
+Actions every 30 minutes (your computer can be off). Progress and every decision live in git on the
+`autopilot` branch.
 
-Every 30 minutes, GitHub Actions (in the cloud, so your computer can be off) runs **one turn**: a Claude build step, followed in the same run by ChatGPT's review whenever that step finishes a task.
+## One run
 
 ```text
-                 ┌────────────── referee (workflow/scripts/autopilot.mjs) ──────────────┐
-state.json says  │ READY_TO_START / IN_PROGRESS / CHANGES_REQUESTED → Claude builds a step │
-                 │ AWAITING_REVIEW                                   → ChatGPT reviews    │
-                 │ NEEDS_HUMAN / BLOCKED / PAUSED / MILESTONE_COMPLETE → stop, wait for you│
-                 └──────────────────────────────────────────────────────────────────────────┘
+next ──► build     Claude makes ONE step ─► referee runs the checks ─► referee judges the step
+    ├──► validate  re-run the checks on a finished task (after an infrastructure failure)
+    ├──► review    reviewer judges the COMPLETE task diff, only if the checks passed on exactly that code
+    └──► stop      paused / blocked / waiting for a person
 ```
 
-1. **Claude (builder)** reads `state.json` and the current task in `blueprint.json`. It makes one
-   small step (≤40 changed lines per file), runs lint/typecheck/tests, and writes a handoff note.
-2. **The referee** reruns lint/typecheck/tests. It then:
-   - rejects and discards the step if it broke a rule (protected files, line limit, no handoff);
-   - otherwise commits it to the **`autopilot`** branch.
-3. **ChatGPT (reviewer)** gets the task, the rules in `CLAUDE.md` and the diff, and approves or
-   requests changes. On approval the referee marks the task done and moves to the next one.
-4. After 3 failed attempts on one task, it stops as `BLOCKED` for you.
+## What "done" means (three levels, never conflated)
 
-**Running out of tokens is safe.** Progress lives in git, not in a chat. If Claude or ChatGPT hits a
-limit mid-run, that run's partial work is discarded and the next run picks up the same task.
+| Level | Means | Recorded as |
+|---|---|---|
+| Step validated | format, lint, typecheck, tests (incl. production build + browser secret scan), timezones passed on this code | `state.last_validation` (with a code fingerprint) |
+| Task accepted | reviewer approved every part of the complete diff of the validated code | `task.verification.level = reviewed_and_validated` |
+| Milestone accepted | its acceptance task passed the end-to-end suite (and the local Supabase stack) **and** every human check is done | `milestone.status = accepted` |
 
-**You get notified when it needs you.** It opens a GitHub issue that @mentions you (GitHub emails you, and pushes to the GitHub mobile app if installed) when a task needs a person, a task is blocked, a milestone finishes, or Claude/ChatGPT fail 3 runs in a row (e.g. expired token, no API credits). The issue closes itself once the autopilot is moving again.
+A milestone whose only open items are deferred human checks is `code_complete`, **not** accepted, and
+nothing is production-ready while those checks are open. Tasks accepted before the 2026-09 repair
+carry `verification.level = review_only_pre_repair`.
 
-**It stops for you at:**
-- tasks flagged `requires_human` (live phone calls, QuickBooks credentials, browser walkthroughs);
-- the end of each milestone (so you can check the acceptance criteria);
-- `BLOCKED`.
+## Rules the referee enforces
 
-Each stop has a note in `handoff_instructions`.
+- **Task selection:** first task that is not done, not deferred, has its `depends_on` done, and whose
+  milestone's `requires` are met (M3's remaining work waits for M2's automated acceptance; M4+ waits
+  for M2, M3 and production hardening).
+- **Step size:** target 150, hard limit 200 changed lines per file. Exceptions must be declared and
+  verified: `formatting` (must equal Prettier's output), `generated` (configured paths), `atomic`
+  (reason required, ≤400 lines, shown to the reviewer). Lockfiles are exempt.
+- **Nothing useful is thrown away:** oversized or unfinished work is saved to
+  `workflow/wip/<task>.patch` and offered to the next run. Unfinished runs cost no attempt; three in a
+  row block the task with an explanation (it is probably too big).
+- **Protected:** the builder cannot change `workflow/` (except `state.json`), `.github/`, `CLAUDE.md`,
+  repository-wide config, check scripts in any `package.json`, or existing vitest/eslint/tsconfig
+  files. Such steps are discarded.
+- **Tests with behavior:** a finished task that changes source without touching tests is sent back.
+- **Review:** full diff, split by file into tracked parts (all must approve), with acceptance
+  criteria, check results and changed interfaces. A file too large for one part goes to a person.
+  Repository content and handoffs are passed as untrusted data. Code that changed after validation is
+  never reviewed.
+- **Failures:** infrastructure failures (network, out of memory, Docker) cost no attempt; three sent-back
+  attempts block a task; 8 failed runs in a row (2 for errors that won't fix themselves, like a bad
+  key or no credits) **pause** the autopilot with the reason.
 
-## One-time setup
+## Where to look
 
-1. **Create an empty public GitHub repository** at <https://github.com/new>. Don't add a README.
-   - Public repos get free Actions minutes.
-   - Everything committed is visible to anyone, including the plan, state and every autopilot commit.
-   - Secrets stay hidden in GitHub's secret store.
-   - Never commit `.env.local` (it is git-ignored) or paste keys into files.
-2. **Push this project** from the repository root:
-   ```bash
-   git add -A
-   git commit -m "M1 foundation + autopilot"
-   git branch -M main
-   git remote add origin https://github.com/<you>/<repo>.git
-   git push -u origin main
-   ```
-3. **Add secrets** in the repo: Settings → Secrets and variables → Actions → New repository secret.
+- `workflow/STATUS.md`: current task, last validation, milestone levels, blocked/deferred work, recent decisions
+- `workflow/history.jsonl`: every referee decision, review verdict, exception and failure
+- GitHub issues titled `[autopilot] …`: you are needed (they close themselves when resolved)
 
-   | Secret | Where to get it | Billing |
-   |---|---|---|
-   | `CLAUDE_CODE_OAUTH_TOKEN` | Run `claude setup-token` in a terminal and paste the token | Uses your Claude subscription limits |
-   | `OPENAI_API_KEY` | <https://platform.openai.com/api-keys> | **OpenAI API billing, separate from a ChatGPT Plus/Pro subscription** |
+## Controls (Actions → autopilot → Run workflow)
 
-   - Use `ANTHROPIC_API_KEY` instead of the OAuth token if you'd rather pay per use.
-   - To run without ChatGPT, set `"provider": "none"` under `reviewer` in `workflow/config.json`. Tasks
-     then auto-approve once the tests pass, with no second opinion.
-4. **Turn it on.** Actions tab → enable workflows → **autopilot** → **Run workflow** → `step`. Watch
-   the first run; after that it runs hourly on its own.
+`step` (run a turn now) · `pause` · `resume` · `resume-mark-done` (you finished the current human
+task) · `mark-task-done` + task id (you finished a deferred human task, e.g. `M2-T17`).
+Kill switch: set `"enabled": false` in `workflow/config.json` on `main`, or disable the workflow.
 
-## Day-to-day
+## Secrets (repo Settings → Secrets → Actions)
 
-- **See progress:**
-  - the `autopilot` branch's commit history (one commit per turn);
-  - each run's summary in the Actions tab;
-  - `node workflow/scripts/autopilot.mjs status` locally, after `git pull`.
-- **Controls** (Actions → autopilot → Run workflow):
-  - `pause`
-  - `resume`: continue after BLOCKED / NEEDS_HUMAN / milestone pause
-  - `resume-mark-done`: you finished the current human task
-  - `mark-task-done` + task id: you finished a skipped (deferred) human task, e.g. `M2-T17`
-  - `step`: run one turn now
-- **Kill switch:** Actions → autopilot → ⋯ → Disable workflow.
-- **Ship it:** open a pull request from `autopilot` into `main` whenever you want to review and
-  merge. Do this at least at every milestone pause.
-- **Settings** in `workflow/config.json` on `main`:
-  - models;
-  - attempts before BLOCKED;
-  - line limit;
-  - `pause_at_milestone_boundary`.
+`CLAUDE_CODE_OAUTH_TOKEN` (or `ANTHROPIC_API_KEY`) and `OPENAI_API_KEY`. The workflow uses only
+`contents: write` and `issues: write` permissions and never runs on forks, pull requests or comments.
 
-  The schedule is the `cron` line in `.github/workflows/autopilot.yml`.
+## Changing the automation
 
-## Safety rails
-
-- The referee and config are loaded from `main`. The AI can't loosen its own rules on the
-  `autopilot` branch.
-- Claude can't commit, push, or edit `.github/`, `workflow/scripts/`, `workflow/config.json` or
-  `blueprint.json`. The referee discards any step that tries.
-- Nothing reaches `main` without you merging it.
-- The AIs have no production credentials. Tasks that need them stop at `NEEDS_HUMAN`.
-- **Public repo safety:**
-  - The workflow runs only on its schedule or on "Run workflow", which needs write access.
-  - It never runs on forks, pull requests, issues or comments, so strangers can't trigger it, feed
-    it instructions, or reach the secrets.
-  - Keep it that way: don't add `pull_request_target`, `issues` or `issue_comment` triggers.
+The referee, its tests (`pnpm test:workflow`) and `workflow/config.json` live on `main` and are changed
+by people through reviewed commits. Changes to `.github/workflows` must be merged into `autopilot` by
+a person once (GitHub's token cannot push workflow changes).

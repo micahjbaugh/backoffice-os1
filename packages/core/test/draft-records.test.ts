@@ -5,7 +5,14 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { ForbiddenError, NotFoundError } from "@backoffice/domain";
 import { createDraftTimeEntry } from "../src";
 import { inOrg, userActor } from "./helpers/db";
-import { auditCount, eventCount, factRowCount, fieldCapture, seedCommunicationId, seedEmployee } from "./helpers/draft-facts";
+import {
+  auditCount,
+  eventCount,
+  factRowCount,
+  fieldCapture,
+  seedCommunicationId,
+  seedEmployee,
+} from "./helpers/draft-facts";
 import { createWorld, type World } from "./helpers/fixtures";
 
 let w: World;
@@ -49,8 +56,12 @@ describe("createDraftTimeEntry", () => {
       sourceCommunicationId: communicationId,
       factKey: "time:0",
     };
-    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftTimeEntry(ctx, input));
-    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) => createDraftTimeEntry(ctx, input));
+    const first = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftTimeEntry(ctx, input),
+    );
+    const second = await inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
+      createDraftTimeEntry(ctx, input),
+    );
     expect(first.created).toBe(true);
     expect(second.created).toBe(false);
     expect(second.timeEntry.id).toBe(first.timeEntry.id);
@@ -85,7 +96,11 @@ describe("createDraftTimeEntry", () => {
   it("rejects an employee from a different organization", async () => {
     await expect(
       inOrg(w.db, fieldCapture, w.orgA.id, (ctx) =>
-        createDraftTimeEntry(ctx, { employeeId: w.orgB.owner, jobId: w.orgA.job.id, workDate: "2026-01-05" }),
+        createDraftTimeEntry(ctx, {
+          employeeId: w.orgB.owner,
+          jobId: w.orgA.job.id,
+          workDate: "2026-01-05",
+        }),
       ),
     ).rejects.toBeInstanceOf(NotFoundError);
   });

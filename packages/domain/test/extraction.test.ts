@@ -77,7 +77,12 @@ describe("fieldCaptureExtractionSchema", () => {
         {
           factKey: "time-1",
           type: "time_entry",
-          fields: { employeeRef: "Jake Tyler", jobRef: "Wilson", startTime: "7:00", endTime: "5:30" },
+          fields: {
+            employeeRef: "Jake Tyler",
+            jobRef: "Wilson",
+            startTime: "7:00",
+            endTime: "5:30",
+          },
           confidence: { employeeRef: 0.95, jobRef: 0.6 },
           evidence: [{ field: "employeeRef", quote: "Me Jake Tyler 7-5:30 Wilson" }],
         },
@@ -112,7 +117,12 @@ describe("fieldCaptureExtractionSchema", () => {
         {
           factKey: "billable-1",
           type: "billable_opportunity",
-          fields: { jobRef: "Wilson", description: "grade another 200 ft", quantity: 200, unit: "ft" },
+          fields: {
+            jobRef: "Wilson",
+            description: "grade another 200 ft",
+            quantity: 200,
+            unit: "ft",
+          },
           confidence: { description: 0.85, quantity: 0.8 },
           evidence: [{ field: "description", quote: "Customer had us grade another 200 ft" }],
         },

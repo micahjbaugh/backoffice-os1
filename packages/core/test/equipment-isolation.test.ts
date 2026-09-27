@@ -49,9 +49,12 @@ describe("M3-T02: org A cannot read org B's equipment", () => {
   );
 
   it("org A cannot fetch org B's equipment by id", async () => {
-    const { rows } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.equipment where id = $1`, [
-      seedB.equipmentId,
-    ]);
+    const { rows } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.equipment where id = $1`,
+      [seedB.equipmentId],
+    );
     expect(rows).toHaveLength(0);
   });
 
@@ -96,9 +99,12 @@ describe("M3-T02: org A cannot write org B's equipment", () => {
       [seedB.equipmentId],
     );
     expect(updated.rowCount).toBe(0);
-    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.equipment where id = $1`, [
-      seedB.equipmentId,
-    ]);
+    const deleted = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `delete from public.equipment where id = $1`,
+      [seedB.equipmentId],
+    );
     expect(deleted.rowCount).toBe(0);
 
     const { rows } = await w.pg.query<{ name: string }>(
@@ -110,10 +116,12 @@ describe("M3-T02: org A cannot write org B's equipment", () => {
 
   it("RLS rejects moving org A equipment into org B", async () => {
     await expect(
-      rawAsUser(w.pg, w.orgA.owner, `update public.equipment set organization_id = $2 where id = $1`, [
-        seedA.equipmentId,
-        w.orgB.id,
-      ]),
+      rawAsUser(
+        w.pg,
+        w.orgA.owner,
+        `update public.equipment set organization_id = $2 where id = $1`,
+        [seedA.equipmentId, w.orgB.id],
+      ),
     ).rejects.toThrow(/row-level security/);
   });
 

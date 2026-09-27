@@ -60,7 +60,12 @@ export async function createDraftEquipmentUsage(
   );
 
   if (!rows[0]) {
-    const existing = await findFactKeyRow(ctx, "public.equipment_usages", data.sourceCommunicationId, data.factKey);
+    const existing = await findFactKeyRow(
+      ctx,
+      "public.equipment_usages",
+      data.sourceCommunicationId,
+      data.factKey,
+    );
     if (!existing) throw new Error("equipment usage idempotency conflict without existing row");
     return { equipmentUsage: toEquipmentUsage(existing), created: false };
   }
@@ -71,7 +76,11 @@ export async function createDraftEquipmentUsage(
     entityType: "equipment_usage",
     entityId: equipmentUsage.id,
     idempotencyKey: `equipment_usage.drafted:${equipmentUsage.id}`,
-    payload: { job_id: equipmentUsage.jobId, equipment_id: equipmentUsage.equipmentId, hours: equipmentUsage.hours },
+    payload: {
+      job_id: equipmentUsage.jobId,
+      equipment_id: equipmentUsage.equipmentId,
+      hours: equipmentUsage.hours,
+    },
   });
   return { equipmentUsage, created: true };
 }

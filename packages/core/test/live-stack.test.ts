@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { execSync } from "node:child_process";
+import { existsSync, readFileSync } from "node:fs";
 import { afterAll, describe, expect, it } from "vitest";
 import { createPgDatabase, createPgPool } from "../src/db/pg";
 import {
@@ -14,6 +15,20 @@ import {
   revokeOperatorAccess,
   openOpsCase,
 } from "../src";
+
+// The local stack's public anon key: explicit env, then the app's .env.local, then the CLI (clean CI).
+function localAnonKey(): string {
+  if (process.env.BO_LIVE_ANON_KEY) return process.env.BO_LIVE_ANON_KEY;
+  const envFile = "../../apps/web/.env.local";
+  const fromFile = existsSync(envFile)
+    ? readFileSync(envFile, "utf8")
+        .match(/^NEXT_PUBLIC_SUPABASE_ANON_KEY=(.*)$/m)?.[1]
+        ?.trim()
+    : undefined;
+  if (fromFile) return fromFile;
+  const status = execSync("pnpm exec supabase status -o env", { encoding: "utf8" });
+  return status.match(/^ANON_KEY="?([^"\n]*)"?$/m)?.[1] ?? "";
+}
 
 // Explicit opt-in: exercises only the seeded local Docker stack and leaves labelled test records.
 describe.skipIf(process.env.BO_LIVE_TEST !== "1")("real local Supabase", () => {
@@ -37,8 +52,7 @@ describe.skipIf(process.env.BO_LIVE_TEST !== "1")("real local Supabase", () => {
   });
 
   it("signs in every seeded demo account through real Auth", async () => {
-    const env = readFileSync("../../apps/web/.env.local", "utf8");
-    anon = env.match(/^NEXT_PUBLIC_SUPABASE_ANON_KEY=(.*)$/m)?.[1]?.trim() ?? "";
+    anon = localAnonKey();
     expect(anon.length).toBeGreaterThan(10);
     for (const email of [
       "owner@acme.test",

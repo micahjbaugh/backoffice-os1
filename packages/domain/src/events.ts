@@ -19,6 +19,9 @@ export const EVENT_TYPES = {
   documentRegistered: "document.registered",
   communicationRecorded: "communication.recorded",
   communicationUpdated: "communication.updated",
+  /** A transfer was requested and queued in the outbox (not yet performed). */
+  communicationTransferRequested: "communication.transfer_requested",
+  /** The provider confirmed the transfer (recorded by the outbox worker). */
   communicationTransferred: "communication.transferred",
   callDispositionRecorded: "communication.disposition_recorded",
   leadCreated: "lead.created",
@@ -26,6 +29,11 @@ export const EVENT_TYPES = {
   equipmentUsageDrafted: "equipment_usage.drafted",
   materialUsageDrafted: "material_usage.drafted",
   jobNoteDrafted: "job_note.drafted",
+  draftRecordDecided: "draft_record.decided",
+  billableOpportunityDecided: "billable_opportunity.decided",
+  outboundSucceeded: "outbound.succeeded",
+  smsSendRequested: "sms.send_requested",
+  webhookDeadLettered: "webhook.dead_lettered",
 } as const;
 
 export type EventType = (typeof EVENT_TYPES)[keyof typeof EVENT_TYPES];

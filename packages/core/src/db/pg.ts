@@ -5,6 +5,10 @@ import type { Database, QueryResult, SqlExecutor } from "./types";
 
 // Return int8/numeric as JS numbers (amounts are integer cents, well within 2^53).
 pg.types.setTypeParser(pg.types.builtins.INT8, (value) => Number(value));
+// SQL DATE is a calendar date with no timezone. node-postgres would build a Date at *local*
+// midnight, which shifts depending on the process timezone; keep the "YYYY-MM-DD" text instead
+// (SqlExecutor contract, see ./types.ts).
+pg.types.setTypeParser(pg.types.builtins.DATE, (value) => value);
 
 export function createPgDatabase(pool: pg.Pool): Database {
   return {

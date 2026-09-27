@@ -15,6 +15,7 @@
     "@backoffice/core": "workspace:*",
     "@backoffice/domain": "workspace:*",
     "@backoffice/integrations": "workspace:*",
+    "@backoffice/workflows": "workspace:*",
     "@supabase/ssr": "^0.12.7",
     "@supabase/supabase-js": "^2.117.2",
     "next": "^16.3.6",

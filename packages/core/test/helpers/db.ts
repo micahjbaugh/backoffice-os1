@@ -12,6 +12,7 @@ import {
   type SqlExecutor,
   type Tx,
 } from "../../src";
+import { DATE_OID } from "../../src/db/types";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const migrationsDir = join(here, "../../../../supabase/migrations");
@@ -33,7 +34,11 @@ export interface TestDatabase {
 
 /** Fresh in-process Postgres with the Supabase shim and every repository migration applied. */
 export async function createTestDatabase(): Promise<TestDatabase> {
-  const pg = await PGlite.create({ extensions: { pgcrypto } });
+  // Same DATE contract as the node-postgres adapter: calendar dates stay "YYYY-MM-DD" text.
+  const pg = await PGlite.create({
+    extensions: { pgcrypto },
+    parsers: { [DATE_OID]: (value: string) => value },
+  });
   await pg.exec(readFileSync(join(here, "supabase-shim.sql"), "utf8"));
   const migrations = readdirSync(migrationsDir)
     .filter((f) => f.endsWith(".sql"))

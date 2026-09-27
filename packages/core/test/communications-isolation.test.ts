@@ -76,26 +76,42 @@ afterAll(async () => {
   await w.close();
 });
 
-const TABLES = ["communications", "calls", "messages", "communication_participants", "leads", "lead_activities"];
+const TABLES = [
+  "communications",
+  "calls",
+  "messages",
+  "communication_participants",
+  "leads",
+  "lead_activities",
+];
 
 describe("M2-T05: org A cannot read org B's communications, calls, messages or leads", () => {
   it.each(TABLES)("staff with read access to %s see no org B rows", async (table) => {
     for (const user of [w.orgA.owner, w.orgA.officeAdmin, w.orgA.manager]) {
-      const { rows } = await rawAsUser(w.pg, user, `select * from public.${table} where organization_id = $1`, [
-        w.orgB.id,
-      ]);
+      const { rows } = await rawAsUser(
+        w.pg,
+        user,
+        `select * from public.${table} where organization_id = $1`,
+        [w.orgB.id],
+      );
       expect(rows).toHaveLength(0);
     }
   });
 
   it("org A cannot fetch org B's specific communication or lead by id", async () => {
-    const { rows: comm } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.communications where id = $1`, [
-      seedB.commVoiceId,
-    ]);
+    const { rows: comm } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.communications where id = $1`,
+      [seedB.commVoiceId],
+    );
     expect(comm).toHaveLength(0);
-    const { rows: lead } = await rawAsUser(w.pg, w.orgA.owner, `select * from public.leads where id = $1`, [
-      seedB.leadId,
-    ]);
+    const { rows: lead } = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `select * from public.leads where id = $1`,
+      [seedB.leadId],
+    );
     expect(lead).toHaveLength(0);
   });
 
@@ -137,16 +153,22 @@ describe("M2-T05: org A cannot write org B's communications, calls, messages or 
       ),
     ).rejects.toThrow(/row-level security/);
 
-    const updated = await rawAsUser(w.pg, w.orgA.owner, `update public.leads set status = 'lost' where id = $1`, [
+    const updated = await rawAsUser(
+      w.pg,
+      w.orgA.owner,
+      `update public.leads set status = 'lost' where id = $1`,
+      [seedB.leadId],
+    );
+    expect(updated.rowCount).toBe(0);
+    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.leads where id = $1`, [
       seedB.leadId,
     ]);
-    expect(updated.rowCount).toBe(0);
-    const deleted = await rawAsUser(w.pg, w.orgA.owner, `delete from public.leads where id = $1`, [seedB.leadId]);
     expect(deleted.rowCount).toBe(0);
 
-    const { rows } = await w.pg.query<{ status: string }>(`select status from public.leads where id = $1`, [
-      seedB.leadId,
-    ]);
+    const { rows } = await w.pg.query<{ status: string }>(
+      `select status from public.leads where id = $1`,
+      [seedB.leadId],
+    );
     expect(rows[0]?.status).toBe("new");
   });
 
@@ -163,15 +185,14 @@ describe("M2-T05: org A cannot write org B's communications, calls, messages or 
 });
 
 describe("M2-T05: outsiders and anonymous callers see nothing", () => {
-  it.each(TABLES)(
-    "an unaffiliated authenticated user reads no rows from %s",
-    async (table) => {
-      const { rows } = await rawAsUser(w.pg, w.outsider, `select * from public.${table}`);
-      expect(rows).toHaveLength(0);
-    },
-  );
+  it.each(TABLES)("an unaffiliated authenticated user reads no rows from %s", async (table) => {
+    const { rows } = await rawAsUser(w.pg, w.outsider, `select * from public.${table}`);
+    expect(rows).toHaveLength(0);
+  });
 
   it("anonymous callers are rejected outright", async () => {
-    await expect(rawAsUser(w.pg, null, `select * from public.leads`)).rejects.toThrow(/permission denied/);
+    await expect(rawAsUser(w.pg, null, `select * from public.leads`)).rejects.toThrow(
+      /permission denied/,
+    );
   });
 });

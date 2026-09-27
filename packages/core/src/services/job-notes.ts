@@ -47,7 +47,12 @@ export async function createDraftJobNote(
   );
 
   if (!rows[0]) {
-    const existing = await findFactKeyRow(ctx, "public.job_notes", data.sourceCommunicationId, data.factKey);
+    const existing = await findFactKeyRow(
+      ctx,
+      "public.job_notes",
+      data.sourceCommunicationId,
+      data.factKey,
+    );
     if (!existing) throw new Error("job note idempotency conflict without existing row");
     return { jobNote: toJobNote(existing), created: false };
   }

@@ -1,10 +1,10 @@
-// M2-T13: warm transfer domain tool, routed through VoiceProvider.transferCall (fake adapter here).
-// Idempotent per (organization_id, idempotency_key); rejects a communication or employee outside
-// the caller's organization, an untransferable call, or a destination with no phone on file.
+// M2-T13 (reworked in the foundation repair): warm transfer is recorded as an outbound operation with
+// a transfer_requested event + audit; the outbox worker performs it (packages/workflows tests cover
+// execution, retries, crashes and reconciliation). Rejects a communication or employee outside the
+// caller's organization, an untransferable call, or a destination with no phone on file.
 
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
-import { FakeVoiceProvider } from "@backoffice/integrations";
 import { ConflictError, ForbiddenError, NotFoundError, type Actor } from "@backoffice/domain";
 import { createEmployee, recordCall, transferCall } from "../src";
 import { count, inOrg, userActor } from "./helpers/db";
@@ -33,64 +33,69 @@ async function openVoiceCall(orgId: string) {
 }
 
 const recordedEvents = (id: string) =>
-  count(w.pg, `select 1 from public.business_events where type = 'communication.transferred' and entity_id = $1`, [
-    id,
-  ]);
+  count(
+    w.pg,
+    `select 1 from public.business_events where type = 'communication.transfer_requested' and entity_id = $1`,
+    [id],
+  );
 
 describe("transferCall", () => {
-  it("routes an in-progress call through VoiceProvider.transferCall and records an event and audit", async () => {
+  it("queues a transfer operation with an event and audit, without calling any provider", async () => {
     const communication = await openVoiceCall(w.orgA.id);
     const employee = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
-      createEmployee(ctx, { displayName: "On-call Dispatcher", phone: "+15005550010" }),
+      createEmployee(ctx, { displayName: "On-call Tech", phone: "+15005550010" }),
     );
-    const provider = new FakeVoiceProvider();
-
     const result = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-      transferCall(ctx, provider, {
+      transferCall(ctx, {
         communicationId: communication.id,
         toEmployeeId: employee.id,
         reason: "caller_requested_human",
         idempotencyKey: `transfer-${randomUUID()}`,
       }),
     );
-
-    expect(result.status).toBe("transferred");
-    expect(result.toEmployeeId).toBe(employee.id);
+    expect(result).toMatchObject({ status: "pending", created: true, toEmployeeId: employee.id });
+    const op = await w.pg.query<{
+      operation_type: string;
+      request: Record<string, unknown>;
+      status: string;
+    }>(`select operation_type, request, status from public.outbound_operations where id = $1`, [
+      result.operationId,
+    ]);
+    expect(op.rows[0]).toMatchObject({
+      operation_type: "call.transfer",
+      status: "pending",
+      request: { toNumber: "+15005550010", toEmployeeId: employee.id },
+    });
     expect(await recordedEvents(communication.id)).toBe(1);
     expect(
-      await count(w.pg, `select 1 from public.audit_log where action = 'communication.transfer_requested' and entity_id = $1`, [
-        communication.id,
-      ]),
+      await count(
+        w.pg,
+        `select 1 from public.audit_log where action = 'communication.transfer_requested' and entity_id = $1`,
+        [communication.id],
+      ),
     ).toBe(1);
   });
 
-  it("is idempotent per (organization_id, idempotency_key): a retried transfer reuses the provider result", async () => {
+  it("is idempotent per (organization_id, idempotency_key): a retried request queues nothing new", async () => {
     const communication = await openVoiceCall(w.orgA.id);
     const employee = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
-      createEmployee(ctx, { displayName: "Dispatcher Two", phone: "+15005550011" }),
+      createEmployee(ctx, { displayName: "Retry Target", phone: "+15005550011" }),
     );
-    const provider = new FakeVoiceProvider();
-    const idempotencyKey = `transfer-${randomUUID()}`;
-
-    const first = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-      transferCall(ctx, provider, {
-        communicationId: communication.id,
-        toEmployeeId: employee.id,
-        reason: "caller_requested_human",
-        idempotencyKey,
-      }),
-    );
-    const second = await inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-      transferCall(ctx, provider, {
-        communicationId: communication.id,
-        toEmployeeId: employee.id,
-        reason: "caller_requested_human",
-        idempotencyKey,
-      }),
-    );
-
-    expect(second.providerCallId).toBe(first.providerCallId);
+    const input = {
+      communicationId: communication.id,
+      toEmployeeId: employee.id,
+      reason: "caller_requested_human" as const,
+      idempotencyKey: `transfer-${randomUUID()}`,
+    };
+    const first = await inOrg(w.db, receptionist, w.orgA.id, (ctx) => transferCall(ctx, input));
+    const second = await inOrg(w.db, receptionist, w.orgA.id, (ctx) => transferCall(ctx, input));
+    expect(second).toMatchObject({ operationId: first.operationId, created: false });
     expect(await recordedEvents(communication.id)).toBe(1);
+    expect(
+      await count(w.pg, `select 1 from public.outbound_operations where entity_id = $1`, [
+        communication.id,
+      ]),
+    ).toBe(1);
   });
 
   it("rejects a communication with no in-progress voice call", async () => {
@@ -108,7 +113,7 @@ describe("transferCall", () => {
 
     await expect(
       inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-        transferCall(ctx, new FakeVoiceProvider(), {
+        transferCall(ctx, {
           communicationId: communication.id,
           toEmployeeId: employee.id,
           reason: "provider_failure",
@@ -126,7 +131,7 @@ describe("transferCall", () => {
 
     await expect(
       inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-        transferCall(ctx, new FakeVoiceProvider(), {
+        transferCall(ctx, {
           communicationId: communication.id,
           toEmployeeId: otherOrgEmployee.id,
           reason: "caller_requested_human",
@@ -144,7 +149,7 @@ describe("transferCall", () => {
 
     await expect(
       inOrg(w.db, receptionist, w.orgA.id, (ctx) =>
-        transferCall(ctx, new FakeVoiceProvider(), {
+        transferCall(ctx, {
           communicationId: communication.id,
           toEmployeeId: employee.id,
           reason: "caller_requested_human",
@@ -162,7 +167,7 @@ describe("transferCall", () => {
 
     await expect(
       inOrg(w.db, userActor(w.orgA.fieldEmployee), w.orgA.id, (ctx) =>
-        transferCall(ctx, new FakeVoiceProvider(), {
+        transferCall(ctx, {
           communicationId: communication.id,
           toEmployeeId: employee.id,
           reason: "caller_requested_human",

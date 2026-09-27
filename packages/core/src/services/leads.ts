@@ -16,7 +16,10 @@ import { assertEntityInOrg } from "./entities";
 import { recordEvent } from "./events";
 
 /** originatingCommunicationId has no entry in the shared entityRef map, so check it directly. */
-async function assertCommunicationInOrg(ctx: ServiceContext, communicationId: UUID | undefined): Promise<void> {
+async function assertCommunicationInOrg(
+  ctx: ServiceContext,
+  communicationId: UUID | undefined,
+): Promise<void> {
   if (communicationId === undefined) return;
   const { rows } = await ctx.tx.asService(
     `select 1 from public.communications where id = $1 and organization_id = $2`,
@@ -35,7 +38,10 @@ export interface CreateLeadResult {
  * Create a draft lead (server/agent/member). Idempotent on (organization_id, idempotency_key):
  * a retried call with the same key returns the original lead and writes no new event or audit.
  */
-export async function createLead(ctx: ServiceContext, input: CreateLeadInput): Promise<CreateLeadResult> {
+export async function createLead(
+  ctx: ServiceContext,
+  input: CreateLeadInput,
+): Promise<CreateLeadResult> {
   await ctx.authorize("lead.write");
   const data = parseInput(createLeadInput, input);
   await assertEntityInOrg(ctx, "customer", data.customerId);
@@ -89,9 +95,9 @@ export async function createLead(ctx: ServiceContext, input: CreateLeadInput): P
 
 export async function getLead(ctx: ServiceContext, id: UUID): Promise<Lead | null> {
   await ctx.authorize("lead.read");
-  const { rows } = await ctx.scoped<Row>(`select * from public.leads where id = $1 and organization_id = $2`, [
-    id,
-    ctx.organizationId,
-  ]);
+  const { rows } = await ctx.scoped<Row>(
+    `select * from public.leads where id = $1 and organization_id = $2`,
+    [id, ctx.organizationId],
+  );
   return rows[0] ? toLead(rows[0]) : null;
 }

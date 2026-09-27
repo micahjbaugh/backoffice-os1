@@ -2,6 +2,7 @@
 // so normalize here rather than trusting either.
 
 import type {
+  BillableOpportunity,
   Approval,
   AuditLogEntry,
   BusinessEvent,
@@ -40,20 +41,21 @@ export function isoOrNull(value: unknown): string | null {
   return value === null || value === undefined ? null : iso(value);
 }
 
+const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
 /**
- * A `date` column as "YYYY-MM-DD". node-postgres parses `date` into a Date built from local
- * year/month/day components, so reading those back out (not toISOString, which is UTC) recovers
- * the original calendar date regardless of process timezone.
+ * A SQL `date` column as "YYYY-MM-DD". Adapters must return dates as text (see the SqlExecutor
+ * contract in ./db/types.ts). A JS Date here means an adapter is misconfigured: whether its local
+ * or UTC fields hold the calendar date depends on the driver, so refuse to guess.
  */
 export function dateOnly(value: unknown): string {
+  if (typeof value === "string" && CALENDAR_DATE.test(value)) return value;
   if (value instanceof Date) {
-    const y = value.getFullYear();
-    const m = String(value.getMonth() + 1).padStart(2, "0");
-    const d = String(value.getDate()).padStart(2, "0");
-    return `${y}-${m}-${d}`;
+    throw new TypeError(
+      "date column arrived as a JS Date; configure the driver to return DATE as text (DATE_OID)",
+    );
   }
-  if (typeof value === "string") return value.slice(0, 10);
-  throw new TypeError(`expected date, got ${typeof value}`);
+  throw new TypeError(`expected a YYYY-MM-DD date, got ${JSON.stringify(value)}`);
 }
 
 export function numOrNull(value: unknown): number | null {
@@ -78,7 +80,7 @@ function obj(value: unknown): Record<string, unknown> {
 }
 
 function strArray(value: unknown): string[] {
-  const parsed = typeof value === "string" ? JSON.parse(value) : value ?? [];
+  const parsed = typeof value === "string" ? JSON.parse(value) : (value ?? []);
   if (!Array.isArray(parsed)) throw new TypeError(`expected array, got ${typeof parsed}`);
   return parsed.map(str);
 }
@@ -364,6 +366,9 @@ export const toTimeEntry = (r: Row): TimeEntry => ({
   factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -379,6 +384,9 @@ export const toEquipmentUsage = (r: Row): EquipmentUsage => ({
   factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
@@ -395,6 +403,28 @@ export const toMaterialUsage = (r: Row): MaterialUsage => ({
   factKey: strOrNull(r.fact_key),
   confidence: obj(r.confidence),
   evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
+  createdAt: iso(r.created_at),
+  updatedAt: iso(r.updated_at),
+});
+
+export const toBillableOpportunity = (r: Row): BillableOpportunity => ({
+  id: str(r.id),
+  organizationId: str(r.organization_id),
+  jobId: str(r.job_id),
+  description: str(r.description),
+  quantity: numOrNull(r.quantity),
+  unit: strOrNull(r.unit),
+  status: str(r.status) as BillableOpportunity["status"],
+  sourceCommunicationId: strOrNull(r.source_communication_id),
+  confidence: obj(r.confidence),
+  evidence: obj(r.evidence),
+  decidedByUserId: strOrNull(r.decided_by_user_id),
+  decidedAt: isoOrNull(r.decided_at),
+  decisionNote: strOrNull(r.decision_note),
+  decisionPolicySource: strOrNull(r.decision_policy_source),
   createdAt: iso(r.created_at),
   updatedAt: iso(r.updated_at),
 });
