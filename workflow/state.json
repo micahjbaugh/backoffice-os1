@@ -3,10 +3,10 @@
   "current_task_id": "M3-T11",
   "attempts": 0,
   "stalled_runs": 0,
-  "consecutive_failures": 0,
+  "consecutive_failures": 1,
   "review_notes": "",
   "review_base": null,
-  "last_error": "",
+  "last_error": "2026-09-27T12:56:01.091Z builder failed: builder run produced no changes",
   "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
@@ -17,5 +17,5 @@
   "status": "READY_TO_START",
   "last_engineer_used": "claude",
   "handoff_instructions": "Reviewer approved all 1 part(s). M3-T10 is done. Next: M3-T11 \"Job matching\".",
-  "updated_at": "2026-09-27T12:41:31.085Z"
+  "updated_at": "2026-09-27T12:56:01.092Z"
 }
