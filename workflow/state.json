@@ -52,12 +52,12 @@
   },
   "wip_patch": null,
   "pause_reason": null,
-  "paused_from": null,
+  "paused_from": "CHANGES_REQUESTED",
   "line_limit_exceptions": [],
   "current_milestone_id": 3,
   "current_task_index": 19,
-  "status": "CHANGES_REQUESTED",
-  "last_engineer_used": "reviewer",
-  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
-  "updated_at": "2026-09-27T21:31:45.481Z"
+  "status": "PAUSED",
+  "last_engineer_used": "human",
+  "handoff_instructions": "Paused by a person at M3-T19. Run \"resume\" to continue.",
+  "updated_at": "2026-09-27T21:42:20.339Z"
 }
