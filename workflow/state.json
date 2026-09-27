@@ -1,21 +1,21 @@
 {
   "schema_version": 2,
   "current_task_id": "M2-T24",
-  "attempts": 0,
+  "attempts": 1,
   "stalled_runs": 0,
   "consecutive_failures": 0,
-  "review_notes": "",
+  "review_notes": "Step not accepted: over the 200-line hard limit without a valid exception: apps/web/src/app/ops/operations/page.tsx (201), packages/core/test/ops-operations.test.ts (208). The work is saved in workflow/wip/M2-T24.patch; re-apply it in smaller steps or declare a valid exception.",
   "review_base": null,
   "last_error": "",
   "last_validation": null,
-  "wip_patch": null,
+  "wip_patch": "workflow/wip/M2-T24.patch",
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
   "current_task_index": 24,
-  "status": "READY_TO_START",
-  "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T23 is done. Next: M2-T24 \"Operations view of stuck webhooks and outbound operations\".",
-  "updated_at": "2026-09-27T05:09:44.880Z"
+  "status": "CHANGES_REQUESTED",
+  "last_engineer_used": "referee",
+  "handoff_instructions": "Attempt 1 was sent back. Address review_notes, then resubmit.",
+  "updated_at": "2026-09-27T05:44:36.792Z"
 }
