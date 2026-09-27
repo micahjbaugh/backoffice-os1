@@ -1,7 +1,7 @@
 {
   "schema_version": 2,
   "project": "Back Office OS",
-  "source": "docs/MILESTONES.md, docs/MASTER_SPEC.md, docs/M1_BUILD_REPORT.md",
+  "source": "docs/MILESTONES.md, docs/MASTER_SPEC.md, docs/M1_BUILD_REPORT.md, docs/BUILD_TO_SELL.md, docs/SEND_BACK.md",
   "schema": {
     "milestone": {
       "id": "integer, unique, matches state.json current_milestone_id",
@@ -1090,6 +1090,394 @@
       }
     },
     {
+      "id": 12,
+      "key": "VIS",
+      "name": "See it: leads, conversations, crew, job history",
+      "status": "pending",
+      "acceptance": [
+        "an owner or office admin can find every lead, call and text, and see its source",
+        "each job has one history page: messages, calls, photos (when stored), draft and reviewed time/equipment/material records, possible extra billable work, approvals, clarifications, and open work with its owner and due date",
+        "every entry shows where it came from and its decision history; authorized people can correct draft records and the original is preserved",
+        "a user of one business never sees another business's records",
+        "signed-out visitors are sent to /login for every new page (checked through the running app)"
+      ],
+      "requires": [
+        {
+          "milestone": "M3",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-vis"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "VIS-T00",
+          "title": "Leads page",
+          "description": "Add /leads: tenant-scoped list of leads with status, source (call/text/manual), linked customer and communication, created time. Paginated. Read through the user's RLS session.",
+          "done_when": "Page renders seeded leads; tenant isolation and pagination tests pass.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "VIS-T01",
+          "title": "Conversations page",
+          "description": "Add /conversations: calls and texts with direction, participants, status, summary/transcript where retained, and links to lead/customer/employee/job. Paginated; retention-purged text shown as purged, not missing.",
+          "done_when": "Page renders seeded calls and texts; isolation and retention tests pass.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "VIS-T02",
+          "title": "Crew page",
+          "description": "Add /crew: employees with phone identity, recent field reports and open clarifications per person. Reuses existing employee services.",
+          "done_when": "Page renders; a field employee sees only what their role allows.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "VIS-T03",
+          "title": "Job timeline service",
+          "description": "getJobTimeline(ctx, jobId): one ordered history merging communications, time entries, equipment and material usage, job notes, billable opportunities, approvals and clarification tasks, each with source, status and decision history. Server-only, tenant-scoped.",
+          "done_when": "Unit tests cover ordering, provenance fields, and cross-tenant denial.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "VIS-T04",
+          "title": "Job history page",
+          "description": "Add /jobs/[id] rendering the timeline with filters (all, needs decision, open work). Link each job from /jobs.",
+          "done_when": "Page renders a seeded job with every record type; next build succeeds.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "VIS-T05",
+          "title": "Corrections on draft records",
+          "description": "From the job page, authorized users correct draft time/equipment/material records through the existing decision services (0011). The original stays in history; each correction is audited with who and why.",
+          "done_when": "Tests prove unauthorized roles cannot correct, and history keeps the original.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "VIS-T06",
+          "title": "Running-app checks for new pages",
+          "description": "Extend apps/web/test/running-app.test.ts so every new page redirects signed-out visitors to /login.",
+          "done_when": "Running-app test covers /leads, /conversations, /crew and /jobs/[id].",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "VIS-T07",
+          "title": "VIS acceptance suite",
+          "description": "Automated end-to-end test of this milestone's acceptance through the running app (production build + next start, real session gate, signed webhook requests where relevant) and the local Supabase stack. Cover failure, retry, ambiguity and handoff cases named in the acceptance list.",
+          "done_when": "Suite asserts every acceptance item and passes in the gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 7
+        },
+        {
+          "id": "VIS-T08",
+          "title": "VIS walkthrough by a person",
+          "description": "A person clicks through leads, conversations, crew and a job history page in the running app with the demo data and records the result in docs/WALKTHROUGHS.md. Deferred: work continues, but VIS cannot be accepted until this is done.",
+          "done_when": "Walkthrough recorded with date, who, and any issues filed.",
+          "status": "pending",
+          "depends_on": [
+            "VIS-T07"
+          ],
+          "requires_human": "Needs a person to click through the running app.",
+          "deferred": true,
+          "index": 8
+        }
+      ]
+    },
+    {
+      "id": 13,
+      "key": "OPS",
+      "name": "Operator follow-through",
+      "status": "pending",
+      "acceptance": [
+        "every actionable request has a current owner (employee, business owner, vendor, AI workflow or internal operator), a next action, a due date and the evidence required to complete it",
+        "approved, ordered, delivered, invoiced and paid are separate states; an intermediate state is never shown as completed",
+        "an operator can assign, prioritize and claim work; \"I'll handle this\" stops automated outreach on that item until released",
+        "overdue items with no response escalate to the next person in the configured chain",
+        "coverage hours and response targets are per-business settings; nothing assumes a service commitment that was not configured",
+        "reviewed billable work can be marked ready for invoice and then invoiced (manually) with evidence; nothing claims software sent an invoice or updated accounting"
+      ],
+      "requires": [
+        {
+          "milestone": "M3",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-ops"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "OPS-T00",
+          "title": "Migration: follow-ups",
+          "description": "New tenant table for follow-up items: subject reference, owner type and id, next action, due_at, evidence required, status, lifecycle (approved/ordered/delivered/invoiced/paid where applicable), hold flag. organization_id, RLS, audit trigger.",
+          "done_when": "Migration applies; RLS and direct-API bypass tests pass.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "OPS-T01",
+          "title": "Follow-up service",
+          "description": "Create, reassign, complete (with evidence) and cancel follow-ups; audited; idempotent per subject+action.",
+          "done_when": "Service tests cover authority, idempotency and evidence enforcement.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "OPS-T02",
+          "title": "I'll handle this",
+          "description": "Operator claim sets a hold on the subject; outbound automation (outbox SMS/calls) checks holds and skips held subjects until released.",
+          "done_when": "Tests prove a held subject gets no automated outreach and release resumes it.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "OPS-T03",
+          "title": "Ops queue: assignment and priority",
+          "description": "Ops Console list of follow-ups across granted tenants with owner, due, age and priority; assign, claim, release and complete actions.",
+          "done_when": "Page renders; actions audited to the tenant.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "OPS-T04",
+          "title": "Coverage hours and response targets",
+          "description": "Per-organization settings for operator coverage hours and response targets; blank by default (no invented commitments).",
+          "done_when": "Settings saved and shown; defaults are empty.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "OPS-T05",
+          "title": "Escalation",
+          "description": "Background job escalates overdue follow-ups along a configured chain (operator, then owner); one escalation per step; audited.",
+          "done_when": "Tests cover escalation once, quiet hours, and no chain configured.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "OPS-T06",
+          "title": "Invoice-prep checklist",
+          "description": "Reviewed billable opportunities and job records roll into a per-job invoice-prep checklist the operator completes; states: ready for invoice, invoiced (manual, with reference), paid (manual). Potential, invoiced and collected amounts are reported separately.",
+          "done_when": "Tests prove no state skips and amounts stay separated.",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "OPS-T07",
+          "title": "OPS acceptance suite",
+          "description": "Automated end-to-end test of this milestone's acceptance through the running app (production build + next start, real session gate, signed webhook requests where relevant) and the local Supabase stack. Cover failure, retry, ambiguity and handoff cases named in the acceptance list.",
+          "done_when": "Suite asserts every acceptance item and passes in the gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 7
+        },
+        {
+          "id": "OPS-T08",
+          "title": "OPS walkthrough by a person",
+          "description": "A person clicks through the ops queue, I'll handle this, escalation and invoice prep in the running app with the demo data and records the result in docs/WALKTHROUGHS.md. Deferred: work continues, but OPS cannot be accepted until this is done.",
+          "done_when": "Walkthrough recorded with date, who, and any issues filed.",
+          "status": "pending",
+          "depends_on": [
+            "OPS-T07"
+          ],
+          "requires_human": "Needs a person to click through the running app.",
+          "deferred": true,
+          "index": 8
+        }
+      ]
+    },
+    {
+      "id": 14,
+      "key": "OWN",
+      "name": "Owner by text: brief, text decisions, Send back",
+      "status": "pending",
+      "acceptance": [
+        "the owner gets a short daily text at a configured local time (default 6:30am) listing what happened, what needs a decision, what is waiting on someone, and what the office completed",
+        "texts respect quiet hours (default 8pm-6am local) except urgent items",
+        "simple decisions within the owner's authority can be made by replying to the text; red-risk or over-limit decisions open a signed, expiring link that requires sign-in",
+        "ambiguous text replies get a clarifying question, never a guess",
+        "Send back works as specified in docs/SEND_BACK.md: Ask a question or Counter (aim for / maximum authorized total), two rounds, linked revisions, conditional approval only within the sender's authority, default three-day expiry",
+        "a send-back reaches the original human requester by SMS when the request came in by SMS, subject to messaging preferences"
+      ],
+      "requires": [
+        {
+          "milestone": "M3",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-own"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "OWN-T00",
+          "title": "Owner messaging preferences",
+          "description": "Per-organization and per-user settings: brief time (default 06:30 local), quiet hours (default 20:00-06:00 local), urgent override, SMS on/off. Migration + Settings UI.",
+          "done_when": "Defaults applied; tests cover timezone handling.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "OWN-T01",
+          "title": "Owner brief builder",
+          "description": "Deterministic builder from records: happened, needs a decision, waiting on someone (follow-ups), office completed. No model-written numbers.",
+          "done_when": "Snapshot tests over seeded data; empty sections omitted.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "OWN-T02",
+          "title": "Owner brief delivery",
+          "description": "Scheduled job sends the brief via the outbox with an approved template; idempotent per organization-day; respects quiet hours and preferences.",
+          "done_when": "Tests prove one brief per day and no send in quiet hours.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "OWN-T03",
+          "title": "Signed decision links",
+          "description": "Short, signed, expiring links to one decision; opening requires sign-in; every use audited.",
+          "done_when": "Tests cover expiry, tampering and wrong-tenant access.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "OWN-T04",
+          "title": "Decisions by text reply",
+          "description": "Brief items carry short reference codes; replies like \"1 yes\" decide within the replier's authority; red-risk or over-limit items reply with a link instead; unmatched or ambiguous replies get a clarification.",
+          "done_when": "Tests cover match, ambiguity, authority and replay.",
+          "status": "pending",
+          "index": 4
+        },
+        {
+          "id": "OWN-T05",
+          "title": "Migration: send-back and revisions",
+          "description": "Tables for send-backs (kind ask/counter, aim_for, max_authorized_total kept internal, round, expires_at, conditional terms, status) and approval revisions linked to the original, which stays immutable. organization_id, RLS, audit.",
+          "done_when": "Migration applies; RLS and immutability tests pass.",
+          "status": "pending",
+          "index": 5
+        },
+        {
+          "id": "OWN-T06",
+          "title": "Send back service",
+          "description": "Rules from docs/SEND_BACK.md: anyone who can decide may send back; office admins may ask on requests they can access but counter only within their own authority; two rounds then back to a decision maker; conditional approval only for counters with explicit terms, same scope/quantity/quality/delivery/fees, total-cost ceiling, evidence required, expires at the earlier of authorization or quote expiry (default 3 days); never for questions.",
+          "done_when": "Service tests cover every rule, including the maximum never appearing in outbound text.",
+          "status": "pending",
+          "index": 6
+        },
+        {
+          "id": "OWN-T07",
+          "title": "Send back in the Inbox",
+          "description": "Send back button beside Approve and Reject with Ask a question and Counter forms; a Waiting on them section; revisions shown side by side with history.",
+          "done_when": "next build succeeds; action tests pass.",
+          "status": "pending",
+          "index": 7
+        },
+        {
+          "id": "OWN-T08",
+          "title": "Send back by SMS to the requester",
+          "description": "When a request came in by SMS (including AI-transcribed employee texts, where the employee stays the requester), instructions go to that person by SMS with a reference code; replies attach to the right request; ambiguous replies get a clarification. Vendor outreach is not part of this task.",
+          "done_when": "Tests cover routing, reference matching and ambiguous replies.",
+          "status": "pending",
+          "index": 8
+        },
+        {
+          "id": "OWN-T09",
+          "title": "OWN acceptance suite",
+          "description": "Automated end-to-end test of this milestone's acceptance through the running app (production build + next start, real session gate, signed webhook requests where relevant) and the local Supabase stack. Cover failure, retry, ambiguity and handoff cases named in the acceptance list.",
+          "done_when": "Suite asserts every acceptance item and passes in the gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 9
+        },
+        {
+          "id": "OWN-T10",
+          "title": "OWN walkthrough by a person",
+          "description": "A person clicks through the morning brief, a text decision and a Send back round trip in the running app with the demo data and records the result in docs/WALKTHROUGHS.md. Deferred: work continues, but OWN cannot be accepted until this is done.",
+          "done_when": "Walkthrough recorded with date, who, and any issues filed.",
+          "status": "pending",
+          "depends_on": [
+            "OWN-T09"
+          ],
+          "requires_human": "Needs a person to click through the running app.",
+          "deferred": true,
+          "index": 10
+        }
+      ]
+    },
+    {
+      "id": 15,
+      "key": "CALL",
+      "name": "Call routing settings",
+      "status": "pending",
+      "acceptance": [
+        "a business can choose: ring a person first for a set number of seconds then the AI; after hours straight to the AI; or AI first",
+        "business hours and the transfer number come from tenant settings, never from the caller or a prompt",
+        "a failed ring falls back to the AI, and a failed transfer still creates a callback or ops case"
+      ],
+      "requires": [
+        {
+          "milestone": "M2",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter @backoffice/workflows exec vitest run test/acceptance-call"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "CALL-T00",
+          "title": "Routing settings",
+          "description": "Per-organization call routing mode, ring timeout, business hours and transfer number. Migration + Settings UI.",
+          "done_when": "Settings saved; validation tests pass.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "CALL-T01",
+          "title": "Routing behavior",
+          "description": "Apply the mode in the voice webhook flow (assistant-request / transfer) through the provider adapter; provider-specific code stays in the adapter.",
+          "done_when": "Tests cover each mode, after hours and fallback.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "CALL-T02",
+          "title": "CALL acceptance suite",
+          "description": "Automated end-to-end test of this milestone's acceptance through the running app (production build + next start, real session gate, signed webhook requests where relevant) and the local Supabase stack. Cover failure, retry, ambiguity and handoff cases named in the acceptance list.",
+          "done_when": "Suite asserts every acceptance item and passes in the gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 2
+        },
+        {
+          "id": "CALL-T03",
+          "title": "CALL walkthrough by a person",
+          "description": "A person clicks through each routing mode with a test number in the running app with the demo data and records the result in docs/WALKTHROUGHS.md. Deferred: work continues, but CALL cannot be accepted until this is done.",
+          "done_when": "Walkthrough recorded with date, who, and any issues filed.",
+          "status": "pending",
+          "depends_on": [
+            "CALL-T02"
+          ],
+          "requires_human": "Needs a person to click through the running app.",
+          "deferred": true,
+          "index": 3
+        }
+      ]
+    },
+    {
       "id": 11,
       "key": "PH",
       "name": "Production hardening",
@@ -1192,6 +1580,84 @@
       ],
       "acceptance_commands": [
         "pnpm --filter @backoffice/core exec vitest run test/hardening"
+      ]
+    },
+    {
+      "id": 16,
+      "key": "GO",
+      "name": "Go-live: setup checklist and sales demo",
+      "status": "pending",
+      "acceptance": [
+        "a new business cannot go live until its setup checklist is complete: hours, reply templates, authority limits, who approves what, preferred vendors, transfer rules, messaging preferences",
+        "onboarding rehearses unknown callers, ambiguous jobs, purchases above authority, missing vendor responses and urgent requests outside coverage hours",
+        "a demo business and a scripted demo call and crew text can be run locally for a sales meeting, never against a hosted project",
+        "pilot metrics are recorded per business: owner admin time (baseline and during), correctly linked crew reports, clarifications resolved without the owner, extra work reaching invoice prep, completion time and missed deadlines, corrections and duplicates, human handling time and service cost"
+      ],
+      "requires": [
+        {
+          "milestone": "PH",
+          "level": "automated"
+        }
+      ],
+      "acceptance_commands": [
+        "pnpm --filter web exec vitest run test/acceptance-go"
+      ],
+      "acceptance_live_stack": true,
+      "tasks": [
+        {
+          "id": "GO-T00",
+          "title": "Setup checklist",
+          "description": "Guided setup page listing required settings with status; the business stays in setup mode (no outbound messages) until complete.",
+          "done_when": "Tests prove outbound is blocked until the checklist is complete.",
+          "status": "pending",
+          "index": 0
+        },
+        {
+          "id": "GO-T01",
+          "title": "Onboarding rehearsal script",
+          "description": "A dev-only command that runs the five rehearsal scenarios against a business and reports what happened.",
+          "done_when": "Command runs locally and reports each scenario.",
+          "status": "pending",
+          "index": 1
+        },
+        {
+          "id": "GO-T02",
+          "title": "Demo business and scripted demo",
+          "description": "Dev-only seed for a demo excavation business plus a command that sends a scripted fake call and crew text through the running app. docs/DEMO.md explains how to run it.",
+          "done_when": "Demo runs end to end locally.",
+          "status": "pending",
+          "index": 2
+        },
+        {
+          "id": "GO-T03",
+          "title": "Pilot metrics",
+          "description": "Record the pilot measures per business, keeping potential billable work separate from invoiced and collected revenue, and negotiated savings separate from realized savings.",
+          "done_when": "Metrics page renders from seeded data; separation tests pass.",
+          "status": "pending",
+          "index": 3
+        },
+        {
+          "id": "GO-T04",
+          "title": "GO acceptance suite",
+          "description": "Automated end-to-end test of this milestone's acceptance through the running app (production build + next start, real session gate, signed webhook requests where relevant) and the local Supabase stack. Cover failure, retry, ambiguity and handoff cases named in the acceptance list.",
+          "done_when": "Suite asserts every acceptance item and passes in the gate.",
+          "status": "pending",
+          "kind": "acceptance",
+          "index": 4
+        },
+        {
+          "id": "GO-T05",
+          "title": "GO walkthrough by a person",
+          "description": "A person clicks through the setup checklist and the sales demo in the running app with the demo data and records the result in docs/WALKTHROUGHS.md. Deferred: work continues, but GO cannot be accepted until this is done.",
+          "done_when": "Walkthrough recorded with date, who, and any issues filed.",
+          "status": "pending",
+          "depends_on": [
+            "GO-T04"
+          ],
+          "requires_human": "Needs a person to click through the running app.",
+          "deferred": true,
+          "index": 5
+        }
       ]
     },
     {
@@ -1465,7 +1931,23 @@
           "status": "pending"
         },
         {
-          "index": 13,
+          "id": "M5-T15",
+          "title": "Preferred-vendor price match",
+          "description": "After quote comparison, when time and quote expiry allow, offer a preferred vendor one chance to match the best equivalent delivered offer (price, freight, availability, terms). Owner-configurable match window and reliability premium; never disclose the competitor's identity automatically; skip when urgent.",
+          "done_when": "Tests cover equivalence, premium, urgency skip and no competitor disclosure.",
+          "status": "pending",
+          "index": 13
+        },
+        {
+          "id": "M5-T16",
+          "title": "Vendor counter outreach",
+          "description": "A separate authorized action that takes an approved counter (aim for / maximum) to the vendor. Authority to negotiate, accept and order stay separate; equipment and capital purchases are draft-only for negotiation; autonomous negotiation limits are owner-configured settings.",
+          "done_when": "Tests prove capital purchases never auto-negotiate and the maximum is never revealed.",
+          "status": "pending",
+          "index": 14
+        },
+        {
+          "index": 15,
           "id": "M5-T13",
           "title": "M5 acceptance run",
           "description": "Run M5 acceptance with live calls to at least two test vendor numbers.",
@@ -1474,7 +1956,7 @@
           "requires_human": "Needs live outbound calls to test vendor numbers."
         },
         {
-          "index": 14,
+          "index": 16,
           "id": "M5-T14",
           "title": "M5 build report",
           "description": "docs/M5_BUILD_REPORT.md.",
@@ -1856,7 +2338,7 @@
       "acceptance": [
         "owner questions are answered only through a validated, tenant-scoped metric layer (no model-written SQL)",
         "profitability, unbilled work, vendor spend, AR, overtime and equipment economics are available",
-        "morning brief summarizes what needs the owner"
+        "the owner brief (built in OWN) includes the M10 metrics"
       ],
       "tasks": [
         {
@@ -1918,9 +2400,9 @@
         {
           "index": 7,
           "id": "M10-T07",
-          "title": "Morning brief",
-          "description": "Daily summary of inbox items and key metrics via SMS/email adapter.",
-          "done_when": "Tests with fake adapter pass.",
+          "title": "Morning brief: analytics additions",
+          "description": "The owner brief itself is built in OWN. Add the M10 metrics (profitability, unbilled work, AR, overtime) to it through the validated metric layer.",
+          "done_when": "Brief shows the added metrics from the metric layer; tests pass.",
           "status": "pending"
         },
         {
