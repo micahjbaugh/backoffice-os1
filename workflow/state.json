@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "M2-T18",
+  "current_task_id": "M2-T19",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "637253a398f02a1ebb6ad7e4aa127053c9c83e34",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "b6d5e83f0cfddbe8ba40068acd01b51b00184c0040cf497980a12845b6716268",
-    "at": "2026-09-27T01:32:09.133Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 3
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 7
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 10
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 72
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 14
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 2,
-  "current_task_index": 18,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 19,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "M2-T18 provider route management complete. Added: permission `provider_route.manage` (owner-only, packages/domain/src/permissions.ts); domain type `ProviderRoute` + `registerProviderRouteInput` schema (normalizes address to E.164, enforces twilio->sms / vapi->voice) in packages/domain; new packages/core/src/services/provider-routes.ts with listProviderRoutes/registerProviderRoute/deactivateProviderRoute, all owner-only via ctx.authorize and scoped by organization_id (no manual writeAudit needed - provider_routes already has a DB audit trigger from migration 0012); registerProviderRoute calls the existing requeueUnroutableWebhookEvents in the same transaction as the insert. Settings UI: new 'Phone numbers' section (apps/web/src/app/(tenant)/settings/page.tsx) with register/deactivate forms, wired through new server actions in apps/web/src/app/actions/tenant.ts. No migration changed: provider_routes' RLS (staff can read, no client writes) and audit trigger already existed. Tests: packages/core/test/provider-routes.test.ts (owner-only, cross-tenant isolation via NotFoundError/ForbiddenError, duplicate active address -> ConflictError, and unroutable webhook events re-queued and reprocessed on registration) plus a policy.test.ts assertion that only owner has the new permission. format:check/lint/typecheck/test all pass repo-wide. Next: M2-T19 (receptionist runtime: assistant-request), which depends on this task's provider_routes resolution.",
-  "updated_at": "2026-09-27T01:32:09.136Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). M2-T18 is done. Next: M2-T19 \"Receptionist runtime: assistant-request\".",
+  "updated_at": "2026-09-27T01:33:02.616Z"
 }
