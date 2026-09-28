@@ -2,7 +2,7 @@
 // other keys, and resets once the window rolls over.
 
 import { randomUUID } from "node:crypto";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { RateLimitedError } from "@backoffice/domain";
 import { createPostgresRateLimiter, enforceRateLimit, type RateLimiter } from "../src";
 import { createTestDatabase, type TestDatabase } from "./helpers/db";
@@ -41,12 +41,19 @@ describe("createPostgresRateLimiter", () => {
   });
 
   it("resets once the window rolls over", async () => {
+    // A pinned clock, so the first two calls can never straddle a window boundary on a slow runner.
     const key = `test:${randomUUID()}`;
-    const windowMs = 50;
-    await limiter.consume(key, 1, windowMs);
-    expect((await limiter.consume(key, 1, windowMs)).allowed).toBe(false);
-    await new Promise((resolve) => setTimeout(resolve, windowMs * 2));
-    expect((await limiter.consume(key, 1, windowMs)).allowed).toBe(true);
+    const windowMs = 60_000;
+    const start = Math.floor(Date.now() / windowMs) * windowMs + 1;
+    const now = vi.spyOn(Date, "now").mockReturnValue(start);
+    try {
+      await limiter.consume(key, 1, windowMs);
+      expect((await limiter.consume(key, 1, windowMs)).allowed).toBe(false);
+      now.mockReturnValue(start + windowMs);
+      expect((await limiter.consume(key, 1, windowMs)).allowed).toBe(true);
+    } finally {
+      now.mockRestore();
+    }
   });
 });
 
