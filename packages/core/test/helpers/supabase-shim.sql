@@ -68,5 +68,8 @@ create table storage.objects (
   updated_at timestamptz not null default now()
 );
 
+-- Supabase enables RLS on storage.objects itself; mirror that here.
+alter table storage.objects enable row level security;
+
 grant usage on schema storage to anon, authenticated, service_role;
 grant select, insert, update, delete on storage.buckets, storage.objects to anon, authenticated, service_role;
