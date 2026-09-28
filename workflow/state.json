@@ -2,13 +2,13 @@
   "schema_version": 2,
   "current_task_id": "PH-T03",
   "attempts": 0,
-  "stalled_runs": 0,
+  "stalled_runs": 1,
   "consecutive_failures": 0,
   "review_notes": "",
   "review_base": null,
   "last_error": "",
   "last_validation": null,
-  "wip_patch": null,
+  "wip_patch": "workflow/wip/PH-T03.patch",
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
@@ -16,6 +16,6 @@
   "current_task_index": 3,
   "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). PH-T02 is done. Next: PH-T03 \"Private document storage\".",
-  "updated_at": "2026-09-28T01:35:34.734Z"
+  "handoff_instructions": "The previous run ended before finishing; its work is saved in workflow/wip/PH-T03.patch. Continue PH-T03 in smaller steps.",
+  "updated_at": "2026-09-28T02:06:54.446Z"
 }
