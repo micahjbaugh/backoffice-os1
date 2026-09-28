@@ -1,0 +1,449 @@
+diff --git a/apps/web/src/app/api/health/route.ts b/apps/web/src/app/api/health/route.ts
+new file mode 100644
+index 0000000..1522f4f
+--- /dev/null
++++ b/apps/web/src/app/api/health/route.ts
+@@ -0,0 +1,7 @@
++import { db } from "@/server/db";
++import { checkHealth } from "@/server/health";
++
++export async function GET(): Promise<Response> {
++  const result = await checkHealth(db());
++  return Response.json(result, { status: result.status === "ok" ? 200 : 503 });
++}
+diff --git a/apps/web/src/proxy.ts b/apps/web/src/proxy.ts
+index 61d2c2b..5fd64de 100644
+--- a/apps/web/src/proxy.ts
++++ b/apps/web/src/proxy.ts
+@@ -9,8 +9,10 @@ const PUBLIC_PATHS = ["/login"];
+ 
+ // Machine-to-machine endpoints. Providers and the scheduler never carry a user session, so a
+ // redirect to /login would silently drop every webhook and job run. Each route authenticates every
+-// request itself (provider signature, or the jobs bearer secret) and fails closed.
+-const MACHINE_PATHS = ["/api/webhooks/", "/api/internal/"];
++// request itself (provider signature, or the jobs bearer secret) and fails closed. The health
++// endpoint (PH-T04) belongs here too: uptime monitors and load balancers never carry a session
++// either, and it exposes nothing beyond ok/error.
++const MACHINE_PATHS = ["/api/webhooks/", "/api/internal/", "/api/health"];
+ 
+ export async function proxy(request: NextRequest) {
+   if (MACHINE_PATHS.some((p) => request.nextUrl.pathname.startsWith(p))) {
+diff --git a/apps/web/src/server/health.ts b/apps/web/src/server/health.ts
+new file mode 100644
+index 0000000..2a74349
+--- /dev/null
++++ b/apps/web/src/server/health.ts
+@@ -0,0 +1,31 @@
++import "server-only";
++
++import { createLoggingErrorReporter, type Database, type ErrorReporter } from "@backoffice/core";
++
++export interface HealthResult {
++  status: "ok" | "error";
++}
++
++/**
++ * Liveness/readiness check for uptime monitors and load balancers: does the app's database
++ * connection actually work. Never returns anything beyond ok/error — no connection details, no
++ * error message — since this endpoint has no session and no signature to authenticate its caller.
++ * A failure is still reported through the ErrorReporter so it reaches whatever alerting the
++ * deployment has configured (PH-T04).
++ */
++export async function checkHealth(
++  database: Database,
++  reporter: ErrorReporter = createLoggingErrorReporter(),
++): Promise<HealthResult> {
++  try {
++    await database.transaction((exec) => exec.query("select 1"));
++    return { status: "ok" };
++  } catch (error) {
++    reporter.captureAlert({
++      type: "health_check.database_unreachable",
++      message: "health check: database unreachable",
++      details: { error: error instanceof Error ? error.message : String(error) },
++    });
++    return { status: "error" };
++  }
++}
+diff --git a/apps/web/test/health-endpoint.test.ts b/apps/web/test/health-endpoint.test.ts
+new file mode 100644
+index 0000000..b807d9f
+--- /dev/null
++++ b/apps/web/test/health-endpoint.test.ts
+@@ -0,0 +1,47 @@
++// checkHealth backs GET /api/health: no session, no secret (it's for uptime monitors and load
++// balancers); reports ok/error only, and alerts through the ErrorReporter on failure without leaking
++// error detail to the caller. The route itself (`@/` aliased, like every other route in this app) is
++// only reachable through the running app, not a plain module import; see running-app.test.ts for the
++// no-session, no-secret path through proxy.ts and the 200/503 status codes.
++
++import { describe, expect, it, vi } from "vitest";
++import type { ErrorReporter } from "@backoffice/core";
++
++vi.mock("server-only", () => ({}));
++
++import { checkHealth } from "../src/server/health";
++
++function db(query: () => Promise<unknown>) {
++  return {
++    transaction: (fn: (exec: { query: typeof query }) => Promise<unknown>) => fn({ query }),
++  };
++}
++
++function fakeReporter(): ErrorReporter & {
++  captureAlert: ReturnType<typeof vi.fn<ErrorReporter["captureAlert"]>>;
++} {
++  return { captureAlert: vi.fn<ErrorReporter["captureAlert"]>() };
++}
++
++describe("checkHealth", () => {
++  it("is ok when the database answers", async () => {
++    const reporter = fakeReporter();
++    const result = await checkHealth(
++      db(() => Promise.resolve({ rows: [], rowCount: 0 })) as never,
++      reporter,
++    );
++    expect(result).toEqual({ status: "ok" });
++    expect(reporter.captureAlert).not.toHaveBeenCalled();
++  });
++
++  it("is error, without leaking the underlying error, when the database fails", async () => {
++    const reporter = fakeReporter();
++    const database = db(() => Promise.reject(new Error("connection refused: secret-host:5432")));
++    const result = await checkHealth(database as never, reporter);
++    expect(result).toEqual({ status: "error" });
++    expect(JSON.stringify(result)).not.toContain("secret-host");
++    expect(reporter.captureAlert).toHaveBeenCalledWith(
++      expect.objectContaining({ type: "health_check.database_unreachable" }),
++    );
++  });
++});
+diff --git a/apps/web/test/running-app.test.ts b/apps/web/test/running-app.test.ts
+index 253806d..4fb9849 100644
+--- a/apps/web/test/running-app.test.ts
++++ b/apps/web/test/running-app.test.ts
+@@ -151,6 +151,15 @@ describe("running app: Vapi voice webhooks reach their handler without a session
+   });
+ });
+ 
++describe("running app: the health endpoint has no session and no secret", () => {
++  it("reaches its handler without a login redirect", async () => {
++    const res = await fetch(`${baseUrl}/api/health`, { redirect: "manual" });
++    expectNoRedirect(res);
++    expect(res.status).toBe(503); // no database here
++    expect(await res.json()).toEqual({ status: "error" });
++  });
++});
++
+ describe("running app: the jobs endpoint authenticates with its own secret", () => {
+   it("rejects a wrong bearer token with 401, not a redirect", async () => {
+     const res = await post("/api/internal/jobs", "", { authorization: "Bearer wrong" });
+diff --git a/docs/PRODUCTION_HARDENING.md b/docs/PRODUCTION_HARDENING.md
+index 7d54055..68f88d0 100644
+--- a/docs/PRODUCTION_HARDENING.md
++++ b/docs/PRODUCTION_HARDENING.md
+@@ -17,7 +17,7 @@ autopilot tracks them as milestone **PH** (it must pass before any M4+ work star
+ | Rate limiting | Done | Storage-backed fixed-window limiter behind a `RateLimiter` interface (`packages/core/src/services/rate-limit.ts`, table `rate_limit_counters`). Applied per (provider, IP) on webhooks (429 + `Retry-After`, generous enough that provider retries still land), per IP and per email on sign-in, and per tenant/operator on every `withTenant`/`withOperator` server action (`apps/web/src/server/rate-limit.ts`). |
+ | Pagination | Planned (PH-T02) | List pages are unbounded. |
+ | Private document storage | Planned (PH-T03) | Metadata only; no storage buckets/signed URLs yet. |
+-| Monitoring & alerting | Planned (PH-T04) | Logs only; no health endpoint or alerting on dead letters/unknown operations. |
++| Monitoring & alerting | Done | Structured JSON logging and an `ErrorReporter` interface (`packages/core/src/services/monitoring.ts`); default implementation only logs, a real provider (PagerDuty, Opsgenie, Sentry...) is a deployment decision left to a person. `GET /api/health` checks database connectivity, no session/secret required (uptime monitors, load balancers). `runBackgroundJobs` alerts once per incident on newly dead-lettered webhooks and newly escalated (unknown) outbound operations (`packages/workflows/src/jobs.ts`). |
+ | Retention (payloads, transcripts) | Done | Per-organization windows on `organizations`; scheduled purge clears processed webhook payload bodies and ended communications' transcript/summary, never unprocessed/in-progress ones (`retention.ts`, `retention-purge.ts`). |
+ | MFA & re-authentication | **Human decision** (PH-T05, deferred) | Enable MFA in the hosted Supabase project; choose enforcement. |
+ | Backups & restore drill | **Human action** (PH-T06, deferred) | Hosted project, PITR plan decision, and a person-run restore drill. |
+diff --git a/packages/core/src/index.ts b/packages/core/src/index.ts
+index 23ace70..2758fc4 100644
+--- a/packages/core/src/index.ts
++++ b/packages/core/src/index.ts
+@@ -29,6 +29,7 @@ export * from "./services/jobs";
+ export * from "./services/leads";
+ export * from "./services/messaging";
+ export * from "./services/material-usage";
++export * from "./services/monitoring";
+ export * from "./services/notes";
+ export * from "./services/outbound";
+ export * from "./services/ops";
+diff --git a/packages/core/src/services/monitoring.ts b/packages/core/src/services/monitoring.ts
+new file mode 100644
+index 0000000..ecb2355
+--- /dev/null
++++ b/packages/core/src/services/monitoring.ts
+@@ -0,0 +1,61 @@
++// Structured logging and an error-reporting interface (PH-T04): call sites depend only on
++// `Logger`/`ErrorReporter`, never on which observability provider is behind them. Which provider
++// (PagerDuty, Opsgenie, Sentry...) receives these alerts is a deployment decision left to a person,
++// the same way the rate limiter's storage backend was left open behind an interface in PH-T01.
++
++export type LogLevel = "info" | "warn" | "error";
++
++export interface LogFields {
++  [key: string]: unknown;
++}
++
++export interface Logger {
++  log(level: LogLevel, message: string, fields?: LogFields): void;
++}
++
++/**
++ * One JSON line per call, to stderr (error) or stdout (info/warn — the repository's lint rule only
++ * allows `console.warn`/`console.error`, so non-error levels share the warn stream; the `level`
++ * field in the line still carries the real severity for anything reading these logs), safe for any
++ * log aggregator to ingest. Callers are responsible for keeping `fields` free of secrets and
++ * unnecessary raw sensitive content (SECURITY.md §10): pass identifiers and counts, not customer
++ * message bodies.
++ */
++export function createConsoleLogger(): Logger {
++  return {
++    log(level, message, fields) {
++      const line = JSON.stringify({ level, message, time: new Date().toISOString(), ...fields });
++      if (level === "error") console.error(line);
++      else console.warn(line);
++    },
++  };
++}
++
++/**
++ * An operational condition worth a person's attention: a dead-lettered webhook, an outbound
++ * operation whose outcome could not be confirmed, a failed health check. `details` should stay to
++ * counts and identifiers, never raw tenant content.
++ */
++export interface AlertEvent {
++  type: string;
++  message: string;
++  details?: LogFields;
++}
++
++export interface ErrorReporter {
++  captureAlert(event: AlertEvent): void;
++}
++
++/**
++ * Default reporter: structured logging only, so every alert is visible in whatever log pipeline the
++ * deployment already has. Swap this for an adapter that also calls a real provider's API (a
++ * `packages/integrations` adapter, following the same pattern as the SMS/voice providers) without
++ * changing any call site.
++ */
++export function createLoggingErrorReporter(logger: Logger = createConsoleLogger()): ErrorReporter {
++  return {
++    captureAlert(event) {
++      logger.log("error", event.message, { alert_type: event.type, ...event.details });
++    },
++  };
++}
+diff --git a/packages/core/test/monitoring.test.ts b/packages/core/test/monitoring.test.ts
+new file mode 100644
+index 0000000..5407a59
+--- /dev/null
++++ b/packages/core/test/monitoring.test.ts
+@@ -0,0 +1,68 @@
++// PH-T04: structured logging and the error-reporting interface. Pure unit tests, no database.
++
++import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
++import { createConsoleLogger, createLoggingErrorReporter, type LogLevel } from "../src";
++
++function parsedLine(spy: ReturnType<typeof vi.spyOn>): Record<string, unknown> {
++  const [line] = spy.mock.calls[0] as [string];
++  return JSON.parse(line) as Record<string, unknown>;
++}
++
++describe("createConsoleLogger", () => {
++  let warnSpy: ReturnType<typeof vi.spyOn>;
++  let errorSpy: ReturnType<typeof vi.spyOn>;
++  beforeEach(() => {
++    warnSpy = vi.spyOn(console, "warn").mockImplementation(() => {});
++    errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
++  });
++  afterEach(() => {
++    warnSpy.mockRestore();
++    errorSpy.mockRestore();
++  });
++
++  it("writes error-level lines to console.error only", () => {
++    createConsoleLogger().log("error", "boom", { foo: "bar" });
++    expect(errorSpy).toHaveBeenCalledTimes(1);
++    expect(warnSpy).not.toHaveBeenCalled();
++    expect(parsedLine(errorSpy)).toMatchObject({ level: "error", message: "boom", foo: "bar" });
++    expect(typeof parsedLine(errorSpy).time).toBe("string");
++  });
++
++  it.each<LogLevel>(["info", "warn"])(
++    "writes non-error (%s) lines to console.warn only",
++    (level) => {
++      createConsoleLogger().log(level, "something happened", { foo: "bar" });
++      expect(warnSpy).toHaveBeenCalledTimes(1);
++      expect(errorSpy).not.toHaveBeenCalled();
++      expect(parsedLine(warnSpy)).toMatchObject({
++        level,
++        message: "something happened",
++        foo: "bar",
++      });
++    },
++  );
++});
++
++describe("createLoggingErrorReporter", () => {
++  it("logs the alert at error level with its type and details merged in", () => {
++    const log = vi.fn();
++    const reporter = createLoggingErrorReporter({ log });
++    reporter.captureAlert({
++      type: "webhook.dead_lettered",
++      message: "2 webhook event(s) dead-lettered this run",
++      details: { count: 2 },
++    });
++    expect(log).toHaveBeenCalledWith(
++      "error",
++      "2 webhook event(s) dead-lettered this run",
++      expect.objectContaining({ alert_type: "webhook.dead_lettered", count: 2 }),
++    );
++  });
++
++  it("defaults to a console logger when none is given", () => {
++    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
++    createLoggingErrorReporter().captureAlert({ type: "x", message: "y" });
++    expect(errorSpy).toHaveBeenCalledTimes(1);
++    errorSpy.mockRestore();
++  });
++});
+diff --git a/packages/workflows/src/jobs.ts b/packages/workflows/src/jobs.ts
+index ed9fc13..d44c672 100644
+--- a/packages/workflows/src/jobs.ts
++++ b/packages/workflows/src/jobs.ts
+@@ -2,7 +2,7 @@
+ // run it from a scheduler every minute or so (deployment decision: docs/PRODUCTION_HARDENING.md).
+ // Every step is safe to run concurrently and to re-run after a crash.
+ 
+-import type { Database } from "@backoffice/core";
++import { createLoggingErrorReporter, type Database, type ErrorReporter } from "@backoffice/core";
+ import type { ProviderRuntime } from "@backoffice/integrations";
+ import {
+   dispatchOutboundOperations,
+@@ -23,15 +23,37 @@ export interface JobsSummary {
+   retention: RetentionPurgeSummary;
+ }
+ 
++/**
++ * PH-T04: a webhook event only ever counts toward `dead` the run it first dies (it is excluded from
++ * later claims), and an outbound operation only ever counts toward `escalated` the run it first gets
++ * an ops case (`reconcileOutboundOperation` short-circuits once `ops_case_id` is set). So each alert
++ * fires exactly once per incident, not on every subsequent pass.
++ */
+ export async function runBackgroundJobs(
+   db: Database,
+   runtime: ProviderRuntime,
++  opts: { reporter?: ErrorReporter } = {},
+ ): Promise<JobsSummary> {
++  const reporter = opts.reporter ?? createLoggingErrorReporter();
+   const webhooks = await processWebhookEvents(db, {
+     handlers: createWebhookHandlers(runtime.extractor),
+   });
++  if (webhooks.dead > 0) {
++    reporter.captureAlert({
++      type: "webhook.dead_lettered",
++      message: `${webhooks.dead} webhook event(s) dead-lettered this run`,
++      details: { count: webhooks.dead },
++    });
++  }
+   const outbound = await dispatchOutboundOperations(db, runtime);
+   const reconciliation = await reconcileUnknownOperations(db, runtime);
++  if (reconciliation.escalated > 0) {
++    reporter.captureAlert({
++      type: "outbound_operation.unknown",
++      message: `${reconciliation.escalated} outbound operation(s) escalated as unknown this run`,
++      details: { count: reconciliation.escalated },
++    });
++  }
+   const retention = await purgeExpiredRetention(db);
+   return { webhooks, outbound, reconciliation, retention };
+ }
+diff --git a/packages/workflows/test/jobs.test.ts b/packages/workflows/test/jobs.test.ts
+new file mode 100644
+index 0000000..a618067
+--- /dev/null
++++ b/packages/workflows/test/jobs.test.ts
+@@ -0,0 +1,86 @@
++// PH-T04: runBackgroundJobs alerts through the injected ErrorReporter exactly when a pass produces a
++// new dead-lettered webhook or a newly escalated (unknown) outbound operation, and stays silent
++// otherwise. The sub-steps themselves (webhook processing, dispatch, reconciliation, retention) are
++// covered elsewhere (outbound.test.ts, retention.test.ts); here they are faked so this stays a fast,
++// database-free unit test of the alerting wiring.
++
++import { beforeEach, describe, expect, it, vi } from "vitest";
++import type { ErrorReporter } from "@backoffice/core";
++
++const processWebhookEvents = vi.fn();
++const dispatchOutboundOperations = vi.fn();
++const reconcileUnknownOperations = vi.fn();
++const purgeExpiredRetention = vi.fn();
++
++vi.mock("../src/webhook-processor", () => ({
++  createWebhookHandlers: () => ({}),
++  processWebhookEvents,
++}));
++vi.mock("../src/outbound-dispatcher", () => ({
++  dispatchOutboundOperations,
++  reconcileUnknownOperations,
++}));
++vi.mock("../src/retention-purge", () => ({ purgeExpiredRetention }));
++
++const NO_WEBHOOKS = { claimed: 0, processed: 0, ignored: 0, retrying: 0, dead: 0 };
++const NO_OUTBOUND = { claimed: 0, succeeded: 0, retrying: 0, failed: 0, unknown: 0 };
++const NO_RECONCILIATION = { reconciled: 0, escalated: 0 };
++
++function fakeReporter(): ErrorReporter & {
++  captureAlert: ReturnType<typeof vi.fn<ErrorReporter["captureAlert"]>>;
++} {
++  return { captureAlert: vi.fn<ErrorReporter["captureAlert"]>() };
++}
++
++beforeEach(() => {
++  processWebhookEvents.mockReset().mockResolvedValue(NO_WEBHOOKS);
++  dispatchOutboundOperations.mockReset().mockResolvedValue(NO_OUTBOUND);
++  reconcileUnknownOperations.mockReset().mockResolvedValue(NO_RECONCILIATION);
++  purgeExpiredRetention.mockReset().mockResolvedValue({});
++});
++
++describe("runBackgroundJobs alerting", () => {
++  it("does not alert when nothing is stuck", async () => {
++    const { runBackgroundJobs } = await import("../src/jobs");
++    const reporter = fakeReporter();
++    await runBackgroundJobs({} as never, {} as never, { reporter });
++    expect(reporter.captureAlert).not.toHaveBeenCalled();
++  });
++
++  it("alerts once when webhook events are dead-lettered this run", async () => {
++    processWebhookEvents.mockResolvedValue({ ...NO_WEBHOOKS, claimed: 3, dead: 2 });
++    const { runBackgroundJobs } = await import("../src/jobs");
++    const reporter = fakeReporter();
++    await runBackgroundJobs({} as never, {} as never, { reporter });
++    expect(reporter.captureAlert).toHaveBeenCalledTimes(1);
++    expect(reporter.captureAlert).toHaveBeenCalledWith(
++      expect.objectContaining({
++        type: "webhook.dead_lettered",
++        details: { count: 2 },
++      }),
++    );
++  });
++
++  it("alerts once when outbound operations are newly escalated as unknown", async () => {
++    reconcileUnknownOperations.mockResolvedValue({ reconciled: 1, escalated: 3 });
++    const { runBackgroundJobs } = await import("../src/jobs");
++    const reporter = fakeReporter();
++    await runBackgroundJobs({} as never, {} as never, { reporter });
++    expect(reporter.captureAlert).toHaveBeenCalledTimes(1);
++    expect(reporter.captureAlert).toHaveBeenCalledWith(
++      expect.objectContaining({
++        type: "outbound_operation.unknown",
++        details: { count: 3 },
++      }),
++    );
++  });
++
++  it("falls back to the default logging reporter when none is given", async () => {
++    processWebhookEvents.mockResolvedValue({ ...NO_WEBHOOKS, claimed: 1, dead: 1 });
++    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
++    const { runBackgroundJobs } = await import("../src/jobs");
++    await runBackgroundJobs({} as never, {} as never);
++    expect(errorSpy).toHaveBeenCalledTimes(1);
++    errorSpy.mockRestore();
++  });
++});
