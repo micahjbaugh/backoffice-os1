@@ -1198,8 +1198,22 @@
           "title": "Private document storage",
           "description": "Supabase Storage buckets with RLS, signed URLs with short expiry, audited downloads for sensitive classes.",
           "done_when": "Cross-tenant access impossible; downloads audited (tests).",
-          "status": "in_progress",
-          "index": 3
+          "status": "done",
+          "index": 3,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "7041081c98b369a05541979f513348bbf323ed5dd6707907d1e93e4149776429",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-28T03:04:26.937Z"
+          }
         },
         {
           "id": "PH-T04",

@@ -1,63 +1,21 @@
 {
   "schema_version": 2,
-  "current_task_id": "PH-T03",
+  "current_task_id": "PH-T04",
   "attempts": 0,
   "stalled_runs": 0,
   "consecutive_failures": 0,
   "review_notes": "",
-  "review_base": "44684cc8757366ada0b1359be2fae9a2f6b277bf",
+  "review_base": null,
   "last_error": "",
-  "last_validation": {
-    "passed": true,
-    "infra": false,
-    "fingerprint": "7041081c98b369a05541979f513348bbf323ed5dd6707907d1e93e4149776429",
-    "at": "2026-09-28T03:03:51.273Z",
-    "results": [
-      {
-        "name": "format",
-        "cmd": "pnpm format:check",
-        "passed": true,
-        "classification": null,
-        "seconds": 4
-      },
-      {
-        "name": "lint",
-        "cmd": "pnpm lint",
-        "passed": true,
-        "classification": null,
-        "seconds": 9
-      },
-      {
-        "name": "typecheck",
-        "cmd": "pnpm typecheck",
-        "passed": true,
-        "classification": null,
-        "seconds": 13
-      },
-      {
-        "name": "tests (incl. production build + secret scan)",
-        "cmd": "pnpm test",
-        "passed": true,
-        "classification": null,
-        "seconds": 125
-      },
-      {
-        "name": "timezones",
-        "cmd": "pnpm --filter @backoffice/core test:tz",
-        "passed": true,
-        "classification": null,
-        "seconds": 14
-      }
-    ]
-  },
+  "last_validation": null,
   "wip_patch": null,
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
   "current_milestone_id": 11,
-  "current_task_index": 3,
-  "status": "AWAITING_REVIEW",
+  "current_task_index": 4,
+  "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Re-applied the saved wip patch (each file well under the per-file limit) and finished PH-T03: migration 0019_document_storage.sql creates a private 'documents' Storage bucket with org-scoped RLS policies (storage_object_org_id() derives the org from the object's path prefix; member-read, owner/office_admin/manager write/update/delete, matching the existing public.documents policy shape) plus a check constraint tying documents.storage_path to its own organization_id. Added a DocumentStorageProvider interface (packages/integrations) with a FakeDocumentStorageProvider for tests/fake mode and a SupabaseDocumentStorageProvider adapter for live mode (short-lived signed URLs only, no direct file access); wired into createProviderRuntime via new SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY/DOCUMENT_STORAGE_BUCKET env vars. Added core's requestDocumentDownload(ctx, documentId): authorizes with a new document.download permission, tenant-scopes the lookup, and writes a document.downloaded audit record; minting the actual signed URL is left to the caller with the returned storage path (core stays provider-independent per CLAUDE.md rules 9-10). New tests in packages/core/test/hardening/document-storage.test.ts prove cross-tenant reads/writes on storage.objects are rejected by RLS and that requestDocumentDownload both audits successful downloads and blocks + does not audit cross-tenant attempts; packages/core/test/helpers/supabase-shim.sql got a minimal storage.buckets/storage.objects stand-in so the real migration SQL runs against the test DB. format:check, lint, typecheck and the full test suite (pnpm test, including workflow/test/referee.test.mjs) all pass. Nothing left for PH-T03; next is PH-T04 (monitoring and alerting hooks).",
-  "updated_at": "2026-09-28T03:03:51.277Z"
+  "handoff_instructions": "Reviewer approved all 1 part(s). PH-T03 is done. Next: PH-T04 \"Monitoring and alerting hooks\".",
+  "updated_at": "2026-09-28T03:04:26.938Z"
 }
