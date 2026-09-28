@@ -2,13 +2,13 @@
   "schema_version": 2,
   "current_task_id": "PH-T02",
   "attempts": 0,
-  "stalled_runs": 0,
+  "stalled_runs": 1,
   "consecutive_failures": 0,
   "review_notes": "",
   "review_base": null,
   "last_error": "",
   "last_validation": null,
-  "wip_patch": null,
+  "wip_patch": "workflow/wip/PH-T02.patch",
   "pause_reason": null,
   "paused_from": null,
   "line_limit_exceptions": [],
@@ -16,6 +16,6 @@
   "current_task_index": 2,
   "status": "READY_TO_START",
   "last_engineer_used": "claude",
-  "handoff_instructions": "Reviewer approved all 1 part(s). PH-T01 is done. Next: PH-T02 \"Pagination\".",
-  "updated_at": "2026-09-28T00:01:06.744Z"
+  "handoff_instructions": "The previous run ended before finishing; its work is saved in workflow/wip/PH-T02.patch. Continue PH-T02 in smaller steps.",
+  "updated_at": "2026-09-28T00:53:11.199Z"
 }
