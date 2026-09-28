@@ -12,9 +12,10 @@ import {
   twilioRequest,
 } from "../../../packages/integrations/test/fixtures/providers";
 
-const { acceptWebhookEvent, runAs } = vi.hoisted(() => ({
+const { acceptWebhookEvent, runAs, enforceWebhookRateLimit } = vi.hoisted(() => ({
   acceptWebhookEvent: vi.fn(),
   runAs: vi.fn((_db: unknown, _actor: unknown, fn: (tx: unknown) => unknown) => fn({})),
+  enforceWebhookRateLimit: vi.fn(),
 }));
 
 // "server-only" throws outside Next's bundler; stub it so src/server modules can be unit tested.
@@ -22,6 +23,7 @@ vi.mock("server-only", () => ({}));
 vi.mock("@backoffice/core", () => ({ acceptWebhookEvent, runAs }));
 vi.mock("@backoffice/workflows", () => ({ processWebhookEvents: vi.fn() }));
 vi.mock("../src/server/db", () => ({ db: () => ({}) }));
+vi.mock("../src/server/rate-limit", () => ({ enforceWebhookRateLimit }));
 
 const { handleProviderWebhook, MAX_WEBHOOK_BYTES } = await import("../src/server/webhook-route");
 
@@ -55,6 +57,7 @@ describe("handleProviderWebhook", () => {
       .mockReset()
       .mockResolvedValue({ event: { id: "evt-1" }, duplicate: false, payloadMismatch: false });
     runAs.mockClear();
+    enforceWebhookRateLimit.mockReset().mockResolvedValue(undefined);
   });
 
   it("fails closed with 503 when providers are not configured, storing nothing", async () => {
@@ -66,6 +69,20 @@ describe("handleProviderWebhook", () => {
       opts,
     );
     expect(res.status).toBe(503);
+    expect(acceptWebhookEvent).not.toHaveBeenCalled();
+  });
+
+  it("answers 429 with Retry-After when a validly signed caller is rate limited, storing nothing", async () => {
+    const { RateLimitedError } = await import("@backoffice/domain");
+    enforceWebhookRateLimit.mockRejectedValueOnce(new RateLimitedError(5_000));
+    const signed = fake.signWebhook(envelope);
+    const res = await handleProviderWebhook(
+      () => fake,
+      fakeRequest(signed.rawBody, signed.headers),
+      opts,
+    );
+    expect(res.status).toBe(429);
+    expect(res.headers.get("retry-after")).toBe("5");
     expect(acceptWebhookEvent).not.toHaveBeenCalled();
   });
 
@@ -84,6 +101,9 @@ describe("handleProviderWebhook", () => {
     );
     expect(unsigned.status).toBe(401);
     expect(acceptWebhookEvent).not.toHaveBeenCalled();
+    // Signature verification never needs the rate limiter's (database-backed) budget check, so an
+    // outage there can't turn a cheap, correct 401 into a 500.
+    expect(enforceWebhookRateLimit).not.toHaveBeenCalled();
   });
 
   it("answers a validly signed but malformed payload with 400", async () => {

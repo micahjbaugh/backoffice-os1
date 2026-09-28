@@ -16,6 +16,7 @@ import type { InternalStaff, MembershipRole, Organization } from "@backoffice/do
 import type { AuthProvider, AuthUser } from "./auth/provider";
 import { supabaseAuth } from "./auth/supabase";
 import { db } from "./db";
+import { enforceServerActionRateLimit } from "./rate-limit";
 
 export const auth: AuthProvider = supabaseAuth;
 
@@ -71,6 +72,7 @@ export async function withTenant<T>(
   fn: (ctx: ServiceContext, session: TenantSession) => Promise<T>,
 ): Promise<T> {
   const session = await getTenantSession();
+  await enforceServerActionRateLimit(`tenant:${session.organization.id}`);
   return runAs(db(), { type: "user", userId: session.user.id }, (tx) =>
     fn(inTenant(tx, session.organization.id), session),
   );
@@ -86,5 +88,6 @@ export async function requireOperator(): Promise<{ user: AuthUser; staff: Intern
 /** Run Ops Console work as an internal operator. Tenant access additionally requires a live grant. */
 export async function withOperator<T>(fn: (tx: Tx) => Promise<T>): Promise<T> {
   const { user } = await requireOperator();
+  await enforceServerActionRateLimit(`operator:${user.id}`);
   return runAs(db(), { type: "internal_operator", userId: user.id }, fn);
 }

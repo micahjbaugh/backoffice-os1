@@ -1,7 +1,7 @@
 import type { UUID } from "./types";
 
 export type DomainErrorCode =
-  "unauthenticated" | "forbidden" | "not_found" | "conflict" | "validation";
+  "unauthenticated" | "forbidden" | "not_found" | "conflict" | "validation" | "rate_limited";
 
 export class DomainError extends Error {
   readonly code: DomainErrorCode;
@@ -58,6 +58,13 @@ export class ValidationError extends DomainError {
   constructor(issues: readonly string[]) {
     super("validation", `Invalid input: ${issues.join("; ")}`);
     this.issues = issues;
+  }
+}
+
+/** A caller exceeded a rate limit (webhook flood, sign-in brute force, server action abuse). */
+export class RateLimitedError extends DomainError {
+  constructor(readonly retryAfterMs: number) {
+    super("rate_limited", `Too many requests. Try again in ${Math.ceil(retryAfterMs / 1000)}s.`);
   }
 }
 

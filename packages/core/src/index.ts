@@ -34,6 +34,7 @@ export * from "./services/ops-operations";
 export * from "./services/ops-outbound";
 export * from "./services/organizations";
 export * from "./services/provider-routes";
+export * from "./services/rate-limit";
 export * from "./services/receptionist";
 export * from "./services/records";
 export * from "./services/retention";

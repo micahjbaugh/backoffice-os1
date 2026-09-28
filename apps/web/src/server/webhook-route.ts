@@ -2,6 +2,7 @@ import "server-only";
 
 import { NextResponse, after } from "next/server";
 import { acceptWebhookEvent, runAs } from "@backoffice/core";
+import { RateLimitedError } from "@backoffice/domain";
 import {
   ProviderConfigError,
   WebhookPayloadError,
@@ -11,6 +12,7 @@ import {
 } from "@backoffice/integrations";
 import { processWebhookEvents, type WebhookHandler } from "@backoffice/workflows";
 import { db } from "./db";
+import { enforceWebhookRateLimit } from "./rate-limit";
 
 /** Largest body we accept (Vapi end-of-call reports with transcripts can be large). */
 export const MAX_WEBHOOK_BYTES = 1_000_000;
@@ -22,10 +24,13 @@ const json = (status: number, body: Record<string, unknown>) => NextResponse.jso
  *
  *   1. adapter available?          no  -> 503 (misconfigured deployments fail closed)
  *   2. body within size limit?      no  -> 413
- *   3. signature over the ORIGINAL request valid?   no -> 401
- *   4. parse the provider's real wire format and validate   malformed -> 400
- *   5. durably accept (tenant from provider_routes, never from the payload)   DB error -> 500 (provider retries)
- *   6. an event the provider waits on synchronously (e.g. Vapi assistant-request) gets its answer here,
+ *   3. signature over the ORIGINAL request valid?   no -> 401 (checked before the rate limit and
+ *      every other DB-backed step, so an unauthenticated flood or a database outage never turns
+ *      an otherwise-cheap rejection into a 500)
+ *   4. per-(provider, IP) request rate under the flood guard?   no -> 429 with Retry-After (providers retry)
+ *   5. parse the provider's real wire format and validate   malformed -> 400
+ *   6. durably accept (tenant from provider_routes, never from the payload)   DB error -> 500 (provider retries)
+ *   7. an event the provider waits on synchronously (e.g. Vapi assistant-request) gets its answer here,
  *      within the request; everything else is acknowledged and processed in the background
  */
 export async function handleProviderWebhook(
@@ -62,6 +67,22 @@ export async function handleProviderWebhook(
   if (!adapter.verifyWebhookRequest(req)) {
     console.warn(`${adapter.provider} webhook rejected: invalid signature`);
     return json(401, { error: "invalid signature" });
+  }
+
+  try {
+    await enforceWebhookRateLimit(request, adapter.provider);
+  } catch (error) {
+    if (error instanceof RateLimitedError) {
+      console.warn(`${adapter.provider} webhook rate limited: ${error.message}`);
+      return new NextResponse(JSON.stringify({ error: "rate limited" }), {
+        status: 429,
+        headers: {
+          "content-type": "application/json",
+          "retry-after": String(Math.ceil(error.retryAfterMs / 1000)),
+        },
+      });
+    }
+    throw error;
   }
 
   let parsed;
