@@ -1176,8 +1176,22 @@
           "title": "Pagination",
           "description": "Cursor pagination for customers, jobs, vendors, audit log, ops cases and the inbox.",
           "done_when": "No unbounded list queries remain (test/lint check).",
-          "status": "in_progress",
-          "index": 2
+          "status": "done",
+          "index": 2,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "95c43905f78dc76c9f6c1540456a0e76bd71f6dbb72ed357b09953e124b6a109",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-28T01:35:34.733Z"
+          }
         },
         {
           "id": "PH-T03",
