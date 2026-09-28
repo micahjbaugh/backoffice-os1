@@ -16,6 +16,7 @@ import {
   transferCall,
 } from "@backoffice/core";
 import {
+  FakeDocumentStorageProvider,
   FakeSmsProvider,
   FakeVoiceProvider,
   FixtureStructuredExtractor,
@@ -65,6 +66,8 @@ function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoicePr
     sms: new FakeSmsProvider(SECRET),
     voice: new FakeVoiceProvider(SECRET),
     extractor: new FixtureStructuredExtractor(),
+    documentStorage: new FakeDocumentStorageProvider(),
+    documentStorageBucket: "documents",
   };
 }
 

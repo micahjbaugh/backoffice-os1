@@ -2,10 +2,12 @@ import { describe, expect, it } from "vitest";
 import {
   AnthropicStructuredExtractor,
   createProviderRuntime,
+  FakeDocumentStorageProvider,
   FakeSmsProvider,
   FakeVoiceProvider,
   FixtureStructuredExtractor,
   ProviderConfigError,
+  SupabaseDocumentStorageProvider,
   TwilioSmsProvider,
   VapiVoiceProvider,
   type ProviderEnv,
@@ -18,6 +20,8 @@ const live: ProviderEnv = {
   VAPI_API_KEY: "3c1f9a7e-5b2d-4e8f-a6c0-9d1b2e3f4a5b",
   VAPI_WEBHOOK_SECRET: "q7Hs0Lr2Vx9Nc4Pz8Kw1Mj6Tb3Yd5Ge0",
   ANTHROPIC_API_KEY: "sk-ant-api03-0123456789abcdef0123456789abcdef",
+  SUPABASE_URL: "https://abcdefghijklmnop.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY: "z9Yx8Wv7Ut6Sr5Qp4On3Ml2Kj1Ih0Gf9Ed8Cb7Aa",
 };
 
 describe("provider runtime selection", () => {
@@ -31,6 +35,8 @@ describe("provider runtime selection", () => {
     expect(rt.sms).toBeInstanceOf(FakeSmsProvider);
     expect(rt.voice).toBeInstanceOf(FakeVoiceProvider);
     expect(rt.extractor).toBeInstanceOf(FixtureStructuredExtractor);
+    expect(rt.documentStorage).toBeInstanceOf(FakeDocumentStorageProvider);
+    expect(rt.documentStorageBucket).toBe("documents");
   });
 
   it("fakes cannot be constructed without a secret (no hard-coded defaults)", () => {
@@ -72,6 +78,8 @@ describe("provider runtime selection", () => {
       "query string on the webhook URL",
       { TWILIO_WEBHOOK_URL: "https://app.acme.test/api/webhooks/sms?x=1" },
     ],
+    ["a malformed Supabase URL", { SUPABASE_URL: "not-a-url" }],
+    ["a too-short Supabase service-role key", { SUPABASE_SERVICE_ROLE_KEY: "short" }],
   ])("production rejects %s", (_name, override) => {
     expect(() => createProviderRuntime({ NODE_ENV: "production", ...live, ...override })).toThrow(
       ProviderConfigError,
@@ -88,6 +96,7 @@ describe("provider runtime selection", () => {
     } catch (e) {
       expect((e as Error).message).not.toContain("fake-voice-webhook-secret");
       expect((e as Error).message).not.toContain(live.TWILIO_AUTH_TOKEN);
+      expect((e as Error).message).not.toContain(live.SUPABASE_SERVICE_ROLE_KEY);
     }
   });
 
@@ -97,5 +106,7 @@ describe("provider runtime selection", () => {
     expect(rt.sms).toBeInstanceOf(TwilioSmsProvider);
     expect(rt.voice).toBeInstanceOf(VapiVoiceProvider);
     expect(rt.extractor).toBeInstanceOf(AnthropicStructuredExtractor);
+    expect(rt.documentStorage).toBeInstanceOf(SupabaseDocumentStorageProvider);
+    expect(rt.documentStorageBucket).toBe("documents");
   });
 });

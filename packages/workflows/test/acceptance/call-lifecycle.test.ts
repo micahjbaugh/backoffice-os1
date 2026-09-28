@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
 import { inTenant, runAs, transferCall } from "@backoffice/core";
 import {
+  FakeDocumentStorageProvider,
   FakeSmsProvider,
   FakeVoiceProvider,
   FixtureStructuredExtractor,
@@ -42,6 +43,8 @@ function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoicePr
     sms: new FakeSmsProvider(SECRET),
     voice: new FakeVoiceProvider(SECRET),
     extractor: new FixtureStructuredExtractor(),
+    documentStorage: new FakeDocumentStorageProvider(),
+    documentStorageBucket: "documents",
   };
 }
 

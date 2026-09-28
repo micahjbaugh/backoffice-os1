@@ -41,6 +41,8 @@ const env = {
   VAPI_API_KEY: secret(),
   VAPI_WEBHOOK_SECRET,
   ANTHROPIC_API_KEY: secret(),
+  SUPABASE_URL: "https://running-app-test.supabase.co",
+  SUPABASE_SERVICE_ROLE_KEY: secret(),
   INTERNAL_JOBS_SECRET: JOBS_SECRET,
   NEXT_DIST_DIR: distDir,
   NEXT_TELEMETRY_DISABLED: "1",

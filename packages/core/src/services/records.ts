@@ -24,8 +24,15 @@ import { buildPage, decodeCursor, MAX_UNPAGINATED_ROWS, resolvePageSize } from "
 import type { CursorPage, PageParams } from "../pagination";
 import { toCustomer, toDocument, toEmployee, toVendor, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
+import { writeAudit } from "./audit";
 import { assertEntityInOrg } from "./entities";
 import { recordEvent } from "./events";
+
+/**
+ * Default signed-URL lifetime for document downloads (PH-T03): short enough to limit exposure if a
+ * link leaks (e.g. via referrer, logs, or a forwarded message), long enough for one in-app click.
+ */
+export const DOCUMENT_DOWNLOAD_URL_TTL_SECONDS = 300;
 
 interface NameCursor {
   displayName: string;
@@ -238,4 +245,29 @@ export async function listDocuments(ctx: ServiceContext): Promise<DocumentMetada
     [ctx.organizationId],
   );
   return rows.map(toDocument);
+}
+
+/**
+ * Authorize and audit a request to download a document's actual file content. Returns the metadata
+ * needed to mint a signed URL; minting the URL itself is a storage-provider SDK call and stays out
+ * of core (CLAUDE.md rules 9-10) — the caller does that with the returned `storagePath`.
+ */
+export async function requestDocumentDownload(
+  ctx: ServiceContext,
+  documentId: UUID,
+): Promise<DocumentMetadata> {
+  await ctx.authorize("document.download");
+  const { rows } = await ctx.scoped<Row>(
+    `select * from public.documents where id = $1 and organization_id = $2`,
+    [documentId, ctx.organizationId],
+  );
+  if (!rows[0]) throw new NotFoundError("document", documentId);
+  const doc = toDocument(rows[0] as Row);
+  await writeAudit(ctx, {
+    action: "document.downloaded",
+    entityType: "document",
+    entityId: doc.id,
+    details: { classification: doc.classification, file_name: doc.fileName },
+  });
+  return doc;
 }

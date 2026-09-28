@@ -9,12 +9,15 @@
 
 import type { FieldCaptureExtraction, StructuredExtractor } from "@backoffice/domain";
 import { AnthropicStructuredExtractor } from "./adapters/anthropic-structured-extractor";
+import { SupabaseDocumentStorageProvider } from "./adapters/supabase-document-storage-provider";
 import { TwilioSmsProvider } from "./adapters/twilio-sms-provider";
 import { VapiVoiceProvider } from "./adapters/vapi-voice-provider";
+import { FakeDocumentStorageProvider } from "./fakes/fake-document-storage-provider";
 import { FakeSmsProvider } from "./fakes/fake-sms-provider";
 import { FakeVoiceProvider } from "./fakes/fake-voice-provider";
 import { MIN_FAKE_SECRET_LENGTH } from "./fakes/fake-webhooks";
 import { FixtureStructuredExtractor } from "./fakes/fixture-structured-extractor";
+import type { DocumentStorageProvider } from "./providers/document-storage-provider";
 import type { SmsProvider } from "./providers/sms-provider";
 import type { VoiceProvider } from "./providers/voice-provider";
 
@@ -28,6 +31,9 @@ export interface ProviderEnv {
   VAPI_WEBHOOK_SECRET?: string;
   ANTHROPIC_API_KEY?: string;
   ANTHROPIC_MODEL?: string;
+  SUPABASE_URL?: string;
+  SUPABASE_SERVICE_ROLE_KEY?: string;
+  DOCUMENT_STORAGE_BUCKET?: string;
   FAKE_PROVIDER_WEBHOOK_SECRET?: string;
 }
 
@@ -37,6 +43,10 @@ export interface ProviderRuntime {
   voice: VoiceProvider;
   /** Field capture's structured extractor (M3-T16): the fixture in fake mode, Anthropic in live mode. */
   extractor: StructuredExtractor<FieldCaptureExtraction>;
+  /** Signs document downloads (PH-T03): the fake in fake mode, real Supabase Storage in live mode. */
+  documentStorage: DocumentStorageProvider;
+  /** Private Storage bucket documents live in (migration 0019); defaults to "documents". */
+  documentStorageBucket: string;
 }
 
 export class ProviderConfigError extends Error {
@@ -84,6 +94,8 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
       sms: new FakeSmsProvider(secret),
       voice: new FakeVoiceProvider(secret),
       extractor: new FixtureStructuredExtractor(),
+      documentStorage: new FakeDocumentStorageProvider(),
+      documentStorageBucket: env.DOCUMENT_STORAGE_BUCKET ?? "documents",
     };
   }
 
@@ -94,6 +106,8 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
     "VAPI_API_KEY",
     "VAPI_WEBHOOK_SECRET",
     "ANTHROPIC_API_KEY",
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
   ] as const;
   const missing = required.filter((name) => !env[name]);
   if (missing.length) throw new ProviderConfigError(`live providers need: ${missing.join(", ")}`);
@@ -106,6 +120,7 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
     "VAPI_API_KEY",
     "VAPI_WEBHOOK_SECRET",
     "ANTHROPIC_API_KEY",
+    "SUPABASE_SERVICE_ROLE_KEY",
   ] as const) {
     const value = env[name] ?? "";
     if (value.length < MIN_LIVE_SECRET_LENGTH) problems.push(`${name} is too short`);
@@ -121,6 +136,11 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
   if (webhookUrl && production && webhookUrl.protocol !== "https:")
     problems.push("TWILIO_WEBHOOK_URL must be https in production");
   if (webhookUrl?.search) problems.push("TWILIO_WEBHOOK_URL must not include a query string");
+  try {
+    new URL(env.SUPABASE_URL ?? "");
+  } catch {
+    problems.push("SUPABASE_URL is not a URL");
+  }
   if (problems.length)
     throw new ProviderConfigError(`live provider configuration is invalid: ${problems.join("; ")}`);
 
@@ -139,5 +159,10 @@ export function createProviderRuntime(env: ProviderEnv): ProviderRuntime {
       apiKey: env.ANTHROPIC_API_KEY as string,
       model: env.ANTHROPIC_MODEL,
     }),
+    documentStorage: new SupabaseDocumentStorageProvider({
+      supabaseUrl: env.SUPABASE_URL as string,
+      serviceRoleKey: env.SUPABASE_SERVICE_ROLE_KEY as string,
+    }),
+    documentStorageBucket: env.DOCUMENT_STORAGE_BUCKET ?? "documents",
   };
 }

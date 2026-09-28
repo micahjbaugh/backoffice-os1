@@ -92,7 +92,7 @@ describe("every consequential mutation is audited", () => {
   it("document metadata registration is audited and tenant-checked", async () => {
     const doc = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
       registerDocument(ctx, {
-        storagePath: `org/${w.orgA.id}/receipts/r1.pdf`,
+        storagePath: `${w.orgA.id}/receipts/r1.pdf`,
         fileName: "r1.pdf",
         classification: "financial",
         entityType: "job",

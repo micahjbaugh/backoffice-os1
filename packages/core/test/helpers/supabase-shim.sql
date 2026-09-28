@@ -45,3 +45,28 @@ grant usage on schema public to anon, authenticated, service_role;
 alter default privileges in schema public grant all on tables to anon, authenticated, service_role;
 alter default privileges in schema public grant all on sequences to anon, authenticated, service_role;
 alter default privileges in schema public grant all on functions to anon, authenticated, service_role;
+
+-- Minimal stand-in for the subset of Supabase Storage's schema migration 0019 depends on: enough of
+-- storage.buckets/storage.objects to exercise the real bucket-insert and RLS policy statements.
+create schema storage;
+
+create table storage.buckets (
+  id text primary key,
+  name text not null,
+  public boolean not null default false,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+create table storage.objects (
+  id uuid primary key default gen_random_uuid(),
+  bucket_id text references storage.buckets(id),
+  name text,
+  owner uuid,
+  metadata jsonb,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+
+grant usage on schema storage to anon, authenticated, service_role;
+grant select, insert, update, delete on storage.buckets, storage.objects to anon, authenticated, service_role;

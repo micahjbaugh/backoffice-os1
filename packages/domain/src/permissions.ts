@@ -38,6 +38,8 @@ export const PERMISSIONS = [
   "provider_route.manage",
   "document.read",
   "document.write",
+  /** Mint a signed download URL for a document's actual file content (audited separately). */
+  "document.download",
   "communication.read",
   "communication.write",
   "lead.read",
@@ -91,6 +93,7 @@ const STAFF_READ: readonly Permission[] = [
   "event.read",
   "ops_case.read",
   "document.read",
+  "document.download",
   "communication.read",
   "lead.read",
 ];
@@ -116,6 +119,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<MembershipRole, ReadonlySet<Permi
     "task.read",
     "approval.request",
     "document.read",
+    "document.download",
   ]),
   accountant_readonly: new Set<Permission>([...STAFF_READ, "audit.read"]),
 };
