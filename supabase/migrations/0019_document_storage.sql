@@ -33,7 +33,9 @@ as $$
   end
 $$;
 
-alter table storage.objects enable row level security;
+-- Supabase ships storage.objects with row level security already enabled and owned by
+-- supabase_storage_admin, so this migration cannot (and need not) enable it; doing so fails with
+-- "must be owner of table objects" on a real stack. The test shim enables it on its stand-in.
 
 create policy documents_bucket_member_select on storage.objects
 for select to authenticated
