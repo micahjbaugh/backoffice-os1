@@ -9,6 +9,8 @@ import {
   type UpdateJobInput,
   type UUID,
 } from "@backoffice/domain";
+import { buildPage, decodeCursor, MAX_UNPAGINATED_ROWS, resolvePageSize } from "../pagination";
+import type { CursorPage, PageParams } from "../pagination";
 import { toJob, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { assertEntityInOrg } from "./entities";
@@ -18,13 +20,37 @@ const JOB_SELECT = `select j.*, c.display_name as customer_name
                       from public.jobs j
                       left join public.customers c on c.id = j.customer_id`;
 
-export async function listJobs(ctx: ServiceContext): Promise<Job[]> {
+interface CreatedAtCursor {
+  createdAt: string;
+  id: string;
+}
+
+export function listJobs(ctx: ServiceContext): Promise<Job[]>;
+export function listJobs(ctx: ServiceContext, page: PageParams): Promise<CursorPage<Job>>;
+export async function listJobs(
+  ctx: ServiceContext,
+  page?: PageParams,
+): Promise<Job[] | CursorPage<Job>> {
   await ctx.authorize("job.read");
+  if (page === undefined) {
+    const { rows } = await ctx.scoped<Row>(
+      `${JOB_SELECT} where j.organization_id = $1 order by j.created_at desc, j.id desc limit $2`,
+      [ctx.organizationId, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toJob);
+  }
+  const limit = resolvePageSize(page.limit);
+  const cursor = decodeCursor<CreatedAtCursor>(page.cursor);
   const { rows } = await ctx.scoped<Row>(
-    `${JOB_SELECT} where j.organization_id = $1 order by j.created_at desc`,
-    [ctx.organizationId],
+    `${JOB_SELECT}
+      where j.organization_id = $1
+        and ($2::timestamptz is null or (j.created_at, j.id) < ($2, $3::uuid))
+      order by j.created_at desc, j.id desc
+      limit $4`,
+    [ctx.organizationId, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1],
   );
-  return rows.map(toJob);
+  const jobs = rows.map(toJob);
+  return buildPage(jobs, limit, (j) => ({ createdAt: j.createdAt, id: j.id }));
 }
 
 export async function getJob(ctx: ServiceContext, jobId: UUID): Promise<Job> {

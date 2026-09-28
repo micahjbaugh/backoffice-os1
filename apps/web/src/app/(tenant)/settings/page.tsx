@@ -9,7 +9,9 @@ import {
 } from "@backoffice/core";
 import { MEMBERSHIP_ROLES, roleHasPermission, type Permission } from "@backoffice/domain";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { PageNav } from "@/components/PageNav";
 import { formatDateTime, formatMoney, humanize } from "@/lib/format";
+import { firstParam, type SearchParams } from "@/lib/pagination";
 import { withTenant } from "@/server/session";
 import {
   addMemberAction,
@@ -24,9 +26,22 @@ import {
 
 export const dynamic = "force-dynamic";
 
-export default async function SettingsPage() {
+export default async function SettingsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const params = await searchParams;
+  const auditCursor = firstParam(params, "auditCursor");
+  const opsCursor = firstParam(params, "opsCursor");
   const d = await withTenant(async (ctx, session) => {
     const can = (p: Permission) => roleHasPermission(session.role, p);
+    const auditPage = can("audit.read")
+      ? await listAudit(ctx, { cursor: auditCursor, limit: 25 })
+      : { items: [], nextCursor: null };
+    const opsPage = can("ops_case.read")
+      ? await listOrgOpsCases(ctx, { cursor: opsCursor, limit: 25 })
+      : { items: [], nextCursor: null };
     return {
       session,
       can: {
@@ -44,8 +59,10 @@ export default async function SettingsPage() {
       rules: can("rule.read") ? await listRules(ctx) : [],
       grants: can("operator_grant.manage") ? await listOperatorGrants(ctx) : [],
       providerRoutes: can("provider_route.manage") ? await listProviderRoutes(ctx) : [],
-      audit: can("audit.read") ? await listAudit(ctx, 25) : [],
-      opsCases: can("ops_case.read") ? await listOrgOpsCases(ctx) : [],
+      audit: auditPage.items,
+      auditNextCursor: auditPage.nextCursor,
+      opsCases: opsPage.items,
+      opsNextCursor: opsPage.nextCursor,
     };
   });
   const tz = d.session.organization.timezone;
@@ -420,6 +437,12 @@ export default async function SettingsPage() {
               </table>
             </div>
           )}
+          <PageNav
+            basePath="/settings"
+            cursor={opsCursor}
+            nextCursor={d.opsNextCursor}
+            cursorParam="opsCursor"
+          />
         </section>
       ) : null}
 
@@ -453,6 +476,12 @@ export default async function SettingsPage() {
               </tbody>
             </table>
           </div>
+          <PageNav
+            basePath="/settings"
+            cursor={auditCursor}
+            nextCursor={d.auditNextCursor}
+            cursorParam="auditCursor"
+          />
         </section>
       ) : null}
     </>

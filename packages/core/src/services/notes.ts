@@ -7,6 +7,7 @@ import {
   type Note,
   type UUID,
 } from "@backoffice/domain";
+import { MAX_UNPAGINATED_ROWS } from "../pagination";
 import { toNote, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
@@ -58,8 +59,9 @@ export async function listNotes(
   const { rows } = await ctx.scoped<Row>(
     `select * from public.notes
       where organization_id = $1 and entity_type = $2 and entity_id = any($3::uuid[])
-      order by created_at`,
-    [ctx.organizationId, entityType, entityIds],
+      order by created_at
+      limit $4`,
+    [ctx.organizationId, entityType, entityIds, MAX_UNPAGINATED_ROWS],
   );
   return rows.map(toNote);
 }

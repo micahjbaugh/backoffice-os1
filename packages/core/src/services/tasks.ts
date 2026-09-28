@@ -12,6 +12,8 @@ import {
   type TaskStatus,
   type UUID,
 } from "@backoffice/domain";
+import { buildPage, decodeCursor, MAX_UNPAGINATED_ROWS, resolvePageSize } from "../pagination";
+import type { CursorPage, PageParams } from "../pagination";
 import { toTask, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { assertEntityInOrg, assertUserIsMember } from "./entities";
@@ -88,21 +90,77 @@ export async function createCallbackTask(
   });
 }
 
+const PRIORITY_RANK: Record<Priority, number> = { urgent: 0, high: 1, normal: 2, low: 3 };
+const TASK_ORDER = `case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end,
+               coalesce(due_at, 'infinity'::timestamptz), created_at, id`;
+
+interface TaskCursor {
+  priorityRank: number;
+  /** ISO timestamp, or the literal "infinity" standing in for a null due date (sorted last). */
+  dueRank: string;
+  createdAt: string;
+  id: string;
+}
+
+export function listOpenTasks(
+  ctx: ServiceContext,
+  priorities?: readonly Priority[],
+): Promise<Task[]>;
+export function listOpenTasks(
+  ctx: ServiceContext,
+  priorities: readonly Priority[],
+  page: PageParams,
+): Promise<CursorPage<Task>>;
 export async function listOpenTasks(
   ctx: ServiceContext,
   priorities: readonly Priority[] = ["high", "urgent"],
-): Promise<Task[]> {
+  page?: PageParams,
+): Promise<Task[] | CursorPage<Task>> {
   await ctx.authorize("task.read");
+  if (page === undefined) {
+    const { rows } = await ctx.scoped<Row>(
+      `select * from public.tasks
+        where organization_id = $1
+          and status in ('open', 'in_progress')
+          and priority = any($2::text[])
+        order by ${TASK_ORDER}
+        limit $3`,
+      [ctx.organizationId, priorities, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toTask);
+  }
+  const limit = resolvePageSize(page.limit);
+  const cursor = decodeCursor<TaskCursor>(page.cursor);
   const { rows } = await ctx.scoped<Row>(
     `select * from public.tasks
       where organization_id = $1
         and status in ('open', 'in_progress')
         and priority = any($2::text[])
-      order by case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end,
-               due_at nulls last, created_at`,
-    [ctx.organizationId, priorities],
+        and (
+          $3::int is null
+          or (case priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end,
+              coalesce(due_at, 'infinity'::timestamptz), created_at, id)
+             > ($3, $4::timestamptz, $5::timestamptz, $6::uuid)
+        )
+      order by ${TASK_ORDER}
+      limit $7`,
+    [
+      ctx.organizationId,
+      priorities,
+      cursor?.priorityRank ?? null,
+      cursor?.dueRank ?? null,
+      cursor?.createdAt ?? null,
+      cursor?.id ?? null,
+      limit + 1,
+    ],
   );
-  return rows.map(toTask);
+  const tasks = rows.map(toTask);
+  return buildPage(tasks, limit, (t) => ({
+    priorityRank: PRIORITY_RANK[t.priority],
+    dueRank: t.dueAt ?? "infinity",
+    createdAt: t.createdAt,
+    id: t.id,
+  }));
 }
 
 export async function updateTaskStatus(

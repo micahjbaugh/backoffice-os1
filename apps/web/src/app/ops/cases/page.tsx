@@ -1,12 +1,21 @@
 import Link from "next/link";
 import { listOperatorCases } from "@backoffice/core";
+import { PageNav } from "@/components/PageNav";
 import { formatDateTime, humanize } from "@/lib/format";
+import { firstParam, type SearchParams } from "@/lib/pagination";
 import { withOperator } from "@/server/session";
 
 export const dynamic = "force-dynamic";
 
-export default async function OpsCasesPage() {
-  const cases = await withOperator((tx) => listOperatorCases(tx));
+export default async function OpsCasesPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const cursor = firstParam(await searchParams, "cursor");
+  const { items: cases, nextCursor } = await withOperator((tx) =>
+    listOperatorCases(tx, { page: { cursor } }),
+  );
   return (
     <>
       <div className="page-head">
@@ -56,6 +65,7 @@ export default async function OpsCasesPage() {
           </table>
         </div>
       )}
+      <PageNav basePath="/ops/cases" cursor={cursor} nextCursor={nextCursor} />
     </>
   );
 }

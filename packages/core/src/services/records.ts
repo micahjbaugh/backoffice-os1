@@ -20,18 +20,44 @@ import {
   type UUID,
   type Vendor,
 } from "@backoffice/domain";
+import { buildPage, decodeCursor, MAX_UNPAGINATED_ROWS, resolvePageSize } from "../pagination";
+import type { CursorPage, PageParams } from "../pagination";
 import { toCustomer, toDocument, toEmployee, toVendor, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { assertEntityInOrg } from "./entities";
 import { recordEvent } from "./events";
 
-export async function listCustomers(ctx: ServiceContext): Promise<Customer[]> {
+interface NameCursor {
+  displayName: string;
+  id: string;
+}
+
+export function listCustomers(ctx: ServiceContext): Promise<Customer[]>;
+export function listCustomers(ctx: ServiceContext, page: PageParams): Promise<CursorPage<Customer>>;
+export async function listCustomers(
+  ctx: ServiceContext,
+  page?: PageParams,
+): Promise<Customer[] | CursorPage<Customer>> {
   await ctx.authorize("customer.read");
+  if (page === undefined) {
+    const { rows } = await ctx.scoped<Row>(
+      `select * from public.customers where organization_id = $1 order by display_name, id limit $2`,
+      [ctx.organizationId, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toCustomer);
+  }
+  const limit = resolvePageSize(page.limit);
+  const cursor = decodeCursor<NameCursor>(page.cursor);
   const { rows } = await ctx.scoped<Row>(
-    `select * from public.customers where organization_id = $1 order by display_name`,
-    [ctx.organizationId],
+    `select * from public.customers
+      where organization_id = $1
+        and ($2::text is null or (display_name, id) > ($2, $3::uuid))
+      order by display_name, id
+      limit $4`,
+    [ctx.organizationId, cursor?.displayName ?? null, cursor?.id ?? null, limit + 1],
   );
-  return rows.map(toCustomer);
+  const customers = rows.map(toCustomer);
+  return buildPage(customers, limit, (c) => ({ displayName: c.displayName, id: c.id }));
 }
 
 export async function getCustomer(ctx: ServiceContext, customerId: UUID): Promise<Customer> {
@@ -101,13 +127,53 @@ export async function createEmployee(
   return employee;
 }
 
-export async function listVendors(ctx: ServiceContext): Promise<Vendor[]> {
+interface VendorCursor {
+  notPreferred: boolean;
+  displayName: string;
+  id: string;
+}
+
+export function listVendors(ctx: ServiceContext): Promise<Vendor[]>;
+export function listVendors(ctx: ServiceContext, page: PageParams): Promise<CursorPage<Vendor>>;
+export async function listVendors(
+  ctx: ServiceContext,
+  page?: PageParams,
+): Promise<Vendor[] | CursorPage<Vendor>> {
   await ctx.authorize("vendor.read");
+  if (page === undefined) {
+    const { rows } = await ctx.scoped<Row>(
+      `select * from public.vendors
+        where organization_id = $1
+        order by preferred desc, display_name, id
+        limit $2`,
+      [ctx.organizationId, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toVendor);
+  }
+  const limit = resolvePageSize(page.limit);
+  // "preferred desc" plus ascending tie-breakers can't be a single ROW `<`/`>` comparison, so sort
+  // and page on `not preferred` (ascending) instead: identical order, one consistent direction.
+  const cursor = decodeCursor<VendorCursor>(page.cursor);
   const { rows } = await ctx.scoped<Row>(
-    `select * from public.vendors where organization_id = $1 order by preferred desc, display_name`,
-    [ctx.organizationId],
+    `select * from public.vendors
+      where organization_id = $1
+        and ($2::boolean is null or (not preferred, display_name, id) > ($2, $3, $4::uuid))
+      order by not preferred, display_name, id
+      limit $5`,
+    [
+      ctx.organizationId,
+      cursor?.notPreferred ?? null,
+      cursor?.displayName ?? null,
+      cursor?.id ?? null,
+      limit + 1,
+    ],
   );
-  return rows.map(toVendor);
+  const vendors = rows.map(toVendor);
+  return buildPage(vendors, limit, (v) => ({
+    notPreferred: !v.preferred,
+    displayName: v.displayName,
+    id: v.id,
+  }));
 }
 
 export async function createVendor(ctx: ServiceContext, input: CreateVendorInput): Promise<Vendor> {

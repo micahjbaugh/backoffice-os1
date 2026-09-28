@@ -3,6 +3,8 @@
 
 export type { Database, QueryResult, SqlExecutor } from "./db/types";
 export { Tx } from "./db/tx";
+export type { CursorPage, PageParams } from "./pagination";
+export { DEFAULT_PAGE_SIZE, MAX_PAGE_SIZE } from "./pagination";
 export { runAs, inTenant, ServiceContext } from "./runtime";
 
 export * from "./services/approvals";

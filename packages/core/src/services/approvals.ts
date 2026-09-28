@@ -15,6 +15,8 @@ import {
   type DecideApprovalInput,
   type UUID,
 } from "@backoffice/domain";
+import { buildPage, decodeCursor, MAX_UNPAGINATED_ROWS, resolvePageSize } from "../pagination";
+import type { CursorPage, PageParams } from "../pagination";
 import { toApproval, toBusinessEvent, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
@@ -221,17 +223,65 @@ export async function decideApproval(
   return { approval, event, replayed: false };
 }
 
-export async function listPendingApprovals(ctx: ServiceContext): Promise<Approval[]> {
+const RISK_RANK: Record<Approval["riskClass"], number> = { red: 0, yellow: 1, green: 2 };
+const APPROVAL_ORDER = `case risk_class when 'red' then 0 when 'yellow' then 1 else 2 end, created_at, id`;
+
+interface ApprovalCursor {
+  riskRank: number;
+  createdAt: string;
+  id: string;
+}
+
+export function listPendingApprovals(ctx: ServiceContext): Promise<Approval[]>;
+export function listPendingApprovals(
+  ctx: ServiceContext,
+  page: PageParams,
+): Promise<CursorPage<Approval>>;
+export async function listPendingApprovals(
+  ctx: ServiceContext,
+  page?: PageParams,
+): Promise<Approval[] | CursorPage<Approval>> {
   await ctx.authorize("approval.read");
+  if (page === undefined) {
+    const { rows } = await ctx.scoped<Row>(
+      `select * from public.approvals
+        where organization_id = $1
+          and status = 'pending'
+          and (expires_at is null or expires_at > now())
+        order by ${APPROVAL_ORDER}
+        limit $2`,
+      [ctx.organizationId, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toApproval);
+  }
+  const limit = resolvePageSize(page.limit);
+  const cursor = decodeCursor<ApprovalCursor>(page.cursor);
   const { rows } = await ctx.scoped<Row>(
     `select * from public.approvals
       where organization_id = $1
         and status = 'pending'
         and (expires_at is null or expires_at > now())
-      order by case risk_class when 'red' then 0 when 'yellow' then 1 else 2 end, created_at`,
-    [ctx.organizationId],
+        and (
+          $2::int is null
+          or (case risk_class when 'red' then 0 when 'yellow' then 1 else 2 end, created_at, id)
+             > ($2, $3::timestamptz, $4::uuid)
+        )
+      order by ${APPROVAL_ORDER}
+      limit $5`,
+    [
+      ctx.organizationId,
+      cursor?.riskRank ?? null,
+      cursor?.createdAt ?? null,
+      cursor?.id ?? null,
+      limit + 1,
+    ],
   );
-  return rows.map(toApproval);
+  const approvals = rows.map(toApproval);
+  return buildPage(approvals, limit, (a) => ({
+    riskRank: RISK_RANK[a.riskClass],
+    createdAt: a.createdAt,
+    id: a.id,
+  }));
 }
 
 export async function getApproval(ctx: ServiceContext, approvalId: UUID): Promise<Approval> {

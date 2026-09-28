@@ -26,11 +26,18 @@ import {
   type UUID,
 } from "@backoffice/domain";
 import type { Tx } from "../db/tx";
+import { buildPage, decodeCursor, MAX_UNPAGINATED_ROWS, resolvePageSize } from "../pagination";
+import type { CursorPage, PageParams } from "../pagination";
 import { toBusinessEvent, toOperatorGrant, toOpsCase, type Row } from "../rows";
 import { inTenant, type ServiceContext } from "../runtime";
 import { writeAudit } from "./audit";
 import { assertEntityInOrg } from "./entities";
 import { recordEvent } from "./events";
+
+interface CreatedAtCursor {
+  createdAt: string;
+  id: string;
+}
 
 // ---------------------------------------------------------------------------
 // Tenant side
@@ -77,13 +84,38 @@ export async function createOpsCase(
   return opsCase;
 }
 
-export async function listOrgOpsCases(ctx: ServiceContext): Promise<OpsCase[]> {
+export function listOrgOpsCases(ctx: ServiceContext): Promise<OpsCase[]>;
+export function listOrgOpsCases(
+  ctx: ServiceContext,
+  page: PageParams,
+): Promise<CursorPage<OpsCase>>;
+export async function listOrgOpsCases(
+  ctx: ServiceContext,
+  page?: PageParams,
+): Promise<OpsCase[] | CursorPage<OpsCase>> {
   await ctx.authorize("ops_case.read");
+  if (page === undefined) {
+    const { rows } = await ctx.scoped<Row>(
+      `select * from public.ops_cases
+        where organization_id = $1
+        order by created_at desc, id desc
+        limit $2`,
+      [ctx.organizationId, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toOpsCase);
+  }
+  const limit = resolvePageSize(page.limit);
+  const cursor = decodeCursor<CreatedAtCursor>(page.cursor);
   const { rows } = await ctx.scoped<Row>(
-    `select * from public.ops_cases where organization_id = $1 order by created_at desc`,
-    [ctx.organizationId],
+    `select * from public.ops_cases
+      where organization_id = $1
+        and ($2::timestamptz is null or (created_at, id) < ($2, $3::uuid))
+      order by created_at desc, id desc
+      limit $4`,
+    [ctx.organizationId, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1],
   );
-  return rows.map(toOpsCase);
+  const cases = rows.map(toOpsCase);
+  return buildPage(cases, limit, (c) => ({ createdAt: c.createdAt, id: c.id }));
 }
 
 export interface OpsCaseDecisionResult {
@@ -268,24 +300,83 @@ const OPS_CASE_SELECT = `select c.*, o.name as organization_name
                            from public.ops_cases c
                            join public.organizations o on o.id = c.organization_id`;
 
+const PRIORITY_RANK: Record<OpsCase["priority"], number> = {
+  urgent: 0,
+  high: 1,
+  normal: 2,
+  low: 3,
+};
+
+interface OperatorCaseCursor {
+  priorityRank: number;
+  /** ISO timestamp, or the literal "infinity" standing in for a null SLA (sorted last). */
+  slaRank: string;
+  createdAt: string;
+  id: string;
+}
+
+const OPERATOR_CASE_ORDER = `case c.priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end,
+               coalesce(c.sla_due_at, 'infinity'::timestamptz), c.created_at, c.id`;
+
+export function listOperatorCases(
+  tx: Tx,
+  options?: { includeClosed?: boolean },
+): Promise<OpsCase[]>;
+export function listOperatorCases(
+  tx: Tx,
+  options: { includeClosed?: boolean; page: PageParams },
+): Promise<CursorPage<OpsCase>>;
 /**
  * Cases across every tenant the operator currently holds a live grant for.
  * Read through RLS, and explicitly grant-filtered so tenant membership never substitutes for a grant.
  */
 export async function listOperatorCases(
   tx: Tx,
-  options: { includeClosed?: boolean } = {},
-): Promise<OpsCase[]> {
+  options: { includeClosed?: boolean; page?: PageParams } = {},
+): Promise<OpsCase[] | CursorPage<OpsCase>> {
   await requireInternalStaff(tx);
+  const includeClosed = options.includeClosed ?? false;
+  if (options.page === undefined) {
+    const { rows } = await tx.asUser<Row>(
+      `${OPS_CASE_SELECT}
+        where public.has_operator_grant(c.organization_id)
+          and ($1 or c.status not in ('resolved', 'closed'))
+        order by ${OPERATOR_CASE_ORDER}
+        limit $2`,
+      [includeClosed, MAX_UNPAGINATED_ROWS],
+    );
+    return rows.map(toOpsCase);
+  }
+  const limit = resolvePageSize(options.page.limit);
+  const cursor = decodeCursor<OperatorCaseCursor>(options.page.cursor);
   const { rows } = await tx.asUser<Row>(
     `${OPS_CASE_SELECT}
       where public.has_operator_grant(c.organization_id)
         and ($1 or c.status not in ('resolved', 'closed'))
-      order by case c.priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end,
-               c.sla_due_at nulls last, c.created_at`,
-    [options.includeClosed ?? false],
+        and (
+          $2::int is null
+          or (case c.priority when 'urgent' then 0 when 'high' then 1 when 'normal' then 2 else 3 end,
+              coalesce(c.sla_due_at, 'infinity'::timestamptz), c.created_at, c.id)
+             > ($2, $3::timestamptz, $4::timestamptz, $5::uuid)
+        )
+      order by ${OPERATOR_CASE_ORDER}
+      limit $6`,
+    [
+      includeClosed,
+      cursor?.priorityRank ?? null,
+      cursor?.slaRank ?? null,
+      cursor?.createdAt ?? null,
+      cursor?.id ?? null,
+      limit + 1,
+    ],
   );
-  return rows.map(toOpsCase);
+  const cases = rows.map(toOpsCase);
+  return buildPage(cases, limit, (c) => ({
+    priorityRank: PRIORITY_RANK[c.priority],
+    slaRank: c.slaDueAt ?? "infinity",
+    createdAt: c.createdAt,
+    id: c.id,
+  }));
 }
 
 async function loadGrantedCase(tx: Tx, caseId: UUID, action: string): Promise<OpsCase> {

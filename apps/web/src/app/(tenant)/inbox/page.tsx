@@ -20,7 +20,9 @@ import {
   type OpsCase,
 } from "@backoffice/domain";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { PageNav } from "@/components/PageNav";
 import { formatDateTime, formatMoney, humanize } from "@/lib/format";
+import { firstParam, type SearchParams } from "@/lib/pagination";
 import { withTenant } from "@/server/session";
 import {
   addNoteAction,
@@ -41,10 +43,17 @@ const DENIAL_TEXT: Record<string, string> = {
   role_cannot_decide: "Your role can't decide approvals.",
 };
 
-export default async function InboxPage() {
+export default async function InboxPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const params = await searchParams;
+  const approvalsCursor = firstParam(params, "approvalsCursor");
+  const tasksCursor = firstParam(params, "tasksCursor");
+  const clarificationsCursor = firstParam(params, "clarificationsCursor");
   const data = await withTenant(async (ctx, session) => {
     const can = (p: Parameters<typeof roleHasPermission>[1]) => roleHasPermission(session.role, p);
-    const approvals = can("approval.read") ? await listPendingApprovals(ctx) : [];
+    const approvalsPage = can("approval.read")
+      ? await listPendingApprovals(ctx, { cursor: approvalsCursor })
+      : { items: [], nextCursor: null };
+    const approvals = approvalsPage.items;
     const rules =
       can("approval.decide") || can("billable.decide")
         ? await loadApprovalDelegationRules(ctx)
@@ -56,7 +65,10 @@ export default async function InboxPage() {
           approvals.map((a) => a.id),
         )
       : [];
-    const tasks = can("task.read") ? await listOpenTasks(ctx) : [];
+    const tasksPage = can("task.read")
+      ? await listOpenTasks(ctx, ["high", "urgent"], { cursor: tasksCursor })
+      : { items: [], nextCursor: null };
+    const tasks = tasksPage.items;
     const authority = new Map<string, DecisionAuthority>(
       approvals.map((a) => [a.id, evaluateApprovalDecision(ctx.actor, session.role, a, rules)]),
     );
@@ -69,30 +81,39 @@ export default async function InboxPage() {
           rules,
         )
       : undefined;
-    const clarifications = can("ops_case.read")
-      ? (await listOrgOpsCases(ctx)).filter((c) => c.status !== "resolved" && c.status !== "closed")
-      : [];
+    const clarificationsPage = can("ops_case.read")
+      ? await listOrgOpsCases(ctx, { cursor: clarificationsCursor })
+      : { items: [], nextCursor: null };
+    const clarifications = clarificationsPage.items.filter(
+      (c) => c.status !== "resolved" && c.status !== "closed",
+    );
     return {
       session,
       approvals,
+      approvalsNextCursor: approvalsPage.nextCursor,
       notes,
       tasks,
+      tasksNextCursor: tasksPage.nextCursor,
       authority,
       billables,
       billableAuthority,
       clarifications,
+      clarificationsNextCursor: clarificationsPage.nextCursor,
       can,
     };
   });
   const {
     session,
     approvals,
+    approvalsNextCursor,
     notes,
     tasks,
+    tasksNextCursor,
     authority,
     billables,
     billableAuthority,
     clarifications,
+    clarificationsNextCursor,
     can,
   } = data;
   const tz = session.organization.timezone;
@@ -122,6 +143,12 @@ export default async function InboxPage() {
             />
           ))
         )}
+        <PageNav
+          basePath="/inbox"
+          cursor={approvalsCursor}
+          nextCursor={approvalsNextCursor}
+          cursorParam="approvalsCursor"
+        />
       </section>
 
       <section className="section">
@@ -158,6 +185,12 @@ export default async function InboxPage() {
             />
           ))
         )}
+        <PageNav
+          basePath="/inbox"
+          cursor={clarificationsCursor}
+          nextCursor={clarificationsNextCursor}
+          cursorParam="clarificationsCursor"
+        />
       </section>
 
       <section className="section">
@@ -188,6 +221,12 @@ export default async function InboxPage() {
             </div>
           ))
         )}
+        <PageNav
+          basePath="/inbox"
+          cursor={tasksCursor}
+          nextCursor={tasksNextCursor}
+          cursorParam="tasksCursor"
+        />
       </section>
 
       {can("task.create") ? (

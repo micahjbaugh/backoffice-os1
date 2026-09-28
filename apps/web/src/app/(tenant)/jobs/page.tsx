@@ -1,25 +1,32 @@
 import { listCustomers, listJobs } from "@backoffice/core";
 import { JOB_STATUSES, roleHasPermission } from "@backoffice/domain";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { PageNav } from "@/components/PageNav";
 import { formatDateTime, humanize } from "@/lib/format";
+import { firstParam, type SearchParams } from "@/lib/pagination";
 import { withTenant } from "@/server/session";
 import { createJobAction, updateJobStatusAction } from "../../actions/tenant";
 
 export const dynamic = "force-dynamic";
 
-export default async function JobsPage() {
-  const { jobs, customers, canWrite, tz } = await withTenant(async (ctx, session) => ({
-    jobs: await listJobs(ctx),
-    customers: await listCustomers(ctx),
-    canWrite: roleHasPermission(session.role, "job.write"),
-    tz: session.organization.timezone,
-  }));
+export default async function JobsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const cursor = firstParam(await searchParams, "cursor");
+  const { jobs, customers, canWrite, tz, nextCursor } = await withTenant(async (ctx, session) => {
+    const page = await listJobs(ctx, { cursor });
+    return {
+      jobs: page.items,
+      nextCursor: page.nextCursor,
+      customers: await listCustomers(ctx),
+      canWrite: roleHasPermission(session.role, "job.write"),
+      tz: session.organization.timezone,
+    };
+  });
 
   return (
     <>
       <div className="page-head">
         <h1>Jobs</h1>
-        <p>{jobs.length} jobs</p>
+        <p>Showing {jobs.length}</p>
       </div>
 
       {canWrite ? (
@@ -100,6 +107,7 @@ export default async function JobsPage() {
             </tbody>
           </table>
         )}
+        <PageNav basePath="/jobs" cursor={cursor} nextCursor={nextCursor} />
       </section>
     </>
   );

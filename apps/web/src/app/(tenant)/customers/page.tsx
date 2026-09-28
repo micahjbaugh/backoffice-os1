@@ -1,22 +1,33 @@
 import { listCustomers } from "@backoffice/core";
 import { roleHasPermission } from "@backoffice/domain";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { PageNav } from "@/components/PageNav";
+import { firstParam, type SearchParams } from "@/lib/pagination";
 import { withTenant } from "@/server/session";
 import { createCustomerAction } from "../../actions/tenant";
 
 export const dynamic = "force-dynamic";
 
-export default async function CustomersPage() {
-  const { customers, canWrite } = await withTenant(async (ctx, session) => ({
-    customers: await listCustomers(ctx),
-    canWrite: roleHasPermission(session.role, "customer.write"),
-  }));
+export default async function CustomersPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const cursor = firstParam(await searchParams, "cursor");
+  const { customers, canWrite, nextCursor } = await withTenant(async (ctx, session) => {
+    const page = await listCustomers(ctx, { cursor });
+    return {
+      customers: page.items,
+      nextCursor: page.nextCursor,
+      canWrite: roleHasPermission(session.role, "customer.write"),
+    };
+  });
 
   return (
     <>
       <div className="page-head">
         <h1>Customers</h1>
-        <p>{customers.length} on file</p>
+        <p>Showing {customers.length}</p>
       </div>
 
       {canWrite ? (
@@ -69,6 +80,7 @@ export default async function CustomersPage() {
             </tbody>
           </table>
         )}
+        <PageNav basePath="/customers" cursor={cursor} nextCursor={nextCursor} />
       </section>
     </>
   );

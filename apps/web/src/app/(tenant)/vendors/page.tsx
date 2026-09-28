@@ -1,22 +1,33 @@
 import { listVendors } from "@backoffice/core";
 import { roleHasPermission } from "@backoffice/domain";
 import { ActionForm, SubmitButton } from "@/components/ActionForm";
+import { PageNav } from "@/components/PageNav";
+import { firstParam, type SearchParams } from "@/lib/pagination";
 import { withTenant } from "@/server/session";
 import { createVendorAction } from "../../actions/tenant";
 
 export const dynamic = "force-dynamic";
 
-export default async function VendorsPage() {
-  const { vendors, canWrite } = await withTenant(async (ctx, session) => ({
-    vendors: await listVendors(ctx),
-    canWrite: roleHasPermission(session.role, "vendor.write"),
-  }));
+export default async function VendorsPage({
+  searchParams,
+}: {
+  searchParams: Promise<SearchParams>;
+}) {
+  const cursor = firstParam(await searchParams, "cursor");
+  const { vendors, canWrite, nextCursor } = await withTenant(async (ctx, session) => {
+    const page = await listVendors(ctx, { cursor });
+    return {
+      vendors: page.items,
+      nextCursor: page.nextCursor,
+      canWrite: roleHasPermission(session.role, "vendor.write"),
+    };
+  });
 
   return (
     <>
       <div className="page-head">
         <h1>Vendors</h1>
-        <p>{vendors.length} suppliers</p>
+        <p>Showing {vendors.length}</p>
       </div>
 
       {canWrite ? (
@@ -75,6 +86,7 @@ export default async function VendorsPage() {
             </tbody>
           </table>
         )}
+        <PageNav basePath="/vendors" cursor={cursor} nextCursor={nextCursor} />
       </section>
     </>
   );

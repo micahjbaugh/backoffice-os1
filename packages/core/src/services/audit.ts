@@ -1,6 +1,13 @@
 import { actorLabel, actorUserId, type AuditLogEntry, type UUID } from "@backoffice/domain";
+import { buildPage, decodeCursor, resolvePageSize } from "../pagination";
+import type { CursorPage, PageParams } from "../pagination";
 import { toAuditLogEntry, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
+
+interface CreatedAtCursor {
+  createdAt: string;
+  id: string;
+}
 
 export interface WriteAuditInput {
   action: string;
@@ -40,11 +47,36 @@ export async function writeAudit(
   return toAuditLogEntry(rows[0] as Row);
 }
 
-export async function listAudit(ctx: ServiceContext, limit = 50): Promise<AuditLogEntry[]> {
+export function listAudit(ctx: ServiceContext, limit?: number): Promise<AuditLogEntry[]>;
+export function listAudit(
+  ctx: ServiceContext,
+  page: PageParams,
+): Promise<CursorPage<AuditLogEntry>>;
+export async function listAudit(
+  ctx: ServiceContext,
+  arg?: number | PageParams,
+): Promise<AuditLogEntry[] | CursorPage<AuditLogEntry>> {
   await ctx.authorize("audit.read");
+  if (arg === undefined || typeof arg === "number") {
+    const { rows } = await ctx.scoped<Row>(
+      `select * from public.audit_log
+        where organization_id = $1
+        order by created_at desc, id desc
+        limit $2`,
+      [ctx.organizationId, arg ?? 50],
+    );
+    return rows.map(toAuditLogEntry);
+  }
+  const limit = resolvePageSize(arg.limit);
+  const cursor = decodeCursor<CreatedAtCursor>(arg.cursor);
   const { rows } = await ctx.scoped<Row>(
-    `select * from public.audit_log where organization_id = $1 order by created_at desc limit $2`,
-    [ctx.organizationId, limit],
+    `select * from public.audit_log
+      where organization_id = $1
+        and ($2::timestamptz is null or (created_at, id) < ($2, $3::uuid))
+      order by created_at desc, id desc
+      limit $4`,
+    [ctx.organizationId, cursor?.createdAt ?? null, cursor?.id ?? null, limit + 1],
   );
-  return rows.map(toAuditLogEntry);
+  const entries = rows.map(toAuditLogEntry);
+  return buildPage(entries, limit, (e) => ({ createdAt: e.createdAt, id: e.id }));
 }

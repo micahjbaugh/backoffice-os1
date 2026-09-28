@@ -12,6 +12,7 @@ import {
   type BillableOpportunity,
   type CreateBillableOpportunityInput,
 } from "@backoffice/domain";
+import { MAX_UNPAGINATED_ROWS } from "../pagination";
 import { toBillableOpportunity, type Row } from "../rows";
 import type { ServiceContext } from "../runtime";
 import { findFactKeyRow } from "./draft-fact";
@@ -84,8 +85,9 @@ export async function listOpenBillableOpportunities(
   const { rows } = await ctx.scoped<Row>(
     `select * from public.billable_opportunities
       where organization_id = $1 and status = 'open'
-      order by created_at`,
-    [ctx.organizationId],
+      order by created_at
+      limit $2`,
+    [ctx.organizationId, MAX_UNPAGINATED_ROWS],
   );
   return rows.map(toBillableOpportunity);
 }
