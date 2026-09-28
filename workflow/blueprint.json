@@ -1154,8 +1154,22 @@
           "title": "Rate limiting",
           "description": "Per-IP and per-tenant rate limits for webhooks, sign-in and server actions with a storage-backed limiter behind an interface.",
           "done_when": "Limits enforced with tests; provider retries are not broken.",
-          "status": "in_progress",
-          "index": 1
+          "status": "done",
+          "index": 1,
+          "verification": {
+            "level": "reviewed_and_validated",
+            "fingerprint": "08762ad26c874027a951590508aa97dcdf3e24b4bc960d528b9342d37b8def42",
+            "review_parts": 1,
+            "reviewer_model": "gpt-5",
+            "checks": [
+              "format",
+              "lint",
+              "typecheck",
+              "tests (incl. production build + secret scan)",
+              "timezones"
+            ],
+            "accepted_at": "2026-09-28T00:01:06.743Z"
+          }
         },
         {
           "id": "PH-T02",
