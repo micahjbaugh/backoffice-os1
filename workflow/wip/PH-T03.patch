@@ -1,3 +1,36 @@
+diff --git a/apps/web/.env.example b/apps/web/.env.example
+index 35bdd51..fb4dbf1 100644
+--- a/apps/web/.env.example
++++ b/apps/web/.env.example
+@@ -18,9 +18,13 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=replace-with-anon-key
+ # all session settings are transaction-local).
+ DATABASE_URL=postgresql://app_server:local-dev-password@127.0.0.1:54322/postgres
+ 
+-# M1 does not use the Supabase service-role key. Do not add it unless a feature needs it,
+-# and never expose it to the browser.
++# Required in live mode (PH-T03): signs private document downloads via Supabase Storage. Never
++# expose it to the browser.
++# SUPABASE_URL=
+ # SUPABASE_SERVICE_ROLE_KEY=
++# Private Storage bucket documents live in (migration 0019_document_storage.sql). Defaults to
++# "documents" if unset.
++# DOCUMENT_STORAGE_BUCKET=
+ 
+ # ---------------------------------------------------------------------------
+ # Communications providers (server-only). See packages/integrations/src/runtime-config.ts.
+diff --git a/apps/web/test/running-app.test.ts b/apps/web/test/running-app.test.ts
+index bdc8410..253806d 100644
+--- a/apps/web/test/running-app.test.ts
++++ b/apps/web/test/running-app.test.ts
+@@ -41,6 +41,8 @@ const env = {
+   VAPI_API_KEY: secret(),
+   VAPI_WEBHOOK_SECRET,
+   ANTHROPIC_API_KEY: secret(),
++  SUPABASE_URL: "https://running-app-test.supabase.co",
++  SUPABASE_SERVICE_ROLE_KEY: secret(),
+   INTERNAL_JOBS_SECRET: JOBS_SECRET,
+   NEXT_DIST_DIR: distDir,
+   NEXT_TELEMETRY_DISABLED: "1",
 diff --git a/packages/core/src/services/records.ts b/packages/core/src/services/records.ts
 index bb433a3..caf1c45 100644
 --- a/packages/core/src/services/records.ts
@@ -63,10 +96,10 @@ index 85d4c91..083cfe6 100644
          entityType: "job",
 diff --git a/packages/core/test/hardening/document-storage.test.ts b/packages/core/test/hardening/document-storage.test.ts
 new file mode 100644
-index 0000000..ddc0b74
+index 0000000..d2b542e
 --- /dev/null
 +++ b/packages/core/test/hardening/document-storage.test.ts
-@@ -0,0 +1,105 @@
+@@ -0,0 +1,140 @@
 +// PH-T03: the documents bucket's storage.objects rows are scoped to their organization's folder on
 +// the same two axes the public.documents metadata table already uses (migrations 0001/0002:
 +// member-read, owner/office_admin/manager write) — proving cross-tenant access is impossible at the
@@ -74,8 +107,8 @@ index 0000000..ddc0b74
 +// ordinary tables.
 +
 +import { afterAll, beforeAll, describe, expect, it } from "vitest";
-+import { registerDocument } from "../../src";
-+import { inOrg, rawAsUser, userActor } from "../helpers/db";
++import { registerDocument, requestDocumentDownload } from "../../src";
++import { count, inOrg, rawAsUser, userActor } from "../helpers/db";
 +import { createWorld, type World } from "../helpers/fixtures";
 +
 +let w: World;
@@ -170,6 +203,41 @@ index 0000000..ddc0b74
 +      registerDocument(ctx, { storagePath: `${w.orgA.id}/receipts/r3.pdf`, fileName: "r3.pdf" }),
 +    );
 +    expect(doc.storagePath).toBe(`${w.orgA.id}/receipts/r3.pdf`);
++  });
++});
++
++describe("requestDocumentDownload", () => {
++  it("audits the download and returns the document metadata", async () => {
++    const doc = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
++      registerDocument(ctx, { storagePath: `${w.orgA.id}/receipts/r4.pdf`, fileName: "r4.pdf" }),
++    );
++    const result = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
++      requestDocumentDownload(ctx, doc.id),
++    );
++    expect(result.id).toBe(doc.id);
++    expect(
++      await count(w.pg, `select 1 from public.audit_log where entity_id = $1 and action = $2`, [
++        doc.id,
++        "document.downloaded",
++      ]),
++    ).toBe(1);
++  });
++
++  it("rejects a download request for another organization's document", async () => {
++    const doc = await inOrg(w.db, userActor(w.orgA.owner), w.orgA.id, (ctx) =>
++      registerDocument(ctx, { storagePath: `${w.orgA.id}/receipts/r5.pdf`, fileName: "r5.pdf" }),
++    );
++    await expect(
++      inOrg(w.db, userActor(w.orgB.owner), w.orgB.id, (ctx) =>
++        requestDocumentDownload(ctx, doc.id),
++      ),
++    ).rejects.toThrow(/not found/);
++    expect(
++      await count(w.pg, `select 1 from public.audit_log where entity_id = $1 and action = $2`, [
++        doc.id,
++        "document.downloaded",
++      ]),
++    ).toBe(0);
 +  });
 +});
 diff --git a/packages/core/test/helpers/supabase-shim.sql b/packages/core/test/helpers/supabase-shim.sql
@@ -520,6 +588,48 @@ index 64bd96b..b4e78d7 100644
 +    expect(rt.documentStorageBucket).toBe("documents");
    });
  });
+diff --git a/packages/workflows/test/acceptance/call-lifecycle.test.ts b/packages/workflows/test/acceptance/call-lifecycle.test.ts
+index 1b6d3fe..545fc6f 100644
+--- a/packages/workflows/test/acceptance/call-lifecycle.test.ts
++++ b/packages/workflows/test/acceptance/call-lifecycle.test.ts
+@@ -10,6 +10,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
+ import { RECEPTIONIST_CONFIG_RULE_ACTION, type Actor } from "@backoffice/domain";
+ import { inTenant, runAs, transferCall } from "@backoffice/core";
+ import {
++  FakeDocumentStorageProvider,
+   FakeSmsProvider,
+   FakeVoiceProvider,
+   FixtureStructuredExtractor,
+@@ -42,6 +43,8 @@ function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoicePr
+     sms: new FakeSmsProvider(SECRET),
+     voice: new FakeVoiceProvider(SECRET),
+     extractor: new FixtureStructuredExtractor(),
++    documentStorage: new FakeDocumentStorageProvider(),
++    documentStorageBucket: "documents",
+   };
+ }
+ 
+diff --git a/packages/workflows/test/outbound.test.ts b/packages/workflows/test/outbound.test.ts
+index 744372c..59db714 100644
+--- a/packages/workflows/test/outbound.test.ts
++++ b/packages/workflows/test/outbound.test.ts
+@@ -16,6 +16,7 @@ import {
+   transferCall,
+ } from "@backoffice/core";
+ import {
++  FakeDocumentStorageProvider,
+   FakeSmsProvider,
+   FakeVoiceProvider,
+   FixtureStructuredExtractor,
+@@ -65,6 +66,8 @@ function runtime(): ProviderRuntime & { sms: FakeSmsProvider; voice: FakeVoicePr
+     sms: new FakeSmsProvider(SECRET),
+     voice: new FakeVoiceProvider(SECRET),
+     extractor: new FixtureStructuredExtractor(),
++    documentStorage: new FakeDocumentStorageProvider(),
++    documentStorageBucket: "documents",
+   };
+ }
+ 
 diff --git a/pnpm-lock.yaml b/pnpm-lock.yaml
 index 401fb6f..be87e00 100644
 --- a/pnpm-lock.yaml

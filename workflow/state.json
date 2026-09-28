@@ -2,7 +2,7 @@
   "schema_version": 2,
   "current_task_id": "PH-T03",
   "attempts": 0,
-  "stalled_runs": 1,
+  "stalled_runs": 2,
   "consecutive_failures": 0,
   "review_notes": "",
   "review_base": null,
@@ -17,5 +17,5 @@
   "status": "READY_TO_START",
   "last_engineer_used": "claude",
   "handoff_instructions": "The previous run ended before finishing; its work is saved in workflow/wip/PH-T03.patch. Continue PH-T03 in smaller steps.",
-  "updated_at": "2026-09-28T02:06:54.446Z"
+  "updated_at": "2026-09-28T02:34:43.294Z"
 }
